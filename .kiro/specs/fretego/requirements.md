@@ -4,6 +4,21 @@
 
 FreteGO é um marketplace de frete brasileiro que conecta embarcadores e motoristas. O sistema permite que visitantes naveguem fretes publicamente, mas exige criação de conta para ações de contato. A plataforma deve ser robusta, segura e escalável desde o início, com autenticação JWT, proteção de dados via Row Level Security (RLS), e sistema completo de testes.
 
+## Development Guidelines
+
+### Testing Requirements
+- **SEMPRE testar tudo**: Cada funcionalidade implementada deve ser testada antes de avançar
+- Executar testes unitários após implementar funções
+- Executar testes de integração após completar features
+- Validar manualmente funcionalidades críticas
+- Garantir que todos os testes passam antes de commit
+
+### Version Control Requirements
+- **SEMPRE fazer commit em cada fase**: Ao completar cada fase/task, fazer commit imediatamente
+- Usar mensagens de commit descritivas seguindo padrão: `feat: descrição da fase`
+- Commits devem ser atômicos (uma fase = um commit)
+- Nunca avançar para próxima fase sem commit da fase anterior
+
 ## Glossary
 
 - **System**: O sistema FreteGO completo (frontend + backend)

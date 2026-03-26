@@ -14,20 +14,20 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - Configurar variáveis de ambiente (.env.example)
   - _Requirements: 23.1, 23.2, 23.3_
 
-- [ ] 2. Configuração do Supabase e banco de dados
-  - [ ] 2.1 Criar projeto no Supabase
+- [x] 2. Configuração do Supabase e banco de dados
+  - [x] 2.1 Criar projeto no Supabase
     - Configurar projeto no Supabase Cloud
     - Obter credenciais (URL, anon key, service key)
     - Configurar variáveis de ambiente no projeto
     - _Requirements: 1.1, 1.2_
   
-  - [ ] 2.2 Criar schema do banco de dados
+  - [x] 2.2 Criar schema do banco de dados
     - Executar SQL para criar tabelas (users, motoristas, embarcadores, fretes, etc.)
     - Criar índices para performance
     - Configurar extensões necessárias (uuid, postgis)
     - _Requirements: 26.1, 26.2, 26.3_
   
-  - [ ] 2.3 Implementar Row Level Security (RLS)
+  - [x] 2.3 Implementar Row Level Security (RLS)
     - Criar policies para tabela users
     - Criar policies para tabela fretes
     - Criar policies para tabela documents
