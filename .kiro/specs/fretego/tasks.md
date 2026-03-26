@@ -42,36 +42,36 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 5: Public Frete Access**
     - **Validates: Requirements 2.6**
 
-- [ ] 3. Database Functions e Triggers
-  - [ ] 3.1 Criar função update_embarcador_rating
+- [x] 3. Database Functions e Triggers
+  - [x] 3.1 Criar função update_embarcador_rating
     - Implementar função SQL para recalcular rating
     - Criar trigger após INSERT/UPDATE em avaliacoes
     - _Requirements: 9.3, 9.4_
   
-  - [ ] 3.2 Criar função increment_frete_views
+  - [x] 3.2 Criar função increment_frete_views
     - Implementar função SQL para incrementar views
     - _Requirements: 6.7_
   
-  - [ ] 3.3 Criar função record_frete_click
+  - [x] 3.3 Criar função record_frete_click
     - Implementar função SQL para registrar cliques
     - Prevenir duplicatas com UNIQUE constraint
     - _Requirements: 6.6, 8.2, 8.4_
   
-  - [ ] 3.4 Criar função find_nearby_fretes
+  - [x] 3.4 Criar função find_nearby_fretes
     - Implementar busca geográfica com ST_DWithin
     - Ordenar por distância
     - _Requirements: 11.2, 11.3_
 
 
 
-- [ ] 4. Sistema de autenticação - Backend
-  - [ ] 4.1 Configurar Supabase Auth
+- [x] 4. Sistema de autenticação - Backend
+  - [x] 4.1 Configurar Supabase Auth
     - Habilitar autenticação por telefone/senha
     - Configurar JWT settings
     - Configurar refresh tokens
     - _Requirements: 1.2, 1.4_
   
-  - [ ] 4.2 Implementar validação de senha
+  - [x] 4.2 Implementar validação de senha
     - Criar função validatePassword com regras (6+ chars, 1+ letra, 1+ número)
     - Criar interface PasswordValidation
     - _Requirements: 1.6, 3.3, 3.4_
@@ -80,7 +80,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 2: Password Validation Rules**
     - **Validates: Requirements 1.6, 3.3, 3.4**
   
-  - [ ] 4.4 Implementar hash de senha com bcrypt
+  - [x] 4.4 Implementar hash de senha com bcrypt
     - Criar função hashPassword
     - Criar função verifyPassword
     - _Requirements: 1.1_
@@ -89,7 +89,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 1: Password Hashing Verification**
     - **Validates: Requirements 1.1**
   
-  - [ ] 4.6 Criar AuthService
+  - [x] 4.6 Criar AuthService
     - Implementar register(data: RegisterData)
     - Implementar login(credentials: LoginCredentials)
     - Implementar logout(userId: string)
