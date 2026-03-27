@@ -139,20 +139,20 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - Verificar que RLS está ativo no banco
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 7. Gestão de documentos - Backend
-  - [ ] 7.1 Configurar Supabase Storage
+- [x] 7. Gestão de documentos - Backend
+  - [x] 7.1 Configurar Supabase Storage
     - Criar bucket 'documents' privado
     - Configurar políticas de acesso
     - _Requirements: 1.10, 19.1, 19.2_
   
-  - [ ] 7.2 Implementar DocumentService
+  - [x] 7.2 Implementar DocumentService
     - Implementar uploadDocument(userId, documentType, file)
     - Implementar getDocumentsByUser(userId)
     - Implementar deleteDocument(documentId)
     - Implementar getSignedUrl(documentId)
     - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5, 19.6, 19.7_
   
-  - [ ] 7.3 Implementar validação de arquivos
+  - [x] 7.3 Implementar validação de arquivos
     - Validar tipo de arquivo (PDF, JPG, PNG)
     - Validar tamanho máximo (10MB)
     - _Requirements: 19.8, 19.9_

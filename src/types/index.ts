@@ -57,3 +57,30 @@ export interface PasswordValidation {
 }
 
 // More types will be added in subsequent tasks
+
+/**
+ * Document Types
+ */
+export type DocumentType =
+  | 'cpf'
+  | 'cnh'
+  | 'antt'
+  | 'vehicle_registration'
+  | 'vehicle_insurance'
+  | 'profile_photo';
+
+export interface Document {
+  id: string;
+  userId: string;
+  documentType: DocumentType;
+  fileName: string;
+  filePath: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: Date;
+}
+
+export interface FileValidationResult {
+  isValid: boolean;
+  errors: string[];
+}
