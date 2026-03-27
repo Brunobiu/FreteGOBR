@@ -103,26 +103,26 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar unicidade de telefone
     - _Requirements: 3.2, 3.3, 3.4_
 
-- [ ] 5. Sistema de autenticação - Frontend
-  - [ ] 5.1 Criar componente LoginForm
+- [x] 5. Sistema de autenticação - Frontend
+  - [x] 5.1 Criar componente LoginForm
     - Implementar formulário com React Hook Form + Zod
     - Validação em tempo real
     - Tratamento de erros
     - _Requirements: 3.7_
   
-  - [ ] 5.2 Criar componente RegisterForm
+  - [x] 5.2 Criar componente RegisterForm
     - Seleção de tipo de usuário (motorista/embarcador)
     - Validação de telefone e senha
     - Feedback visual de validação
     - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
   
-  - [ ] 5.3 Criar hook useAuth
+  - [x] 5.3 Criar hook useAuth
     - Gerenciar estado de autenticação
     - Armazenar token no localStorage
     - Auto-refresh de token
     - _Requirements: 1.2, 1.4_
   
-  - [ ] 5.4 Implementar ProtectedRoute
+  - [x] 5.4 Implementar ProtectedRoute
     - Verificar token antes de renderizar
     - Redirecionar para login se não autenticado
     - _Requirements: 1.3_
