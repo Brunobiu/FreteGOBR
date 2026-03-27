@@ -13,6 +13,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - Criar estrutura de pastas (src/components, src/services, src/hooks, src/types, src/utils)
   - Configurar variáveis de ambiente (.env.example)
   - _Requirements: 23.1, 23.2, 23.3_
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 2. Configuração do Supabase e banco de dados
   - [x] 2.1 Criar projeto no Supabase
@@ -41,6 +42,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 2.5 Escrever testes de property para acesso público
     - **Property 5: Public Frete Access**
     - **Validates: Requirements 2.6**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 3. Database Functions e Triggers
   - [x] 3.1 Criar função update_embarcador_rating
@@ -61,6 +64,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Implementar busca geográfica com ST_DWithin
     - Ordenar por distância
     - _Requirements: 11.2, 11.3_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 
 
@@ -102,6 +107,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar rejeição de senha inválida
     - Testar unicidade de telefone
     - _Requirements: 3.2, 3.3, 3.4_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 5. Sistema de autenticação - Frontend
   - [x] 5.1 Criar componente LoginForm
@@ -132,12 +139,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar login e logout
     - Testar proteção de rotas
     - _Requirements: 3.1, 3.7, 1.3_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 6. Checkpoint - Autenticação funcionando
   - Verificar que registro, login e logout funcionam
   - Verificar que rotas protegidas bloqueiam acesso não autenticado
   - Verificar que RLS está ativo no banco
   - Ensure all tests pass, ask the user if questions arise.
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 7. Gestão de documentos - Backend
   - [x] 7.1 Configurar Supabase Storage
@@ -165,6 +175,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 7.5 Escrever testes de property para signed URLs
     - **Property 7: Signed URL Expiration**
     - **Validates: Requirements 4.8**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [x] 8. Gestão de documentos - Frontend
   - [x] 8.1 Criar componente DocumentUpload
@@ -185,6 +197,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar validação de tamanho
     - Testar upload bem-sucedido
     - _Requirements: 19.8, 19.9_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 9. Perfil do Motorista
   - [ ] 9.1 Criar componente MotoristaProfile
@@ -202,6 +216,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar atualização de dados
     - Testar upload de documentos
     - _Requirements: 4.5_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 10. Perfil do Embarcador
   - [ ] 10.1 Criar componente EmbarcadorProfile
@@ -219,6 +235,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Exibir nome da empresa, rating, fretes ativos
     - Exibir avaliações recebidas
     - _Requirements: 5.5, 5.6_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 11. Gestão de Fretes - Backend
   - [ ] 11.1 Implementar FreteService
@@ -242,6 +260,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ] 11.4 Implementar analytics de fretes
     - Retornar views_count e clicks_count
     - _Requirements: 6.7_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 12. Gestão de Fretes - Frontend
   - [ ] 12.1 Criar componente FreteForm
@@ -272,6 +292,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar edição e exclusão
     - Testar visualização pública
     - _Requirements: 6.1, 6.2, 6.5, 7.1_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 13. Sistema de filtros
   - [ ] 13.1 Criar componente FreteFilters
@@ -289,12 +311,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 9: Filter Matching**
     - **Property 20: Filter Composition (AND Logic)**
     - **Validates: Requirements 7.5, 21.7**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 14. Checkpoint - Fretes funcionando
   - Verificar que embarcador pode postar, editar e deletar fretes
   - Verificar que visitantes podem ver fretes sem autenticação
   - Verificar que filtros funcionam corretamente
   - Ensure all tests pass, ask the user if questions arise.
+  - **RODAR TESTES**: `npm test -- --run`
 
 
 
@@ -323,6 +348,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar renderização de marcadores
     - Testar clustering
     - _Requirements: 10.1, 10.6_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 16. Sistema de geolocalização
   - [ ] 16.1 Implementar GeolocationService
@@ -346,6 +373,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar solicitação de permissão
     - Testar fallback para entrada manual
     - _Requirements: 25.1, 25.3_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 17. Sugestão de viagem
   - [ ] 17.1 Implementar findNearbyFretes no backend
@@ -363,6 +392,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 17.3 Escrever testes de property para ordenação por distância
     - **Property 12: Distance-Based Sorting**
     - **Validates: Requirements 11.3**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 18. Calculadora de frete
   - [ ] 18.1 Implementar cálculo de rotas
@@ -386,6 +417,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar cálculo de dias totais
     - Testar cálculo de lucro por dia
     - _Requirements: 12.5, 12.6_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 19. Sistema de avaliação
   - [ ] 19.1 Implementar RatingService
@@ -412,6 +445,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 19.5 Escrever testes de property para duplicatas
     - **Property 11: Duplicate Rating Prevention**
     - **Validates: Requirements 9.6**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 20. Checkpoint - Features principais completas
   - Verificar que mapa exibe fretes corretamente
@@ -419,6 +454,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - Verificar que calculadora compara rotas
   - Verificar que sistema de avaliação funciona
   - Ensure all tests pass, ask the user if questions arise.
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 21. Chat de suporte - Backend
   - [ ] 21.1 Implementar ChatService
@@ -437,6 +473,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 21.3 Escrever testes de property para persistência de mensagens
     - **Property 14: Chat Message Persistence**
     - **Validates: Requirements 13.7**
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 22. Chat de suporte - Frontend
   - [ ] 22.1 Criar componente ChatWidget
@@ -463,6 +501,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar notificações
     - Testar marcação como lida
     - _Requirements: 13.2, 13.3, 13.8_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 23. Sistema de notificações
   - [ ] 23.1 Implementar NotificationService
@@ -486,6 +526,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar criação de notificações
     - Testar marcação como lida
     - _Requirements: 18.5, 18.6, 18.7_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 24. Dashboard Admin - Métricas
   - [ ] 24.1 Implementar AnalyticsService
@@ -505,6 +547,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar cálculo de métricas
     - Testar agregação de dados
     - _Requirements: 14.1, 14.2, 14.3_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 25. Dashboard Admin - Gerenciamento
   - [ ] 25.1 Criar página de gerenciamento de usuários
@@ -529,6 +573,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar gerenciamento de usuários
     - Testar gerenciamento de fretes
     - _Requirements: 15.5, 15.6, 16.4, 16.5_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 26. Configurações de conta
   - [ ] 26.1 Criar página de configurações
@@ -542,6 +588,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar troca de senha
     - Testar atualização de perfil
     - _Requirements: 20.1, 20.2_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 27. Segurança e sanitização
   - [ ] 27.1 Implementar sanitização de inputs
@@ -569,6 +617,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar acesso não autorizado
     - Testar proteção de rotas
     - _Requirements: 1.3, 2.4_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 28. Logs e auditoria
   - [ ] 28.1 Implementar sistema de logs
@@ -585,6 +635,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar registro de eventos
     - Testar retenção de logs
     - _Requirements: 22.1, 22.7_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 29. Tratamento de erros
   - [ ] 29.1 Implementar error handlers globais
@@ -601,6 +653,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar diferentes tipos de erro
     - Testar retry logic
     - _Requirements: 24.1, 24.6_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 30. Serialização e validação
   - [ ] 30.1 Implementar schemas Zod para todos os tipos
@@ -617,12 +671,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar schemas Zod
     - Testar validação de campos
     - _Requirements: 26.1, 26.2_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 31. Checkpoint - Sistema completo
   - Verificar que todas as funcionalidades estão implementadas
   - Verificar que todos os testes passam
   - Verificar segurança e performance
   - Ensure all tests pass, ask the user if questions arise.
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 32. Otimização de performance
   - [ ] 32.1 Implementar lazy loading
@@ -644,6 +701,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar tempo de carregamento de páginas
     - Testar tempo de resposta de APIs
     - _Requirements: 23.4, 23.5_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 33. Responsividade
   - [ ] 33.1 Implementar layouts responsivos
@@ -654,6 +713,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - [ ]* 33.2 Escrever testes de responsividade
     - Testar em diferentes tamanhos de tela
     - _Requirements: 23.1, 23.2, 23.3_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 34. Testes E2E
   - [ ]* 34.1 Escrever testes E2E com Playwright
@@ -661,6 +722,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Fluxo completo do embarcador (registro → postar frete → analytics)
     - Fluxo do admin (gerenciamento de usuários e fretes)
     - _Requirements: 3.1, 6.1, 14.1, 15.1, 16.1_
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 35. Deploy e CI/CD
   - [ ] 35.1 Configurar deploy no Vercel
@@ -677,6 +740,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Error tracking (Sentry ou similar)
     - Analytics (Google Analytics ou similar)
     - Performance monitoring
+  
+  - **RODAR TESTES**: `npm test -- --run`
 
 ## Notes
 
