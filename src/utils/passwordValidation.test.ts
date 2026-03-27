@@ -41,11 +41,15 @@ describe('Property Tests - Password Validation', () => {
     // Generator for valid passwords
     const validPasswordArbitrary = fc
       .tuple(
-        fc.stringOf(
-          fc.constantFrom(...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')),
-          { minLength: 1 }
-        ),
-        fc.stringOf(fc.constantFrom(...'0123456789'.split('')), { minLength: 1 }),
+        fc
+          .array(
+            fc.constantFrom(...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')),
+            { minLength: 1 }
+          )
+          .map((arr) => arr.join('')),
+        fc
+          .array(fc.constantFrom(...'0123456789'.split('')), { minLength: 1 })
+          .map((arr) => arr.join('')),
         fc.string({ minLength: 0, maxLength: 94 }) // Additional characters
       )
       .map(([letters, numbers, extra]) => {
@@ -70,10 +74,12 @@ describe('Property Tests - Password Validation', () => {
   });
 
   it('Property 2: should always reject passwords without letters', () => {
-    const noLetterPasswordArbitrary = fc.stringOf(
-      fc.constantFrom(...'0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split('')),
-      { minLength: 6, maxLength: 100 }
-    );
+    const noLetterPasswordArbitrary = fc
+      .array(fc.constantFrom(...'0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split('')), {
+        minLength: 6,
+        maxLength: 100,
+      })
+      .map((arr) => arr.join(''));
 
     fc.assert(
       fc.property(noLetterPasswordArbitrary, (password) => {
@@ -87,14 +93,16 @@ describe('Property Tests - Password Validation', () => {
   });
 
   it('Property 2: should always reject passwords without numbers', () => {
-    const noNumberPasswordArbitrary = fc.stringOf(
-      fc.constantFrom(
-        ...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split(
-          ''
-        )
-      ),
-      { minLength: 6, maxLength: 100 }
-    );
+    const noNumberPasswordArbitrary = fc
+      .array(
+        fc.constantFrom(
+          ...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split(
+            ''
+          )
+        ),
+        { minLength: 6, maxLength: 100 }
+      )
+      .map((arr) => arr.join(''));
 
     fc.assert(
       fc.property(noNumberPasswordArbitrary, (password) => {

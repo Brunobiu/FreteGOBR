@@ -76,7 +76,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Criar interface PasswordValidation
     - _Requirements: 1.6, 3.3, 3.4_
   
-  - [ ]* 4.3 Escrever testes de property para validação de senha
+  - [x]* 4.3 Escrever testes de property para validação de senha
     - **Property 2: Password Validation Rules**
     - **Validates: Requirements 1.6, 3.3, 3.4**
   
@@ -85,7 +85,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Criar função verifyPassword
     - _Requirements: 1.1_
   
-  - [ ]* 4.5 Escrever testes de property para hashing
+  - [x]* 4.5 Escrever testes de property para hashing
     - **Property 1: Password Hashing Verification**
     - **Validates: Requirements 1.1**
   
@@ -157,7 +157,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Validar tamanho máximo (10MB)
     - _Requirements: 19.8, 19.9_
   
-  - [ ]* 7.4 Escrever testes de property para validação de arquivos
+  - [x]* 7.4 Escrever testes de property para validação de arquivos
     - **Property 15: File Size Validation**
     - **Property 16: File Format Validation**
     - **Validates: Requirements 19.8, 19.9**

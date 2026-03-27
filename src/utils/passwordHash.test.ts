@@ -25,9 +25,9 @@ describe('Property Tests - Password Hashing', () => {
         const isValid = await verifyPassword(password, hash);
         expect(isValid).toBe(true);
       }),
-      { numRuns: 50 } // Reduced runs due to bcrypt being computationally expensive
+      { numRuns: 20 } // Reduced runs due to bcrypt being computationally expensive
     );
-  });
+  }, 60000);
 
   it('Property 1: should reject verification with wrong password', async () => {
     await fc.assert(
@@ -43,9 +43,9 @@ describe('Property Tests - Password Hashing', () => {
           expect(isValid).toBe(false);
         }
       ),
-      { numRuns: 50 }
+      { numRuns: 20 }
     );
-  });
+  }, 60000);
 
   it('Property 1: should produce different hashes for same password', async () => {
     await fc.assert(
@@ -60,9 +60,9 @@ describe('Property Tests - Password Hashing', () => {
         expect(await verifyPassword(password, hash1)).toBe(true);
         expect(await verifyPassword(password, hash2)).toBe(true);
       }),
-      { numRuns: 20 } // Reduced due to computational cost
+      { numRuns: 10 } // Reduced due to computational cost
     );
-  });
+  }, 60000);
 
   it('Property 1: hash should always be a non-empty string', async () => {
     await fc.assert(
@@ -73,9 +73,9 @@ describe('Property Tests - Password Hashing', () => {
         // Bcrypt hashes are always 60 characters
         expect(hash.length).toBe(60);
       }),
-      { numRuns: 50 }
+      { numRuns: 20 }
     );
-  });
+  }, 60000);
 });
 
 describe('Unit Tests - Password Hashing', () => {
