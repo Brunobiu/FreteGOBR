@@ -166,15 +166,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 7: Signed URL Expiration**
     - **Validates: Requirements 4.8**
 
-- [ ] 8. Gestão de documentos - Frontend
-  - [ ] 8.1 Criar componente DocumentUpload
+- [x] 8. Gestão de documentos - Frontend
+  - [x] 8.1 Criar componente DocumentUpload
     - Drag & drop de arquivos
     - Preview de imagens
     - Progress bar de upload
     - Lista de documentos existentes
     - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5_
   
-  - [ ] 8.2 Integrar upload no perfil do Motorista
+  - [x] 8.2 Integrar upload no perfil do Motorista
     - Seções para CPF, CNH, ANTT, documentos do veículo, foto
     - Validação de formatos
     - Feedback de sucesso/erro
