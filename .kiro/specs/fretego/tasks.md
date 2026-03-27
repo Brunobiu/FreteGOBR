@@ -200,14 +200,14 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 9. Perfil do Motorista
-  - [ ] 9.1 Criar componente MotoristaProfile
+- [x] 9. Perfil do Motorista
+  - [x] 9.1 Criar componente MotoristaProfile
     - Formulário de edição de perfil
     - Upload de foto de perfil
     - Campos: nome, email, CPF, tipo de veículo
     - _Requirements: 4.4, 4.5, 4.7_
   
-  - [ ] 9.2 Criar página MotoristaD ashboard
+  - [x] 9.2 Criar página MotoristaDashboard
     - Header com nome e foto no canto superior direito
     - Navegação para perfil, fretes, calculadora
     - _Requirements: 4.6_

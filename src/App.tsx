@@ -3,6 +3,10 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import MotoristaDashboardPage from './pages/MotoristaDashboardPage';
+import MotoristaHomePage from './pages/MotoristaHomePage';
+import MotoristaProfilePage from './pages/MotoristaProfilePage';
+import MotoristaDocumentsPage from './pages/MotoristaDocumentsPage';
 
 function App() {
   return (
@@ -19,6 +23,26 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* Motorista Routes */}
+        <Route
+          path="/motorista"
+          element={
+            <ProtectedRoute>
+              <MotoristaDashboardPage />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/motorista/dashboard" replace />} />
+          <Route path="dashboard" element={<MotoristaHomePage />} />
+          <Route path="perfil" element={<MotoristaProfilePage />} />
+          <Route path="documentos" element={<MotoristaDocumentsPage />} />
+          <Route path="fretes" element={<div className="p-8 text-white">Fretes - Em breve</div>} />
+          <Route
+            path="calculadora"
+            element={<div className="p-8 text-white">Calculadora - Em breve</div>}
+          />
+        </Route>
       </Routes>
     </BrowserRouter>
   );
