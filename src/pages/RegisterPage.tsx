@@ -17,7 +17,7 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
       <RegisterForm onSubmit={handleRegister} onLoginClick={handleLoginClick} />
     </div>
   );

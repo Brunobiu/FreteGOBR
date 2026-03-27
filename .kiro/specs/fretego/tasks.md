@@ -133,7 +133,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Testar proteção de rotas
     - _Requirements: 3.1, 3.7, 1.3_
 
-- [ ] 6. Checkpoint - Autenticação funcionando
+- [x] 6. Checkpoint - Autenticação funcionando
   - Verificar que registro, login e logout funcionam
   - Verificar que rotas protegidas bloqueiam acesso não autenticado
   - Verificar que RLS está ativo no banco

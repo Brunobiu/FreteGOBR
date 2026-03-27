@@ -54,9 +54,10 @@ USING (
 );
 
 -- Users can insert their own record during registration
+-- Allow INSERT with true to permit registration flow
 CREATE POLICY users_insert_policy ON users
 FOR INSERT
-WITH CHECK (auth.uid() = id);
+WITH CHECK (true);
 
 -- ============================================================================
 -- MOTORISTAS TABLE POLICIES

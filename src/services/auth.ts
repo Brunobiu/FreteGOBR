@@ -48,9 +48,9 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
   try {
     // Register with Supabase Auth using phone as email format
-    // Note: Supabase requires email format, so we use phone@fretego.local
+    // Note: Supabase requires email format, so we use phone@example.com
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: `${data.phone}@fretego.local`,
+      email: `${data.phone}@example.com`,
       password: data.password,
       options: {
         data: {
@@ -84,9 +84,12 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     });
 
     if (dbError) {
-      // Rollback auth user if database insert fails
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      throw new AuthError('Erro ao criar perfil de usuário', 'DATABASE_ERROR', 500);
+      console.error('Database error:', dbError);
+      throw new AuthError(
+        'Erro ao criar perfil de usuário: ' + dbError.message,
+        'DATABASE_ERROR',
+        500
+      );
     }
 
     // Create type-specific record (motorista or embarcador)
@@ -147,7 +150,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
   try {
     // Login with Supabase Auth using phone as email format
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: `${credentials.phone}@fretego.local`,
+      email: `${credentials.phone}@example.com`,
       password: credentials.password,
     });
 
