@@ -7,6 +7,10 @@ import MotoristaDashboardPage from './pages/MotoristaDashboardPage';
 import MotoristaHomePage from './pages/MotoristaHomePage';
 import MotoristaProfilePage from './pages/MotoristaProfilePage';
 import MotoristaDocumentsPage from './pages/MotoristaDocumentsPage';
+import EmbarcadorDashboardPage from './pages/EmbarcadorDashboardPage';
+import EmbarcadorHomePage from './pages/EmbarcadorHomePage';
+import EmbarcadorProfilePage from './pages/EmbarcadorProfilePage';
+import EmbarcadorPublicProfilePage from './pages/EmbarcadorPublicProfilePage';
 
 function App() {
   return (
@@ -43,6 +47,31 @@ function App() {
             element={<div className="p-8 text-white">Calculadora - Em breve</div>}
           />
         </Route>
+
+        {/* Embarcador Routes */}
+        <Route
+          path="/embarcador"
+          element={
+            <ProtectedRoute>
+              <EmbarcadorDashboardPage />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<Navigate to="/embarcador/dashboard" replace />} />
+          <Route path="dashboard" element={<EmbarcadorHomePage />} />
+          <Route path="perfil" element={<EmbarcadorProfilePage />} />
+          <Route
+            path="meus-fretes"
+            element={<div className="p-8 text-white">Meus Fretes - Em breve</div>}
+          />
+          <Route
+            path="postar-frete"
+            element={<div className="p-8 text-white">Postar Frete - Em breve</div>}
+          />
+        </Route>
+
+        {/* Public Routes */}
+        <Route path="/embarcador/:embarcadorId/perfil" element={<EmbarcadorPublicProfilePage />} />
       </Routes>
     </BrowserRouter>
   );

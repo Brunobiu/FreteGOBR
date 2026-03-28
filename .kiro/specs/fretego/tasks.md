@@ -219,19 +219,19 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 10. Perfil do Embarcador
-  - [ ] 10.1 Criar componente EmbarcadorProfile
+- [x] 10. Perfil do Embarcador
+  - [x] 10.1 Criar componente EmbarcadorProfile
     - Formulário de edição de perfil
     - Campos: nome, nome da empresa, WhatsApp, email
     - Upload de foto de perfil
     - _Requirements: 5.1, 5.2, 5.4_
   
-  - [ ] 10.2 Criar página EmbarcadorDashboard
+  - [x] 10.2 Criar página EmbarcadorDashboard
     - Header com nome da empresa e foto
     - Navegação para perfil, meus fretes, postar frete
     - _Requirements: 5.3_
   
-  - [ ] 10.3 Criar página de perfil público do Embarcador
+  - [x] 10.3 Criar página de perfil público do Embarcador
     - Exibir nome da empresa, rating, fretes ativos
     - Exibir avaliações recebidas
     - _Requirements: 5.5, 5.6_
