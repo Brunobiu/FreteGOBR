@@ -238,8 +238,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 11. Gestão de Fretes - Backend
-  - [ ] 11.1 Implementar FreteService
+- [x] 11. Gestão de Fretes - Backend
+  - [x] 11.1 Implementar FreteService
     - Implementar createFrete(embarcadorId, data)
     - Implementar updateFrete(freteId, data)
     - Implementar deleteFrete(freteId)
@@ -248,7 +248,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Implementar getFretesByEmbarcador(embarcadorId)
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
   
-  - [ ] 11.2 Implementar sistema de cliques
+  - [x] 11.2 Implementar sistema de cliques
     - Usar função record_frete_click do banco
     - Prevenir cliques duplicados
     - _Requirements: 6.6, 8.2, 8.4_
@@ -257,7 +257,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - **Property 8: Frete Click Counter Increment**
     - **Validates: Requirements 6.6**
   
-  - [ ] 11.4 Implementar analytics de fretes
+  - [x] 11.4 Implementar analytics de fretes
     - Retornar views_count e clicks_count
     - _Requirements: 6.7_
   
