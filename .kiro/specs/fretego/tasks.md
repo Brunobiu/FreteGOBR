@@ -314,7 +314,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 14. Checkpoint - Fretes funcionando
+- [x] 14. Checkpoint - Fretes funcionando
   - Verificar que embarcador pode postar, editar e deletar fretes
   - Verificar que visitantes podem ver fretes sem autenticação
   - Verificar que filtros funcionam corretamente
@@ -323,23 +323,23 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
 
 
 
-- [ ] 15. Mapa interativo
-  - [ ] 15.1 Configurar Leaflet
+- [x] 15. Mapa interativo
+  - [x] 15.1 Configurar Leaflet
     - Instalar react-leaflet
     - Configurar mapa base (OpenStreetMap)
     - _Requirements: 10.1_
   
-  - [ ] 15.2 Criar componente InteractiveMap
+  - [x] 15.2 Criar componente InteractiveMap
     - Renderizar mapa com marcadores de fretes
     - Implementar clustering para múltiplos fretes no mesmo local
     - _Requirements: 10.1, 10.6_
   
-  - [ ] 15.3 Criar componente FreteMarker
+  - [x] 15.3 Criar componente FreteMarker
     - Popup com resumo do frete ao clicar
     - Link para abrir modal com detalhes completos
     - _Requirements: 10.2, 10.3_
   
-  - [ ] 15.4 Implementar atualização em tempo real
+  - [x] 15.4 Implementar atualização em tempo real
     - Usar Supabase Realtime para novos fretes
     - Adicionar marcadores dinamicamente
     - _Requirements: 10.4_

@@ -1,13 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getActiveFretes,
   incrementFreteViews,
   type Frete,
   type FreteFilters,
 } from '../services/fretes';
+import { supabase } from '../services/supabase';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
-import FreteFilters from '../components/FreteFilters';
+import FreteFiltersComponent from '../components/FreteFilters';
+import InteractiveMap from '../components/InteractiveMap';
 
 export default function FretesListPage() {
   const [fretes, setFretes] = useState<Frete[]>([]);
@@ -16,13 +18,11 @@ export default function FretesListPage() {
   const [selectedFrete, setSelectedFrete] = useState<Frete | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showMap, setShowMap] = useState(false);
+  const currentFiltersRef = useRef<FreteFilters>({});
   const itemsPerPage = 9;
 
-  useEffect(() => {
-    loadFretes({});
-  }, []);
-
-  const loadFretes = async (filters: FreteFilters) => {
+  const loadFretes = useCallback(async (filters: FreteFilters) => {
     try {
       setIsLoading(true);
       setError(null);
@@ -34,21 +34,43 @@ export default function FretesListPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFilterChange = useCallback((filters: FreteFilters) => {
-    setActiveFilters(filters);
-    loadFretes(filters);
   }, []);
+
+  useEffect(() => {
+    loadFretes({});
+
+    // Supabase Realtime: escuta novos fretes ativos
+    const channel = supabase
+      .channel('fretes-realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'fretes', filter: 'status=eq.ativo' },
+        () => {
+          // Recarrega com os filtros atuais
+          loadFretes(currentFiltersRef.current);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [loadFretes]);
+
+  const handleFilterChange = useCallback(
+    (filters: FreteFilters) => {
+      currentFiltersRef.current = filters;
+      loadFretes(filters);
+    },
+    [loadFretes]
+  );
 
   const handleFreteClick = async (frete: Frete) => {
     setSelectedFrete(frete);
     setIsModalOpen(true);
 
-    // Increment views
     try {
       await incrementFreteViews(frete.id);
-      // Update local state
       setFretes((prev) =>
         prev.map((f) => (f.id === frete.id ? { ...f, viewsCount: f.viewsCount + 1 } : f))
       );
@@ -65,8 +87,7 @@ export default function FretesListPage() {
   // Pagination
   const totalPages = Math.ceil(fretes.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentFretes = fretes.slice(startIndex, endIndex);
+  const currentFretes = fretes.slice(startIndex, startIndex + itemsPerPage);
 
   if (isLoading) {
     return (
@@ -87,14 +108,54 @@ export default function FretesListPage() {
   return (
     <div className="min-h-screen bg-gray-950 py-8 px-4">
       <div className="max-w-7xl mx-auto">
+        {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Fretes Disponíveis</h1>
             <p className="text-gray-400">{fretes.length} fretes encontrados</p>
           </div>
+          {/* Toggle mapa/lista */}
+          <button
+            onClick={() => setShowMap((v) => !v)}
+            className="flex items-center px-4 py-2 bg-gray-800 border border-gray-700 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+          >
+            {showMap ? (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 10h16M4 14h16M4 18h16"
+                  />
+                </svg>
+                Ver lista
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                  />
+                </svg>
+                Ver mapa
+              </>
+            )}
+          </button>
         </div>
 
-        <FreteFilters onFilterChange={handleFilterChange} totalResults={fretes.length} />
+        {/* Filtros */}
+        <FreteFiltersComponent onFilterChange={handleFilterChange} totalResults={fretes.length} />
+
+        {/* Mapa */}
+        {showMap && (
+          <div className="mb-8">
+            <InteractiveMap fretes={fretes} onFreteClick={handleFreteClick} height="450px" />
+          </div>
+        )}
 
         {fretes.length === 0 ? (
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-12 text-center">
@@ -116,14 +177,12 @@ export default function FretesListPage() {
           </div>
         ) : (
           <>
-            {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
               {currentFretes.map((frete) => (
                 <FreteCard key={frete.id} frete={frete} onClick={() => handleFreteClick(frete)} />
               ))}
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center space-x-2">
                 <button
@@ -149,7 +208,6 @@ export default function FretesListPage() {
         )}
       </div>
 
-      {/* Modal */}
       <FreteModal frete={selectedFrete} isOpen={isModalOpen} onClose={handleCloseModal} />
     </div>
   );
