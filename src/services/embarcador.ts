@@ -27,11 +27,7 @@ export interface UpdateEmbarcadorProfileData {
  * Get embarcador profile by user ID
  */
 export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorProfile | null> {
-  const { data, error } = await supabase
-    .from('embarcadores')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  const { data, error } = await supabase.from('embarcadores').select('*').eq('id', userId).single();
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -43,7 +39,7 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
 
   return {
     id: data.id,
-    userId: data.user_id,
+    userId: data.id,
     companyName: data.company_name,
     whatsapp: data.whatsapp,
     rating: data.rating,
@@ -82,7 +78,7 @@ export async function updateEmbarcadorProfile(
     const { error: embarcadorError } = await supabase
       .from('embarcadores')
       .update(embarcadorUpdate)
-      .eq('user_id', userId);
+      .eq('id', userId);
 
     if (embarcadorError) {
       throw new Error(`Erro ao atualizar perfil do embarcador: ${embarcadorError.message}`);
@@ -121,7 +117,6 @@ export async function getPublicEmbarcadorProfile(embarcadorId: string) {
     .select(
       `
       id,
-      user_id,
       company_name,
       rating,
       total_ratings,
@@ -140,7 +135,7 @@ export async function getPublicEmbarcadorProfile(embarcadorId: string) {
 
   return {
     id: data.id,
-    userId: data.user_id,
+    userId: data.id,
     companyName: data.company_name,
     rating: data.rating,
     totalRatings: data.total_ratings,

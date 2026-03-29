@@ -227,30 +227,16 @@ export async function getFretesByEmbarcador(embarcadorId: string): Promise<Frete
 
 /**
  * Record a click on a frete by a motorista
+ * Uses the database function which handles both insert and counter update
  */
 export async function recordFreteClick(freteId: string, motoristaId: string): Promise<boolean> {
-  // Try to insert click record
-  const { error: insertError } = await supabase.from('frete_clicks').insert({
-    frete_id: freteId,
-    motorista_id: motoristaId,
+  const { error } = await supabase.rpc('record_frete_click', {
+    frete_id_param: freteId,
+    motorista_id_param: motoristaId,
   });
 
-  // If unique constraint violation, click already exists
-  if (insertError) {
-    if (insertError.code === '23505') {
-      // Duplicate key - click already recorded
-      return false;
-    }
-    throw new Error(`Erro ao registrar clique: ${insertError.message}`);
-  }
-
-  // Increment clicks count using database function
-  const { error: functionError } = await supabase.rpc('record_frete_click', {
-    p_frete_id: freteId,
-  });
-
-  if (functionError) {
-    throw new Error(`Erro ao incrementar contador de cliques: ${functionError.message}`);
+  if (error) {
+    throw new Error(`Erro ao registrar clique: ${error.message}`);
   }
 
   return true;

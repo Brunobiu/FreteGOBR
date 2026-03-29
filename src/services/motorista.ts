@@ -30,11 +30,7 @@ export interface UpdateMotoristaProfileData {
  * Get motorista profile by user ID
  */
 export async function getMotoristaProfile(userId: string): Promise<MotoristaProfile | null> {
-  const { data, error } = await supabase
-    .from('motoristas')
-    .select('*')
-    .eq('user_id', userId)
-    .single();
+  const { data, error } = await supabase.from('motoristas').select('*').eq('id', userId).single();
 
   if (error) {
     if (error.code === 'PGRST116') {
@@ -46,7 +42,7 @@ export async function getMotoristaProfile(userId: string): Promise<MotoristaProf
 
   return {
     id: data.id,
-    userId: data.user_id,
+    userId: data.id,
     vehicleType: data.vehicle_type,
     vehiclePlate: data.vehicle_plate,
     vehicleModel: data.vehicle_model,
@@ -88,7 +84,7 @@ export async function updateMotoristaProfile(
     const { error: motoristaError } = await supabase
       .from('motoristas')
       .update(motoristaUpdate)
-      .eq('user_id', userId);
+      .eq('id', userId);
 
     if (motoristaError) {
       throw new Error(`Erro ao atualizar perfil do motorista: ${motoristaError.message}`);
