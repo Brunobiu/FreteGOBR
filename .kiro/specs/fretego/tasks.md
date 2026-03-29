@@ -351,21 +351,21 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 16. Sistema de geolocalização
-  - [ ] 16.1 Implementar GeolocationService
+- [x] 16. Sistema de geolocalização
+  - [x] 16.1 Implementar GeolocationService
     - Implementar geocodeAddress(address)
     - Implementar reverseGeocode(point)
     - Implementar calculateDistance(point1, point2)
     - Usar API de geocoding (Nominatim ou Google Maps)
     - _Requirements: 25.4, 25.6_
   
-  - [ ] 16.2 Criar hook useGeolocation
+  - [x] 16.2 Criar hook useGeolocation
     - Solicitar permissão de localização
     - Armazenar localização atual
     - Permitir entrada manual se negado
     - _Requirements: 25.1, 25.2, 25.3, 25.5_
   
-  - [ ]* 16.3 Escrever testes de property para geocoding
+  - [x]* 16.3 Escrever testes de property para geocoding
     - **Property 17: Geocoding Validity**
     - **Validates: Requirements 25.4**
   
