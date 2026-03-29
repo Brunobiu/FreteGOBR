@@ -263,26 +263,26 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 12. Gestão de Fretes - Frontend
-  - [ ] 12.1 Criar componente FreteForm
+- [x] 12. Gestão de Fretes - Frontend
+  - [x] 12.1 Criar componente FreteForm
     - Formulário completo com todos os campos
     - Validação com Zod
     - Seleção de origem/destino com autocomplete
     - _Requirements: 6.1, 6.8, 6.9_
   
-  - [ ] 12.2 Criar componente FreteCard
+  - [x] 12.2 Criar componente FreteCard
     - Exibir informações resumidas do frete
     - Botão "Ver detalhes"
     - Esconder telefone para visitantes
     - _Requirements: 7.2, 7.3_
   
-  - [ ] 12.3 Criar componente FreteModal
+  - [x] 12.3 Criar componente FreteModal
     - Exibir informações completas
     - Botão "Contratar" (redireciona visitantes para login)
     - Abrir WhatsApp para motoristas autenticados
     - _Requirements: 7.4, 8.1, 8.5_
   
-  - [ ] 12.4 Criar página de listagem de fretes
+  - [x] 12.4 Criar página de listagem de fretes
     - Grid de FreteCards
     - Paginação
     - _Requirements: 7.1_

@@ -11,6 +11,9 @@ import EmbarcadorDashboardPage from './pages/EmbarcadorDashboardPage';
 import EmbarcadorHomePage from './pages/EmbarcadorHomePage';
 import EmbarcadorProfilePage from './pages/EmbarcadorProfilePage';
 import EmbarcadorPublicProfilePage from './pages/EmbarcadorPublicProfilePage';
+import FretesListPage from './pages/FretesListPage';
+import PostarFretePage from './pages/PostarFretePage';
+import MeusFretesPage from './pages/MeusFretesPage';
 
 function App() {
   return (
@@ -41,7 +44,7 @@ function App() {
           <Route path="dashboard" element={<MotoristaHomePage />} />
           <Route path="perfil" element={<MotoristaProfilePage />} />
           <Route path="documentos" element={<MotoristaDocumentsPage />} />
-          <Route path="fretes" element={<div className="p-8 text-white">Fretes - Em breve</div>} />
+          <Route path="fretes" element={<FretesListPage />} />
           <Route
             path="calculadora"
             element={<div className="p-8 text-white">Calculadora - Em breve</div>}
@@ -60,17 +63,12 @@ function App() {
           <Route index element={<Navigate to="/embarcador/dashboard" replace />} />
           <Route path="dashboard" element={<EmbarcadorHomePage />} />
           <Route path="perfil" element={<EmbarcadorProfilePage />} />
-          <Route
-            path="meus-fretes"
-            element={<div className="p-8 text-white">Meus Fretes - Em breve</div>}
-          />
-          <Route
-            path="postar-frete"
-            element={<div className="p-8 text-white">Postar Frete - Em breve</div>}
-          />
+          <Route path="meus-fretes" element={<MeusFretesPage />} />
+          <Route path="postar-frete" element={<PostarFretePage />} />
         </Route>
 
         {/* Public Routes */}
+        <Route path="/fretes" element={<FretesListPage />} />
         <Route path="/embarcador/:embarcadorId/perfil" element={<EmbarcadorPublicProfilePage />} />
       </Routes>
     </BrowserRouter>
