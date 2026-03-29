@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
-import { getActiveFretes, incrementFreteViews, type Frete } from '../services/fretes';
+import { useState, useEffect, useCallback } from 'react';
+import {
+  getActiveFretes,
+  incrementFreteViews,
+  type Frete,
+  type FreteFilters,
+} from '../services/fretes';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
+import FreteFilters from '../components/FreteFilters';
 
 export default function FretesListPage() {
   const [fretes, setFretes] = useState<Frete[]>([]);
@@ -13,21 +19,27 @@ export default function FretesListPage() {
   const itemsPerPage = 9;
 
   useEffect(() => {
-    loadFretes();
+    loadFretes({});
   }, []);
 
-  const loadFretes = async () => {
+  const loadFretes = async (filters: FreteFilters) => {
     try {
       setIsLoading(true);
       setError(null);
-      const data = await getActiveFretes();
+      const data = await getActiveFretes(filters);
       setFretes(data);
+      setCurrentPage(1);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao carregar fretes');
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleFilterChange = useCallback((filters: FreteFilters) => {
+    setActiveFilters(filters);
+    loadFretes(filters);
+  }, []);
 
   const handleFreteClick = async (frete: Frete) => {
     setSelectedFrete(frete);
@@ -81,6 +93,8 @@ export default function FretesListPage() {
             <p className="text-gray-400">{fretes.length} fretes encontrados</p>
           </div>
         </div>
+
+        <FreteFilters onFilterChange={handleFilterChange} totalResults={fretes.length} />
 
         {fretes.length === 0 ? (
           <div className="bg-gray-900 border border-gray-800 rounded-lg p-12 text-center">

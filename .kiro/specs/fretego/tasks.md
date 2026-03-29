@@ -295,19 +295,19 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 13. Sistema de filtros
-  - [ ] 13.1 Criar componente FreteFilters
+- [x] 13. Sistema de filtros
+  - [x] 13.1 Criar componente FreteFilters
     - Filtros: origem, destino, tipo de carga, tipo de veículo, peso, valor
     - Aplicar filtros em tempo real
     - Botão "Limpar filtros"
     - _Requirements: 7.5, 7.6, 21.1, 21.2, 21.3, 21.4, 21.5, 21.6, 21.9_
   
-  - [ ] 13.2 Implementar lógica de filtros no backend
+  - [x] 13.2 Implementar lógica de filtros no backend
     - Aplicar múltiplos filtros com lógica AND
     - Retornar contagem de resultados
     - _Requirements: 21.7, 21.8_
   
-  - [ ]* 13.3 Escrever testes de property para filtros
+  - [x]* 13.3 Escrever testes de property para filtros
     - **Property 9: Filter Matching**
     - **Property 20: Filter Composition (AND Logic)**
     - **Validates: Requirements 7.5, 21.7**
