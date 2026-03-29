@@ -336,3 +336,49 @@ function mapFreteFromDb(data: {
     updatedAt: new Date(data.updated_at),
   };
 }
+
+/**
+ * Find fretes near a geographic point, ordered by distance
+ * Uses the find_nearby_fretes SQL function (PostGIS)
+ */
+export async function findNearbyFretes(
+  latitude: number,
+  longitude: number,
+  radiusKm: number = 100
+): Promise<(Frete & { distanceKm: number })[]> {
+  // Call the PostGIS function
+  const { data: nearbyData, error: nearbyError } = await supabase.rpc('find_nearby_fretes', {
+    user_location: `POINT(${longitude} ${latitude})`,
+    radius_km: radiusKm,
+  });
+
+  if (nearbyError) {
+    throw new Error(`Erro ao buscar fretes próximos: ${nearbyError.message}`);
+  }
+
+  if (!nearbyData || nearbyData.length === 0) {
+    return [];
+  }
+
+  // Fetch full frete data for each nearby frete
+  const freteIds = nearbyData.map((r: { frete_id: string }) => r.frete_id);
+  const distanceMap = new Map<string, number>(
+    nearbyData.map((r: { frete_id: string; distance_km: number }) => [r.frete_id, r.distance_km])
+  );
+
+  const { data: fretesData, error: fretesError } = await supabase
+    .from('fretes')
+    .select('*')
+    .in('id', freteIds);
+
+  if (fretesError) {
+    throw new Error(`Erro ao buscar detalhes dos fretes: ${fretesError.message}`);
+  }
+
+  return fretesData
+    .map((f) => ({
+      ...mapFreteFromDb(f),
+      distanceKm: distanceMap.get(f.id) ?? 0,
+    }))
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}

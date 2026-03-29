@@ -376,20 +376,20 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 17. Sugestão de viagem
-  - [ ] 17.1 Implementar findNearbyFretes no backend
+- [x] 17. Sugestão de viagem
+  - [x] 17.1 Implementar findNearbyFretes no backend
     - Usar função SQL find_nearby_fretes
     - Ordenar por proximidade
     - Limitar raio de busca (ex: 100km)
     - _Requirements: 11.2, 11.3, 11.6_
   
-  - [ ] 17.2 Criar componente TripSuggestion
+  - [x] 17.2 Criar componente TripSuggestion
     - Botão "Me sugerir uma viagem"
     - Solicitar localização ao clicar
     - Exibir fretes próximos com distância
     - _Requirements: 11.1, 11.4, 11.5_
   
-  - [ ]* 17.3 Escrever testes de property para ordenação por distância
+  - [x]* 17.3 Escrever testes de property para ordenação por distância
     - **Property 12: Distance-Based Sorting**
     - **Validates: Requirements 11.3**
   

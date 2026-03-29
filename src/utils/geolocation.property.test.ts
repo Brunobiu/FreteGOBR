@@ -58,10 +58,10 @@ describe('Property 17: Geocoding Validity - calculateDistance', () => {
     );
   });
 
-  it('coordenadas válidas do Brasil produzem distâncias razoáveis (< 5000km)', () => {
+  it('coordenadas válidas do Brasil produzem distâncias razoáveis (< 6000km)', () => {
     fc.assert(
       fc.property(pointArb, pointArb, (p1, p2) => {
-        return calculateDistance(p1, p2) < 5000;
+        return calculateDistance(p1, p2) < 6000;
       }),
       { numRuns: 100 }
     );

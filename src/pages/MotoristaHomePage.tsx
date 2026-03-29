@@ -1,15 +1,25 @@
+import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import TripSuggestion from '../components/TripSuggestion';
+import FreteModal from '../components/FreteModal';
+import type { Frete } from '../services/fretes';
 
 export default function MotoristaHomePage() {
   const { user } = useAuth();
+  const [selectedFrete, setSelectedFrete] = useState<Frete | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleFreteSelect = (frete: Frete) => {
+    setSelectedFrete(frete);
+    setIsModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 py-8 px-4">
       <div className="max-w-7xl mx-auto">
         <h1 className="text-3xl font-bold text-white mb-8">Bem-vindo, {user?.name}!</h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Card: Fretes Disponíveis */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Fretes Disponíveis</h2>
@@ -31,7 +41,6 @@ export default function MotoristaHomePage() {
             <p className="text-sm text-gray-400">Aguardando implementação</p>
           </div>
 
-          {/* Card: Meus Fretes */}
           <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Meus Fretes</h2>
@@ -53,7 +62,6 @@ export default function MotoristaHomePage() {
             <p className="text-sm text-gray-400">Aguardando implementação</p>
           </div>
 
-          {/* Card: Ganhos do Mês */}
           <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Ganhos do Mês</h2>
@@ -76,84 +84,20 @@ export default function MotoristaHomePage() {
           </div>
         </div>
 
-        {/* Quick Actions */}
-        <div className="mt-8">
-          <h2 className="text-2xl font-bold text-white mb-4">Ações Rápidas</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <button className="bg-gray-900 p-4 rounded-lg border border-gray-800 hover:border-blue-500 transition-colors text-left">
-              <svg
-                className="w-6 h-6 text-blue-500 mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <p className="text-white font-medium">Buscar Fretes</p>
-              <p className="text-sm text-gray-400 mt-1">Em breve</p>
-            </button>
-
-            <button className="bg-gray-900 p-4 rounded-lg border border-gray-800 hover:border-blue-500 transition-colors text-left">
-              <svg
-                className="w-6 h-6 text-blue-500 mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                />
-              </svg>
-              <p className="text-white font-medium">Calculadora</p>
-              <p className="text-sm text-gray-400 mt-1">Em breve</p>
-            </button>
-
-            <button className="bg-gray-900 p-4 rounded-lg border border-gray-800 hover:border-blue-500 transition-colors text-left">
-              <svg
-                className="w-6 h-6 text-blue-500 mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-              <p className="text-white font-medium">Documentos</p>
-              <p className="text-sm text-gray-400 mt-1">Gerenciar</p>
-            </button>
-
-            <button className="bg-gray-900 p-4 rounded-lg border border-gray-800 hover:border-blue-500 transition-colors text-left">
-              <svg
-                className="w-6 h-6 text-blue-500 mb-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                />
-              </svg>
-              <p className="text-white font-medium">Perfil</p>
-              <p className="text-sm text-gray-400 mt-1">Editar</p>
-            </button>
-          </div>
+        {/* Sugestão de Viagem */}
+        <div className="mb-8">
+          <TripSuggestion onFreteSelect={handleFreteSelect} />
         </div>
       </div>
+
+      <FreteModal
+        frete={selectedFrete}
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedFrete(null);
+        }}
+      />
     </div>
   );
 }
