@@ -1,78 +1,138 @@
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getEstados, getCidades, type Estado, type Cidade } from '../services/ibge';
 import type { CreateFreteData } from '../services/fretes';
 
-const freteSchema = z.object({
-  origin: z.string().min(3, 'Origem deve ter no mínimo 3 caracteres'),
-  originLat: z.number().min(-90).max(90),
-  originLng: z.number().min(-180).max(180),
-  destination: z.string().min(3, 'Destino deve ter no mínimo 3 caracteres'),
-  destinationLat: z.number().min(-90).max(90),
-  destinationLng: z.number().min(-180).max(180),
-  cargoType: z.string().min(1, 'Tipo de carga é obrigatório'),
-  vehicleType: z.string().min(1, 'Tipo de veículo é obrigatório'),
-  weight: z.number().positive('Peso deve ser maior que zero'),
-  value: z.number().positive('Valor deve ser maior que zero'),
-  deadline: z.string().min(1, 'Prazo é obrigatório'),
-  loadingTime: z.number().min(0, 'Tempo de carga deve ser maior ou igual a zero'),
-  unloadingTime: z.number().min(0, 'Tempo de descarga deve ser maior ou igual a zero'),
-  specifications: z.string().optional(),
-});
+const VEHICLE_TYPES = [
+  { value: 'truck_34', label: 'Caminhão 3/4', pesoMax: 4000 },
+  { value: 'truck_toco', label: 'Caminhão Toco', pesoMax: 8000 },
+  { value: 'truck_truck', label: 'Caminhão Truck', pesoMax: 14000 },
+  { value: 'bitruck', label: 'Bitruck', pesoMax: 19000 },
+  { value: 'carreta_simples', label: 'Carreta Simples', pesoMax: 25000 },
+  { value: 'carreta_ls', label: 'Carreta LS', pesoMax: 30000 },
+  { value: 'carreta_eixo', label: 'Carreta Eixo Estendido', pesoMax: 33000 },
+  { value: 'bitrem', label: 'Bitrem', pesoMax: 37000 },
+  { value: 'rodotrem', label: 'Rodotrem', pesoMax: 48000 },
+  { value: 'van', label: 'Van / VUC', pesoMax: 1500 },
+  { value: 'pickup', label: 'Pickup', pesoMax: 1000 },
+];
 
-type FreteFormData = z.infer<typeof freteSchema>;
+const AGENDAMENTO_CARGA = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
+const AGENDAMENTO_DESCARGA = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
 
 interface FreteFormProps {
   embarcadorId: string;
   onSubmit: (data: CreateFreteData) => Promise<void>;
   onCancel?: () => void;
-  initialData?: Partial<FreteFormData>;
 }
 
-export default function FreteForm({
-  embarcadorId,
-  onSubmit,
-  onCancel,
-  initialData,
-}: FreteFormProps) {
+export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FreteFormData>({
-    resolver: zodResolver(freteSchema),
-    defaultValues: initialData,
-  });
+  // Estados e cidades
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [origemUF, setOrigemUF] = useState('');
+  const [origemCidades, setOrigemCidades] = useState<Cidade[]>([]);
+  const [origemCidade, setOrigemCidade] = useState('');
+  const [destinoUF, setDestinoUF] = useState('');
+  const [destinoCidades, setDestinoCidades] = useState<Cidade[]>([]);
+  const [destinoCidade, setDestinoCidade] = useState('');
 
-  const onFormSubmit = async (data: FreteFormData) => {
-    setIsSubmitting(true);
+  // Filtro de cidades
+  const [origemCidadeFilter, setOrigemCidadeFilter] = useState('');
+  const [destinoCidadeFilter, setDestinoCidadeFilter] = useState('');
+
+  // Carga
+  const [cargoType, setCargoType] = useState('');
+  const [customCargoType, setCustomCargoType] = useState('');
+  const [vehicleType, setVehicleType] = useState('');
+  const [weight, setWeight] = useState('');
+  const [value, setValue] = useState('');
+  const [specifications, setSpecifications] = useState('');
+
+  // Agendamento
+  const [agendamentoCarga, setAgendamentoCarga] = useState('D0');
+  const [agendamentoDescarga, setAgendamentoDescarga] = useState('D0');
+
+  useEffect(() => {
+    getEstados().then(setEstados).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    if (origemUF) {
+      getCidades(origemUF).then(setOrigemCidades).catch(console.error);
+      setOrigemCidade('');
+      setOrigemCidadeFilter('');
+    }
+  }, [origemUF]);
+
+  useEffect(() => {
+    if (destinoUF) {
+      getCidades(destinoUF).then(setDestinoCidades).catch(console.error);
+      setDestinoCidade('');
+      setDestinoCidadeFilter('');
+    }
+  }, [destinoUF]);
+
+  // Auto-preenche peso quando seleciona veículo
+  useEffect(() => {
+    const vt = VEHICLE_TYPES.find((v) => v.value === vehicleType);
+    if (vt) setWeight(vt.pesoMax.toString());
+  }, [vehicleType]);
+
+  const filteredOrigemCidades = origemCidades.filter((c) =>
+    c.nome.toLowerCase().includes(origemCidadeFilter.toLowerCase())
+  );
+  const filteredDestinoCidades = destinoCidades.filter((c) =>
+    c.nome.toLowerCase().includes(destinoCidadeFilter.toLowerCase())
+  );
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setError(null);
 
+    const finalCargoType = cargoType === 'outro' ? customCargoType : cargoType;
+    if (!finalCargoType) {
+      setError('Tipo de carga é obrigatório');
+      return;
+    }
+    if (!origemUF || !origemCidade) {
+      setError('Origem é obrigatória');
+      return;
+    }
+    if (!destinoUF || !destinoCidade) {
+      setError('Destino é obrigatório');
+      return;
+    }
+    if (!vehicleType) {
+      setError('Tipo de veículo é obrigatório');
+      return;
+    }
+    if (!weight || Number(weight) <= 0) {
+      setError('Peso é obrigatório');
+      return;
+    }
+    if (!value || Number(value) <= 0) {
+      setError('Valor é obrigatório');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await onSubmit({
         embarcadorId,
-        origin: data.origin,
-        originLocation: {
-          latitude: data.originLat,
-          longitude: data.originLng,
-        },
-        destination: data.destination,
-        destinationLocation: {
-          latitude: data.destinationLat,
-          longitude: data.destinationLng,
-        },
-        cargoType: data.cargoType,
-        vehicleType: data.vehicleType,
-        weight: data.weight,
-        value: data.value,
-        deadline: new Date(data.deadline),
-        loadingTime: data.loadingTime,
-        unloadingTime: data.unloadingTime,
-        specifications: data.specifications,
+        origin: `${origemCidade}, ${origemUF}`,
+        originLocation: { latitude: 0, longitude: 0 },
+        destination: `${destinoCidade}, ${destinoUF}`,
+        destinationLocation: { latitude: 0, longitude: 0 },
+        cargoType: finalCargoType,
+        vehicleType,
+        weight: Number(weight),
+        value: Number(value),
+        deadline: new Date(),
+        loadingTime: AGENDAMENTO_CARGA.indexOf(agendamentoCarga),
+        unloadingTime: AGENDAMENTO_DESCARGA.indexOf(agendamentoDescarga),
+        specifications: specifications || undefined,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar frete');
@@ -82,144 +142,133 @@ export default function FreteForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
-        <div className="p-4 bg-red-900/50 border border-red-700 rounded-lg text-red-200">
+        <div className="p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
           {error}
         </div>
       )}
 
       {/* Origem */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 space-y-4">
-        <h3 className="text-lg font-semibold text-white mb-4">Origem</h3>
-
-        <div>
-          <label htmlFor="origin" className="block text-sm font-medium text-gray-300 mb-2">
-            Cidade/Estado *
-          </label>
-          <input
-            type="text"
-            id="origin"
-            {...register('origin')}
-            placeholder="Ex: Goiânia, GO"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.origin && <p className="mt-1 text-sm text-red-400">{errors.origin.message}</p>}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+        <h3 className="text-sm font-semibold text-white">Origem</h3>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="originLat" className="block text-sm font-medium text-gray-300 mb-2">
-              Latitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              id="originLat"
-              {...register('originLat', { valueAsNumber: true })}
-              placeholder="-16.6869"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.originLat && (
-              <p className="mt-1 text-sm text-red-400">{errors.originLat.message}</p>
-            )}
+            <label className="block text-xs text-gray-400 mb-1">Estado *</label>
+            <select
+              value={origemUF}
+              onChange={(e) => setOrigemUF(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">Selecione</option>
+              {estados.map((e) => (
+                <option key={e.sigla} value={e.sigla}>
+                  {e.sigla} - {e.nome}
+                </option>
+              ))}
+            </select>
           </div>
-
           <div>
-            <label htmlFor="originLng" className="block text-sm font-medium text-gray-300 mb-2">
-              Longitude *
-            </label>
+            <label className="block text-xs text-gray-400 mb-1">Cidade *</label>
             <input
-              type="number"
-              step="any"
-              id="originLng"
-              {...register('originLng', { valueAsNumber: true })}
-              placeholder="-49.2648"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="text"
+              value={origemCidadeFilter}
+              onChange={(e) => setOrigemCidadeFilter(e.target.value)}
+              placeholder={origemUF ? 'Digite a cidade...' : 'Selecione o estado'}
+              disabled={!origemUF}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
-            {errors.originLng && (
-              <p className="mt-1 text-sm text-red-400">{errors.originLng.message}</p>
+            {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
+              <div className="mt-1 max-h-32 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg">
+                {filteredOrigemCidades.slice(0, 10).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setOrigemCidade(c.nome);
+                      setOrigemCidadeFilter(c.nome);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600"
+                  >
+                    {c.nome}
+                  </button>
+                ))}
+              </div>
+            )}
+            {origemCidade && (
+              <p className="mt-1 text-xs text-green-400">
+                ✓ {origemCidade}, {origemUF}
+              </p>
             )}
           </div>
         </div>
       </div>
 
       {/* Destino */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 space-y-4">
-        <h3 className="text-lg font-semibold text-white mb-4">Destino</h3>
-
-        <div>
-          <label htmlFor="destination" className="block text-sm font-medium text-gray-300 mb-2">
-            Cidade/Estado *
-          </label>
-          <input
-            type="text"
-            id="destination"
-            {...register('destination')}
-            placeholder="Ex: São Paulo, SP"
-            className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          {errors.destination && (
-            <p className="mt-1 text-sm text-red-400">{errors.destination.message}</p>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+      <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+        <h3 className="text-sm font-semibold text-white">Destino</h3>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label
-              htmlFor="destinationLat"
-              className="block text-sm font-medium text-gray-300 mb-2"
+            <label className="block text-xs text-gray-400 mb-1">Estado *</label>
+            <select
+              value={destinoUF}
+              onChange={(e) => setDestinoUF(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              Latitude *
-            </label>
-            <input
-              type="number"
-              step="any"
-              id="destinationLat"
-              {...register('destinationLat', { valueAsNumber: true })}
-              placeholder="-23.5505"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.destinationLat && (
-              <p className="mt-1 text-sm text-red-400">{errors.destinationLat.message}</p>
-            )}
+              <option value="">Selecione</option>
+              {estados.map((e) => (
+                <option key={e.sigla} value={e.sigla}>
+                  {e.sigla} - {e.nome}
+                </option>
+              ))}
+            </select>
           </div>
-
           <div>
-            <label
-              htmlFor="destinationLng"
-              className="block text-sm font-medium text-gray-300 mb-2"
-            >
-              Longitude *
-            </label>
+            <label className="block text-xs text-gray-400 mb-1">Cidade *</label>
             <input
-              type="number"
-              step="any"
-              id="destinationLng"
-              {...register('destinationLng', { valueAsNumber: true })}
-              placeholder="-46.6333"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              type="text"
+              value={destinoCidadeFilter}
+              onChange={(e) => setDestinoCidadeFilter(e.target.value)}
+              placeholder={destinoUF ? 'Digite a cidade...' : 'Selecione o estado'}
+              disabled={!destinoUF}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
-            {errors.destinationLng && (
-              <p className="mt-1 text-sm text-red-400">{errors.destinationLng.message}</p>
+            {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
+              <div className="mt-1 max-h-32 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg">
+                {filteredDestinoCidades.slice(0, 10).map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setDestinoCidade(c.nome);
+                      setDestinoCidadeFilter(c.nome);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm text-gray-200 hover:bg-gray-600"
+                  >
+                    {c.nome}
+                  </button>
+                ))}
+              </div>
+            )}
+            {destinoCidade && (
+              <p className="mt-1 text-xs text-green-400">
+                ✓ {destinoCidade}, {destinoUF}
+              </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Detalhes da Carga */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 space-y-4">
-        <h3 className="text-lg font-semibold text-white mb-4">Detalhes da Carga</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Carga */}
+      <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+        <h3 className="text-sm font-semibold text-white">Detalhes da Carga</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label htmlFor="cargoType" className="block text-sm font-medium text-gray-300 mb-2">
-              Tipo de Carga *
-            </label>
+            <label className="block text-xs text-gray-400 mb-1">Tipo de Carga *</label>
             <select
-              id="cargoType"
-              {...register('cargoType')}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={cargoType}
+              onChange={(e) => setCargoType(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Selecione</option>
               <option value="geral">Carga Geral</option>
@@ -227,139 +276,114 @@ export default function FreteForm({
               <option value="refrigerada">Refrigerada</option>
               <option value="perigosa">Perigosa</option>
               <option value="fragil">Frágil</option>
+              <option value="container">Container</option>
+              <option value="veiculo">Veículo</option>
+              <option value="mudanca">Mudança</option>
+              <option value="outro">Outro (digitar)</option>
             </select>
-            {errors.cargoType && (
-              <p className="mt-1 text-sm text-red-400">{errors.cargoType.message}</p>
+            {cargoType === 'outro' && (
+              <input
+                type="text"
+                value={customCargoType}
+                onChange={(e) => setCustomCargoType(e.target.value)}
+                placeholder="Digite o tipo de carga"
+                className="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             )}
           </div>
-
           <div>
-            <label htmlFor="vehicleType" className="block text-sm font-medium text-gray-300 mb-2">
-              Tipo de Veículo *
-            </label>
+            <label className="block text-xs text-gray-400 mb-1">Tipo de Veículo *</label>
             <select
-              id="vehicleType"
-              {...register('vehicleType')}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={vehicleType}
+              onChange={(e) => setVehicleType(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Selecione</option>
-              <option value="truck">Caminhão</option>
-              <option value="van">Van</option>
-              <option value="pickup">Pickup</option>
-              <option value="carreta">Carreta</option>
+              {VEHICLE_TYPES.map((v) => (
+                <option key={v.value} value={v.value}>
+                  {v.label} (até {(v.pesoMax / 1000).toFixed(0)}t)
+                </option>
+              ))}
             </select>
-            {errors.vehicleType && (
-              <p className="mt-1 text-sm text-red-400">{errors.vehicleType.message}</p>
-            )}
           </div>
-
           <div>
-            <label htmlFor="weight" className="block text-sm font-medium text-gray-300 mb-2">
-              Peso (kg) *
-            </label>
+            <label className="block text-xs text-gray-400 mb-1">Peso (kg) *</label>
+            <input
+              type="number"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              min={0}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-400 mb-1">Valor (R$) *</label>
             <input
               type="number"
               step="0.01"
-              id="weight"
-              {...register('weight', { valueAsNumber: true })}
-              placeholder="1000"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              min={0}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            {errors.weight && <p className="mt-1 text-sm text-red-400">{errors.weight.message}</p>}
-          </div>
-
-          <div>
-            <label htmlFor="value" className="block text-sm font-medium text-gray-300 mb-2">
-              Valor (R$) *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              id="value"
-              {...register('value', { valueAsNumber: true })}
-              placeholder="5000.00"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.value && <p className="mt-1 text-sm text-red-400">{errors.value.message}</p>}
           </div>
         </div>
       </div>
 
-      {/* Prazos */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-800 space-y-4">
-        <h3 className="text-lg font-semibold text-white mb-4">Prazos</h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Agendamento */}
+      <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+        <h3 className="text-sm font-semibold text-white">Agendamento</h3>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="deadline" className="block text-sm font-medium text-gray-300 mb-2">
-              Prazo de Entrega *
-            </label>
-            <input
-              type="date"
-              id="deadline"
-              {...register('deadline')}
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.deadline && (
-              <p className="mt-1 text-sm text-red-400">{errors.deadline.message}</p>
-            )}
+            <label className="block text-xs text-gray-400 mb-1">Agendamento de Carga</label>
+            <select
+              value={agendamentoCarga}
+              onChange={(e) => setAgendamentoCarga(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {AGENDAMENTO_CARGA.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
-
           <div>
-            <label htmlFor="loadingTime" className="block text-sm font-medium text-gray-300 mb-2">
-              Tempo de Carga (min) *
-            </label>
-            <input
-              type="number"
-              id="loadingTime"
-              {...register('loadingTime', { valueAsNumber: true })}
-              placeholder="60"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.loadingTime && (
-              <p className="mt-1 text-sm text-red-400">{errors.loadingTime.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="unloadingTime" className="block text-sm font-medium text-gray-300 mb-2">
-              Tempo de Descarga (min) *
-            </label>
-            <input
-              type="number"
-              id="unloadingTime"
-              {...register('unloadingTime', { valueAsNumber: true })}
-              placeholder="60"
-              className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {errors.unloadingTime && (
-              <p className="mt-1 text-sm text-red-400">{errors.unloadingTime.message}</p>
-            )}
+            <label className="block text-xs text-gray-400 mb-1">Agendamento de Descarga</label>
+            <select
+              value={agendamentoDescarga}
+              onChange={(e) => setAgendamentoDescarga(e.target.value)}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {AGENDAMENTO_DESCARGA.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
       {/* Especificações */}
-      <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-        <label htmlFor="specifications" className="block text-sm font-medium text-gray-300 mb-2">
-          Especificações Adicionais
-        </label>
+      <div>
+        <label className="block text-xs text-gray-400 mb-1">Especificações Adicionais</label>
         <textarea
-          id="specifications"
-          {...register('specifications')}
-          rows={4}
+          value={specifications}
+          onChange={(e) => setSpecifications(e.target.value)}
+          rows={3}
           placeholder="Informações adicionais sobre a carga..."
-          className="w-full px-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
 
-      {/* Buttons */}
-      <div className="flex justify-end space-x-4">
+      {/* Botões */}
+      <div className="flex justify-end space-x-3">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-3 bg-gray-700 text-white font-medium rounded-lg hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="px-5 py-2 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-600"
           >
             Cancelar
           </button>
@@ -367,9 +391,9 @@ export default function FreteForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
         >
-          {isSubmitting ? 'Salvando...' : 'Publicar Frete'}
+          {isSubmitting ? 'Publicando...' : 'Publicar Frete'}
         </button>
       </div>
     </form>
