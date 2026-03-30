@@ -3,17 +3,63 @@ import { getEstados, getCidades, type Estado, type Cidade } from '../services/ib
 import type { CreateFreteData } from '../services/fretes';
 
 const VEHICLE_TYPES = [
-  { value: 'truck_34', label: 'Caminhão 3/4', pesoMax: 4000 },
-  { value: 'truck_toco', label: 'Caminhão Toco', pesoMax: 8000 },
-  { value: 'truck_truck', label: 'Caminhão Truck', pesoMax: 14000 },
-  { value: 'bitruck', label: 'Bitruck', pesoMax: 19000 },
-  { value: 'carreta_simples', label: 'Carreta Simples', pesoMax: 25000 },
-  { value: 'carreta_ls', label: 'Carreta LS', pesoMax: 30000 },
-  { value: 'carreta_eixo', label: 'Carreta Eixo Estendido', pesoMax: 33000 },
-  { value: 'bitrem', label: 'Bitrem', pesoMax: 37000 },
-  { value: 'rodotrem', label: 'Rodotrem', pesoMax: 48000 },
-  { value: 'van', label: 'Van / VUC', pesoMax: 1500 },
-  { value: 'pickup', label: 'Pickup', pesoMax: 1000 },
+  { value: 'bitrem_cacamba', label: 'Bitrem Caçamba, 19.8 mts, 7 eixo(s)', pesoMax: 35000 },
+  { value: 'bitrem_graneleiro', label: 'Bitrem Graneleiro, 19.8 mts, 7 eixo(s)', pesoMax: 37000 },
+  {
+    value: 'caminhao_simples_graneleiro',
+    label: 'Caminhão Simples Graneleiro, 14 mts, 4 eixo(s)',
+    pesoMax: 33075,
+  },
+  {
+    value: 'ls_4eixo_cavalo_graneleiro',
+    label: 'LS 4º Eixo Cavalo Graneleiro, 18.15 mts, 7 eixo(s)',
+    pesoMax: 38000,
+  },
+  {
+    value: 'ls_simples_cacambda',
+    label: 'LS Simples Caçambda, 18.5 mts, 7 eixo(s)',
+    pesoMax: 35000,
+  },
+  {
+    value: 'ls_simples_graneleiro',
+    label: 'LS Simples Graneleiro, 18.15 mts, 5 eixo(s)',
+    pesoMax: 27000,
+  },
+  {
+    value: 'ls_trucada_graneleiro_6',
+    label: 'LS Trucada Graneleiro, 18.15 mts, 6 eixo(s)',
+    pesoMax: 32000,
+  },
+  {
+    value: 'ls_trucada_graneleiro_7',
+    label: 'LS Trucada Graneleiro, 18.15 mts, 7 eixo(s)',
+    pesoMax: 40000,
+  },
+  { value: 'rodotrem_cacamba_25', label: 'Rodotrem Caçamba, 25 mts, 9 eixo(s)', pesoMax: 47000 },
+  { value: 'rodotrem_cacamba_30', label: 'Rodotrem Caçamba, 30 mts, 9 eixo(s)', pesoMax: 47000 },
+  {
+    value: 'rodotrem_graneleiro_25',
+    label: 'Rodotrem Graneleiro, 25 mts, 9 eixo(s)',
+    pesoMax: 49000,
+  },
+  {
+    value: 'rodotrem_graneleiro_30',
+    label: 'Rodotrem Graneleiro, 30 mts, 9 eixo(s)',
+    pesoMax: 50000,
+  },
+  {
+    value: 'rodotrem_graneleiro_198',
+    label: 'Rodotrem Graneleiro, 19.8 mts, 9 eixo(s)',
+    pesoMax: 51000,
+  },
+  { value: 'toco_cacamba', label: 'Toco Caçambda, 30 mts, 10 eixo(s)', pesoMax: 100000 },
+  { value: 'toco_graneleiro', label: 'Toco Graneleiro, 14 mts, 2 eixo(s)', pesoMax: 16800 },
+  { value: 'trucado_graneleiro', label: 'Trucado Graneleiro, 14 mts, 3 eixo(s)', pesoMax: 24150 },
+  {
+    value: 'vanderleia_graneleiro',
+    label: 'Vanderléia Graneleiro, 18.6 mts, 5 eixo(s)',
+    pesoMax: 35000,
+  },
 ];
 
 const AGENDAMENTO_CARGA = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
@@ -301,7 +347,7 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
               <option value="">Selecione</option>
               {VEHICLE_TYPES.map((v) => (
                 <option key={v.value} value={v.value}>
-                  {v.label} (até {(v.pesoMax / 1000).toFixed(0)}t)
+                  {v.label} - Carga: {v.pesoMax.toLocaleString('pt-BR')}kg
                 </option>
               ))}
             </select>
