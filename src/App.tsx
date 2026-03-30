@@ -1,75 +1,50 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
-import { DashboardPage } from './pages/DashboardPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
-import MotoristaDashboardPage from './pages/MotoristaDashboardPage';
-import MotoristaHomePage from './pages/MotoristaHomePage';
-import MotoristaProfilePage from './pages/MotoristaProfilePage';
-import MotoristaDocumentsPage from './pages/MotoristaDocumentsPage';
-import EmbarcadorDashboardPage from './pages/EmbarcadorDashboardPage';
-import EmbarcadorHomePage from './pages/EmbarcadorHomePage';
-import EmbarcadorProfilePage from './pages/EmbarcadorProfilePage';
-import EmbarcadorPublicProfilePage from './pages/EmbarcadorPublicProfilePage';
-import FretesListPage from './pages/FretesListPage';
-import PostarFretePage from './pages/PostarFretePage';
-import MeusFretesPage from './pages/MeusFretesPage';
+import HomePage from './pages/HomePage';
+import MotoristaPerfilPage from './pages/MotoristaPerfilPage';
+import EmbarcadorPage from './pages/EmbarcadorPage';
+import EmbarcadorPerfilPage from './pages/EmbarcadorPerfilPage';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        {/* Página principal: listagem de fretes (pública) */}
+        <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Perfil do motorista (protegida) */}
         <Route
-          path="/dashboard"
+          path="/perfil/motorista"
           element={
             <ProtectedRoute>
-              <DashboardPage />
+              <MotoristaPerfilPage />
             </ProtectedRoute>
           }
         />
 
-        {/* Motorista Routes */}
-        <Route
-          path="/motorista"
-          element={
-            <ProtectedRoute>
-              <MotoristaDashboardPage />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/motorista/dashboard" replace />} />
-          <Route path="dashboard" element={<MotoristaHomePage />} />
-          <Route path="perfil" element={<MotoristaProfilePage />} />
-          <Route path="documentos" element={<MotoristaDocumentsPage />} />
-          <Route path="fretes" element={<FretesListPage />} />
-          <Route
-            path="calculadora"
-            element={<div className="p-8 text-white">Calculadora - Em breve</div>}
-          />
-        </Route>
-
-        {/* Embarcador Routes */}
+        {/* Página principal do embarcador (protegida) */}
         <Route
           path="/embarcador"
           element={
             <ProtectedRoute>
-              <EmbarcadorDashboardPage />
+              <EmbarcadorPage />
             </ProtectedRoute>
           }
-        >
-          <Route index element={<Navigate to="/embarcador/dashboard" replace />} />
-          <Route path="dashboard" element={<EmbarcadorHomePage />} />
-          <Route path="perfil" element={<EmbarcadorProfilePage />} />
-          <Route path="meus-fretes" element={<MeusFretesPage />} />
-          <Route path="postar-frete" element={<PostarFretePage />} />
-        </Route>
+        />
 
-        {/* Public Routes */}
-        <Route path="/fretes" element={<FretesListPage />} />
-        <Route path="/embarcador/:embarcadorId/perfil" element={<EmbarcadorPublicProfilePage />} />
+        {/* Perfil do embarcador (protegida) */}
+        <Route
+          path="/perfil/embarcador"
+          element={
+            <ProtectedRoute>
+              <EmbarcadorPerfilPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );

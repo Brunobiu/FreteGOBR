@@ -5,20 +5,29 @@ import type { LoginCredentials } from '../types';
 
 export function LoginPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
 
   const handleLogin = async (credentials: LoginCredentials) => {
     await login(credentials);
-    navigate('/dashboard');
+    // Após login, o user é atualizado no context
+    // Redireciona baseado no localStorage (que já foi salvo pelo login)
+    const stored = localStorage.getItem('fretego_user');
+    if (stored) {
+      const u = JSON.parse(stored);
+      navigate(u.userType === 'embarcador' ? '/embarcador' : '/');
+    } else {
+      navigate('/');
+    }
   };
 
-  const handleRegisterClick = () => {
-    navigate('/register');
-  };
+  // Se já logado, redireciona
+  if (user) {
+    navigate(user.userType === 'embarcador' ? '/embarcador' : '/');
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <LoginForm onSubmit={handleLogin} onRegisterClick={handleRegisterClick} />
+      <LoginForm onSubmit={handleLogin} onRegisterClick={() => navigate('/register')} />
     </div>
   );
 }

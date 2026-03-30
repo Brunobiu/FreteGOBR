@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react';
 import { DocumentUpload } from '../components/DocumentUpload';
 import { getDocumentsByUser } from '../services/documents';
 import type { DocumentMetadata } from '../services/documents';
+import { useAuth } from '../hooks/useAuth';
 
-interface MotoristaDocumentsPageProps {
-  userId: string;
-}
-
-export function MotoristaDocumentsPage({ userId }: MotoristaDocumentsPageProps) {
+export default function MotoristaDocumentsPage() {
+  const { user } = useAuth();
   const [documents, setDocuments] = useState<Record<string, DocumentMetadata>>({});
   const [isLoading, setIsLoading] = useState(true);
 
+  const userId = user?.id ?? '';
+
   useEffect(() => {
-    loadDocuments();
+    if (userId) loadDocuments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const loadDocuments = async () => {

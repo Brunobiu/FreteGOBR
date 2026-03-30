@@ -9,16 +9,18 @@ export function RegisterPage() {
 
   const handleRegister = async (data: RegisterData) => {
     await register(data);
-    navigate('/dashboard');
-  };
-
-  const handleLoginClick = () => {
-    navigate('/login');
+    const stored = localStorage.getItem('fretego_user');
+    if (stored) {
+      const u = JSON.parse(stored);
+      navigate(u.userType === 'embarcador' ? '/embarcador' : '/');
+    } else {
+      navigate('/');
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <RegisterForm onSubmit={handleRegister} onLoginClick={handleLoginClick} />
+      <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
     </div>
   );
 }

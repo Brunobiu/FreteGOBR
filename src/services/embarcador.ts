@@ -57,29 +57,27 @@ export async function updateEmbarcadorProfile(
   data: UpdateEmbarcadorProfileData
 ): Promise<void> {
   // Update user table
-  if (data.name || data.email) {
-    const userUpdate: Record<string, string> = {};
-    if (data.name) userUpdate.name = data.name;
-    if (data.email) userUpdate.email = data.email;
+  const userUpdate: Record<string, string> = {};
+  if (data.name !== undefined) userUpdate.name = data.name;
+  if (data.email !== undefined) userUpdate.email = data.email;
 
+  if (Object.keys(userUpdate).length > 0) {
     const { error: userError } = await supabase.from('users').update(userUpdate).eq('id', userId);
-
     if (userError) {
       throw new Error(`Erro ao atualizar usuário: ${userError.message}`);
     }
   }
 
   // Update embarcador table
-  if (data.companyName || data.whatsapp) {
-    const embarcadorUpdate: Record<string, string> = {};
-    if (data.companyName) embarcadorUpdate.company_name = data.companyName;
-    if (data.whatsapp) embarcadorUpdate.whatsapp = data.whatsapp;
+  const embarcadorUpdate: Record<string, string> = {};
+  if (data.companyName !== undefined) embarcadorUpdate.company_name = data.companyName;
+  if (data.whatsapp !== undefined) embarcadorUpdate.whatsapp = data.whatsapp;
 
+  if (Object.keys(embarcadorUpdate).length > 0) {
     const { error: embarcadorError } = await supabase
       .from('embarcadores')
       .update(embarcadorUpdate)
       .eq('id', userId);
-
     if (embarcadorError) {
       throw new Error(`Erro ao atualizar perfil do embarcador: ${embarcadorError.message}`);
     }

@@ -9,7 +9,10 @@ const registerSchema = z
     phone: z
       .string()
       .min(1, 'Telefone é obrigatório')
-      .regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
+      .refine(
+        (val) => /^\d{10,11}$/.test(val.replace(/\D/g, '')),
+        'Telefone deve ter 10 ou 11 dígitos'
+      ),
     password: z
       .string()
       .min(6, 'Senha deve ter no mínimo 6 caracteres')

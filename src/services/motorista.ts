@@ -60,32 +60,30 @@ export async function updateMotoristaProfile(
   data: UpdateMotoristaProfileData
 ): Promise<void> {
   // Update user table
-  if (data.name || data.email || data.cpf) {
-    const userUpdate: Record<string, string> = {};
-    if (data.name) userUpdate.name = data.name;
-    if (data.email) userUpdate.email = data.email;
-    if (data.cpf) userUpdate.cpf = data.cpf;
+  const userUpdate: Record<string, string> = {};
+  if (data.name !== undefined) userUpdate.name = data.name;
+  if (data.email !== undefined) userUpdate.email = data.email;
+  if (data.cpf !== undefined) userUpdate.cpf = data.cpf;
 
+  if (Object.keys(userUpdate).length > 0) {
     const { error: userError } = await supabase.from('users').update(userUpdate).eq('id', userId);
-
     if (userError) {
       throw new Error(`Erro ao atualizar usuário: ${userError.message}`);
     }
   }
 
   // Update motorista table
-  if (data.vehicleType || data.vehiclePlate || data.vehicleModel || data.vehicleYear) {
-    const motoristaUpdate: Record<string, string | number> = {};
-    if (data.vehicleType) motoristaUpdate.vehicle_type = data.vehicleType;
-    if (data.vehiclePlate) motoristaUpdate.vehicle_plate = data.vehiclePlate;
-    if (data.vehicleModel) motoristaUpdate.vehicle_model = data.vehicleModel;
-    if (data.vehicleYear) motoristaUpdate.vehicle_year = data.vehicleYear;
+  const motoristaUpdate: Record<string, string | number> = {};
+  if (data.vehicleType !== undefined) motoristaUpdate.vehicle_type = data.vehicleType;
+  if (data.vehiclePlate !== undefined) motoristaUpdate.vehicle_plate = data.vehiclePlate;
+  if (data.vehicleModel !== undefined) motoristaUpdate.vehicle_model = data.vehicleModel;
+  if (data.vehicleYear !== undefined) motoristaUpdate.vehicle_year = data.vehicleYear;
 
+  if (Object.keys(motoristaUpdate).length > 0) {
     const { error: motoristaError } = await supabase
       .from('motoristas')
       .update(motoristaUpdate)
       .eq('id', userId);
-
     if (motoristaError) {
       throw new Error(`Erro ao atualizar perfil do motorista: ${motoristaError.message}`);
     }
