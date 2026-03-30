@@ -247,7 +247,7 @@ export async function recordFreteClick(freteId: string, motoristaId: string): Pr
  */
 export async function incrementFreteViews(freteId: string): Promise<void> {
   const { error } = await supabase.rpc('increment_frete_views', {
-    p_frete_id: freteId,
+    frete_id_param: freteId,
   });
 
   if (error) {

@@ -4,67 +4,44 @@ import { geocodeAddress } from '../services/geolocation';
 import type { CreateFreteData } from '../services/fretes';
 
 const VEHICLE_TYPES = [
-  { value: 'bitrem_cacamba', label: 'Bitrem Caçamba, 19.8 mts, 7 eixo(s)', pesoMax: 35000 },
-  { value: 'bitrem_graneleiro', label: 'Bitrem Graneleiro, 19.8 mts, 7 eixo(s)', pesoMax: 37000 },
-  {
-    value: 'caminhao_simples_graneleiro',
-    label: 'Caminhão Simples Graneleiro, 14 mts, 4 eixo(s)',
-    pesoMax: 33075,
-  },
-  {
-    value: 'ls_4eixo_cavalo_graneleiro',
-    label: 'LS 4º Eixo Cavalo Graneleiro, 18.15 mts, 7 eixo(s)',
-    pesoMax: 38000,
-  },
-  {
-    value: 'ls_simples_cacambda',
-    label: 'LS Simples Caçambda, 18.5 mts, 7 eixo(s)',
-    pesoMax: 35000,
-  },
-  {
-    value: 'ls_simples_graneleiro',
-    label: 'LS Simples Graneleiro, 18.15 mts, 5 eixo(s)',
-    pesoMax: 27000,
-  },
-  {
-    value: 'ls_trucada_graneleiro_6',
-    label: 'LS Trucada Graneleiro, 18.15 mts, 6 eixo(s)',
-    pesoMax: 32000,
-  },
-  {
-    value: 'ls_trucada_graneleiro_7',
-    label: 'LS Trucada Graneleiro, 18.15 mts, 7 eixo(s)',
-    pesoMax: 40000,
-  },
-  { value: 'rodotrem_cacamba_25', label: 'Rodotrem Caçamba, 25 mts, 9 eixo(s)', pesoMax: 47000 },
-  { value: 'rodotrem_cacamba_30', label: 'Rodotrem Caçamba, 30 mts, 9 eixo(s)', pesoMax: 47000 },
-  {
-    value: 'rodotrem_graneleiro_25',
-    label: 'Rodotrem Graneleiro, 25 mts, 9 eixo(s)',
-    pesoMax: 49000,
-  },
-  {
-    value: 'rodotrem_graneleiro_30',
-    label: 'Rodotrem Graneleiro, 30 mts, 9 eixo(s)',
-    pesoMax: 50000,
-  },
-  {
-    value: 'rodotrem_graneleiro_198',
-    label: 'Rodotrem Graneleiro, 19.8 mts, 9 eixo(s)',
-    pesoMax: 51000,
-  },
-  { value: 'toco_cacamba', label: 'Toco Caçambda, 30 mts, 10 eixo(s)', pesoMax: 100000 },
-  { value: 'toco_graneleiro', label: 'Toco Graneleiro, 14 mts, 2 eixo(s)', pesoMax: 16800 },
-  { value: 'trucado_graneleiro', label: 'Trucado Graneleiro, 14 mts, 3 eixo(s)', pesoMax: 24150 },
-  {
-    value: 'vanderleia_graneleiro',
-    label: 'Vanderléia Graneleiro, 18.6 mts, 5 eixo(s)',
-    pesoMax: 35000,
-  },
+  { value: 'bitrem_cacamba', label: 'Bitrem Caçamba' },
+  { value: 'bitrem_graneleiro', label: 'Bitrem Graneleiro' },
+  { value: 'caminhao_simples', label: 'Caminhão Simples' },
+  { value: 'ls_4eixo_cavalo', label: 'LS 4º Eixo Cavalo' },
+  { value: 'ls_simples_cacamba', label: 'LS Simples Caçamba' },
+  { value: 'ls_simples_graneleiro', label: 'LS Simples Graneleiro' },
+  { value: 'ls_trucada_6', label: 'LS Trucada 6 eixos' },
+  { value: 'ls_trucada_7', label: 'LS Trucada 7 eixos' },
+  { value: 'rodotrem_cacamba_25', label: 'Rodotrem Caçamba 25m' },
+  { value: 'rodotrem_cacamba_30', label: 'Rodotrem Caçamba 30m' },
+  { value: 'rodotrem_graneleiro_25', label: 'Rodotrem Graneleiro 25m' },
+  { value: 'rodotrem_graneleiro_30', label: 'Rodotrem Graneleiro 30m' },
+  { value: 'rodotrem_graneleiro_198', label: 'Rodotrem Graneleiro 19.8m' },
+  { value: 'toco_cacamba', label: 'Toco Caçamba' },
+  { value: 'toco_graneleiro', label: 'Toco Graneleiro' },
+  { value: 'trucado_graneleiro', label: 'Trucado Graneleiro' },
+  { value: 'vanderleia_graneleiro', label: 'Vanderléia Graneleiro' },
 ];
 
-const AGENDAMENTO_CARGA = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
-const AGENDAMENTO_DESCARGA = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
+const CARGO_TYPES = [
+  'Carga Geral',
+  'Granel',
+  'Refrigerada',
+  'Perigosa',
+  'Frágil',
+  'Container',
+  'Veículo',
+  'Mudança',
+  'Soja',
+  'Milho',
+  'Algodão',
+  'Fertilizante',
+  'Combustível',
+  'Cimento',
+  'Madeira',
+];
+
+const AGENDAMENTO = ['D0', 'D1', 'D2', 'D3', 'D4', 'D5'];
 
 interface FreteFormProps {
   embarcadorId: string;
@@ -76,35 +53,25 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Estados e cidades
   const [estados, setEstados] = useState<Estado[]>([]);
   const [origemUF, setOrigemUF] = useState('');
   const [origemCidades, setOrigemCidades] = useState<Cidade[]>([]);
   const [origemCidade, setOrigemCidade] = useState('');
+  const [origemCidadeFilter, setOrigemCidadeFilter] = useState('');
   const [destinoUF, setDestinoUF] = useState('');
   const [destinoCidades, setDestinoCidades] = useState<Cidade[]>([]);
   const [destinoCidade, setDestinoCidade] = useState('');
-
-  // Filtro de cidades
-  const [origemCidadeFilter, setOrigemCidadeFilter] = useState('');
   const [destinoCidadeFilter, setDestinoCidadeFilter] = useState('');
 
-  // Carga
   const [cargoType, setCargoType] = useState('');
-  const [customCargoType, setCustomCargoType] = useState('');
-  const [vehicleType, setVehicleType] = useState('');
-  const [weight, setWeight] = useState('');
-  const [value, setValue] = useState('');
+  const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
   const [specifications, setSpecifications] = useState('');
-
-  // Agendamento
   const [agendamentoCarga, setAgendamentoCarga] = useState('D0');
   const [agendamentoDescarga, setAgendamentoDescarga] = useState('D0');
 
   useEffect(() => {
     getEstados().then(setEstados).catch(console.error);
   }, []);
-
   useEffect(() => {
     if (origemUF) {
       getCidades(origemUF).then(setOrigemCidades).catch(console.error);
@@ -112,7 +79,6 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
       setOrigemCidadeFilter('');
     }
   }, [origemUF]);
-
   useEffect(() => {
     if (destinoUF) {
       getCidades(destinoUF).then(setDestinoCidades).catch(console.error);
@@ -121,11 +87,11 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
     }
   }, [destinoUF]);
 
-  // Auto-preenche peso quando seleciona veículo
-  useEffect(() => {
-    const vt = VEHICLE_TYPES.find((v) => v.value === vehicleType);
-    if (vt) setWeight(vt.pesoMax.toString());
-  }, [vehicleType]);
+  const toggleVehicle = (value: string) => {
+    setSelectedVehicles((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    );
+  };
 
   const filteredOrigemCidades = origemCidades.filter((c) =>
     c.nome.toLowerCase().includes(origemCidadeFilter.toLowerCase())
@@ -137,12 +103,6 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const finalCargoType = cargoType === 'outro' ? customCargoType : cargoType;
-    if (!finalCargoType) {
-      setError('Tipo de carga é obrigatório');
-      return;
-    }
     if (!origemUF || !origemCidade) {
       setError('Origem é obrigatória');
       return;
@@ -151,40 +111,32 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
       setError('Destino é obrigatório');
       return;
     }
-    if (!vehicleType) {
-      setError('Tipo de veículo é obrigatório');
+    if (!cargoType) {
+      setError('Tipo de carga é obrigatório');
       return;
     }
-    if (!weight || Number(weight) <= 0) {
-      setError('Peso é obrigatório');
-      return;
-    }
-    if (!value || Number(value) <= 0) {
-      setError('Valor é obrigatório');
+    if (selectedVehicles.length === 0) {
+      setError('Selecione pelo menos um tipo de veículo');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Geocodifica origem e destino
       const originStr = `${origemCidade}, ${origemUF}`;
       const destStr = `${destinoCidade}, ${destinoUF}`;
-
       let originLoc = { latitude: 0, longitude: 0 };
       let destLoc = { latitude: 0, longitude: 0 };
-
       try {
-        const originResults = await geocodeAddress(originStr);
-        if (originResults.length > 0) originLoc = originResults[0].point;
+        const r = await geocodeAddress(originStr);
+        if (r.length > 0) originLoc = r[0].point;
       } catch {
-        /* usa 0,0 como fallback */
+        /* fallback */
       }
-
       try {
-        const destResults = await geocodeAddress(destStr);
-        if (destResults.length > 0) destLoc = destResults[0].point;
+        const r = await geocodeAddress(destStr);
+        if (r.length > 0) destLoc = r[0].point;
       } catch {
-        /* usa 0,0 como fallback */
+        /* fallback */
       }
 
       await onSubmit({
@@ -193,13 +145,13 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
         originLocation: originLoc,
         destination: destStr,
         destinationLocation: destLoc,
-        cargoType: finalCargoType,
-        vehicleType,
-        weight: Number(weight),
-        value: Number(value),
+        cargoType,
+        vehicleType: selectedVehicles.join(', '),
+        weight: 0,
+        value: 0,
         deadline: new Date(),
-        loadingTime: AGENDAMENTO_CARGA.indexOf(agendamentoCarga),
-        unloadingTime: AGENDAMENTO_DESCARGA.indexOf(agendamentoDescarga),
+        loadingTime: AGENDAMENTO.indexOf(agendamentoCarga),
+        unloadingTime: AGENDAMENTO.indexOf(agendamentoDescarga),
         specifications: specifications || undefined,
       });
     } catch (err) {
@@ -226,7 +178,7 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
             <select
               value={origemUF}
               onChange={(e) => setOrigemUF(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
             >
               <option value="">Selecione</option>
               {estados.map((e) => (
@@ -241,10 +193,13 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
             <input
               type="text"
               value={origemCidadeFilter}
-              onChange={(e) => setOrigemCidadeFilter(e.target.value)}
+              onChange={(e) => {
+                setOrigemCidadeFilter(e.target.value);
+                setOrigemCidade('');
+              }}
               placeholder={origemUF ? 'Digite a cidade...' : 'Selecione o estado'}
               disabled={!origemUF}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 disabled:opacity-50"
             />
             {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
               <div className="mt-1 max-h-32 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg">
@@ -281,7 +236,7 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
             <select
               value={destinoUF}
               onChange={(e) => setDestinoUF(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
             >
               <option value="">Selecione</option>
               {estados.map((e) => (
@@ -296,10 +251,13 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
             <input
               type="text"
               value={destinoCidadeFilter}
-              onChange={(e) => setDestinoCidadeFilter(e.target.value)}
+              onChange={(e) => {
+                setDestinoCidadeFilter(e.target.value);
+                setDestinoCidade('');
+              }}
               placeholder={destinoUF ? 'Digite a cidade...' : 'Selecione o estado'}
               disabled={!destinoUF}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 disabled:opacity-50"
             />
             {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
               <div className="mt-1 max-h-32 overflow-y-auto bg-gray-700 border border-gray-600 rounded-lg">
@@ -327,75 +285,48 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
         </div>
       </div>
 
-      {/* Carga */}
+      {/* Tipo de Carga */}
       <div className="bg-gray-800 p-4 rounded-lg space-y-3">
-        <h3 className="text-sm font-semibold text-white">Detalhes da Carga</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Tipo de Carga *</label>
-            <select
-              value={cargoType}
-              onChange={(e) => setCargoType(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <h3 className="text-sm font-semibold text-white">Tipo de Carga *</h3>
+        <select
+          value={cargoType}
+          onChange={(e) => setCargoType(e.target.value)}
+          className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
+        >
+          <option value="">Selecione</option>
+          {CARGO_TYPES.map((t) => (
+            <option key={t} value={t}>
+              {t}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Tipo de Veículo - seleção múltipla */}
+      <div className="bg-gray-800 p-4 rounded-lg space-y-3">
+        <h3 className="text-sm font-semibold text-white">Tipos de Veículo Aceitos *</h3>
+        <p className="text-xs text-gray-400">
+          Selecione quais tipos de caminhão podem fazer este frete
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {VEHICLE_TYPES.map((v) => (
+            <button
+              key={v.value}
+              type="button"
+              onClick={() => toggleVehicle(v.value)}
+              className={`px-3 py-2 text-xs rounded-lg border transition-colors text-left ${
+                selectedVehicles.includes(v.value)
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-gray-500'
+              }`}
             >
-              <option value="">Selecione</option>
-              <option value="geral">Carga Geral</option>
-              <option value="granel">Granel</option>
-              <option value="refrigerada">Refrigerada</option>
-              <option value="perigosa">Perigosa</option>
-              <option value="fragil">Frágil</option>
-              <option value="container">Container</option>
-              <option value="veiculo">Veículo</option>
-              <option value="mudanca">Mudança</option>
-              <option value="outro">Outro (digitar)</option>
-            </select>
-            {cargoType === 'outro' && (
-              <input
-                type="text"
-                value={customCargoType}
-                onChange={(e) => setCustomCargoType(e.target.value)}
-                placeholder="Digite o tipo de carga"
-                className="mt-2 w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            )}
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Tipo de Veículo *</label>
-            <select
-              value={vehicleType}
-              onChange={(e) => setVehicleType(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Selecione</option>
-              {VEHICLE_TYPES.map((v) => (
-                <option key={v.value} value={v.value}>
-                  {v.label} - Carga: {v.pesoMax.toLocaleString('pt-BR')}kg
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Peso (kg) *</label>
-            <input
-              type="number"
-              value={weight}
-              onChange={(e) => setWeight(e.target.value)}
-              min={0}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">Valor (R$) *</label>
-            <input
-              type="number"
-              step="0.01"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              min={0}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
+              {v.label}
+            </button>
+          ))}
         </div>
+        {selectedVehicles.length > 0 && (
+          <p className="text-xs text-green-400">{selectedVehicles.length} tipo(s) selecionado(s)</p>
+        )}
       </div>
 
       {/* Agendamento */}
@@ -403,13 +334,13 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
         <h3 className="text-sm font-semibold text-white">Agendamento</h3>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Agendamento de Carga</label>
+            <label className="block text-xs text-gray-400 mb-1">Carga</label>
             <select
               value={agendamentoCarga}
               onChange={(e) => setAgendamentoCarga(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
             >
-              {AGENDAMENTO_CARGA.map((a) => (
+              {AGENDAMENTO.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -417,13 +348,13 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-400 mb-1">Agendamento de Descarga</label>
+            <label className="block text-xs text-gray-400 mb-1">Descarga</label>
             <select
               value={agendamentoDescarga}
               onChange={(e) => setAgendamentoDescarga(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white text-sm"
             >
-              {AGENDAMENTO_DESCARGA.map((a) => (
+              {AGENDAMENTO.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
@@ -440,8 +371,8 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
           value={specifications}
           onChange={(e) => setSpecifications(e.target.value)}
           rows={3}
-          placeholder="Informações adicionais sobre a carga..."
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Informações adicionais..."
+          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500"
         />
       </div>
 
