@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getEstados, getCidades, type Estado, type Cidade } from '../services/ibge';
+import { geocodeAddress } from '../services/geolocation';
 import type { CreateFreteData } from '../services/fretes';
 
 const VEHICLE_TYPES = [
@@ -165,12 +166,33 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
 
     setIsSubmitting(true);
     try {
+      // Geocodifica origem e destino
+      const originStr = `${origemCidade}, ${origemUF}`;
+      const destStr = `${destinoCidade}, ${destinoUF}`;
+
+      let originLoc = { latitude: 0, longitude: 0 };
+      let destLoc = { latitude: 0, longitude: 0 };
+
+      try {
+        const originResults = await geocodeAddress(originStr);
+        if (originResults.length > 0) originLoc = originResults[0].point;
+      } catch {
+        /* usa 0,0 como fallback */
+      }
+
+      try {
+        const destResults = await geocodeAddress(destStr);
+        if (destResults.length > 0) destLoc = destResults[0].point;
+      } catch {
+        /* usa 0,0 como fallback */
+      }
+
       await onSubmit({
         embarcadorId,
-        origin: `${origemCidade}, ${origemUF}`,
-        originLocation: { latitude: 0, longitude: 0 },
-        destination: `${destinoCidade}, ${destinoUF}`,
-        destinationLocation: { latitude: 0, longitude: 0 },
+        origin: originStr,
+        originLocation: originLoc,
+        destination: destStr,
+        destinationLocation: destLoc,
         cargoType: finalCargoType,
         vehicleType,
         weight: Number(weight),

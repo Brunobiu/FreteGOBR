@@ -302,16 +302,63 @@ function mapFreteFromDb(data: {
   created_at: string;
   updated_at: string;
 }): Frete {
-  // Parse PostGIS POINT format: "POINT(longitude latitude)"
+  // Parse PostGIS POINT format: "POINT(longitude latitude)" or WKB hex
   const parsePoint = (pointStr: string): GeographicPoint => {
+    // Try text format first: POINT(lng lat)
     const match = pointStr.match(/POINT\(([^ ]+) ([^ ]+)\)/);
-    if (!match) {
-      throw new Error(`Invalid point format: ${pointStr}`);
+    if (match) {
+      return {
+        longitude: parseFloat(match[1]),
+        latitude: parseFloat(match[2]),
+      };
     }
-    return {
-      longitude: parseFloat(match[1]),
-      latitude: parseFloat(match[2]),
-    };
+
+    // Try WKB hex format (PostGIS binary)
+    if (/^[0-9a-fA-F]+$/.test(pointStr) && pointStr.length >= 42) {
+      try {
+        // WKB POINT: byte order (2) + type (8) + SRID (8 optional) + X (16) + Y (16)
+        const isLittleEndian = pointStr.substring(0, 2) === '01';
+        let offset = 2; // skip byte order
+
+        // Check if EWKB (has SRID flag)
+        const typeHex = pointStr.substring(offset, offset + 8);
+        offset += 8;
+
+        // Parse type to check for SRID
+        const typeInt = isLittleEndian
+          ? parseInt(typeHex.match(/../g)!.reverse().join(''), 16)
+          : parseInt(typeHex, 16);
+
+        if (typeInt & 0x20000000) {
+          offset += 8; // skip SRID (4 bytes = 8 hex chars)
+        }
+
+        const xHex = pointStr.substring(offset, offset + 16);
+        offset += 16;
+        const yHex = pointStr.substring(offset, offset + 16);
+
+        const parseDouble = (hex: string, le: boolean): number => {
+          const bytes = hex.match(/../g)!;
+          if (le) bytes.reverse();
+          const buf = new ArrayBuffer(8);
+          const view = new DataView(buf);
+          bytes.forEach((b, i) => view.setUint8(i, parseInt(b, 16)));
+          return view.getFloat64(0);
+        };
+
+        const lng = parseDouble(xHex, isLittleEndian);
+        const lat = parseDouble(yHex, isLittleEndian);
+
+        if (!isNaN(lng) && !isNaN(lat)) {
+          return { longitude: lng, latitude: lat };
+        }
+      } catch {
+        // Fall through to default
+      }
+    }
+
+    // Default fallback
+    return { longitude: 0, latitude: 0 };
   };
 
   return {
