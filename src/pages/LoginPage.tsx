@@ -9,8 +9,6 @@ export function LoginPage() {
 
   const handleLogin = async (credentials: LoginCredentials) => {
     await login(credentials);
-    // Após login, o user é atualizado no context
-    // Redireciona baseado no localStorage (que já foi salvo pelo login)
     const stored = localStorage.getItem('fretego_user');
     if (stored) {
       const u = JSON.parse(stored);
@@ -20,14 +18,9 @@ export function LoginPage() {
     }
   };
 
-  // Se já logado, redireciona
   if (user) {
     navigate(user.userType === 'embarcador' ? '/embarcador' : '/');
   }
 
-  return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <LoginForm onSubmit={handleLogin} onRegisterClick={() => navigate('/register')} />
-    </div>
-  );
+  return <LoginForm onSubmit={handleLogin} onRegisterClick={() => navigate('/register')} />;
 }

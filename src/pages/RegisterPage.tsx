@@ -18,9 +18,5 @@ export function RegisterPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
-    </div>
-  );
+  return <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />;
 }

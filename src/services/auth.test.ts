@@ -71,26 +71,6 @@ describe('Unit Tests - AuthService', () => {
       await expect(register(invalidData)).rejects.toThrow('Senha deve ter no mínimo 6 caracteres');
     });
 
-    it('should reject password without letters', async () => {
-      const invalidData: RegisterData = {
-        ...validMotoristaData,
-        password: '123456',
-      };
-
-      await expect(register(invalidData)).rejects.toThrow(AuthError);
-      await expect(register(invalidData)).rejects.toThrow('Senha deve conter pelo menos 1 letra');
-    });
-
-    it('should reject password without numbers', async () => {
-      const invalidData: RegisterData = {
-        ...validMotoristaData,
-        password: 'abcdef',
-      };
-
-      await expect(register(invalidData)).rejects.toThrow(AuthError);
-      await expect(register(invalidData)).rejects.toThrow('Senha deve conter pelo menos 1 número');
-    });
-
     it('should reject embarcador registration without company name', async () => {
       const invalidData: RegisterData = {
         phone: '11988888888',

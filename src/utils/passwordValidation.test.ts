@@ -1,8 +1,6 @@
 /**
- * Property-Based Tests for Password Validation
- * Feature: fretego
- *
- * **Validates: Requirements 1.6, 3.3, 3.4**
+ * Tests for Password Validation
+ * Regra: mínimo 6 caracteres (sem exigência de letra/número)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -10,112 +8,19 @@ import fc from 'fast-check';
 import { validatePassword } from './passwordValidation';
 
 describe('Property Tests - Password Validation', () => {
-  /**
-   * Property 2: Password Validation Rules
-   *
-   * For any string, the password validator should accept it if and only if
-   * it has at least 6 characters, contains at least 1 letter, and contains at least 1 number.
-   *
-   * **Validates: Requirements 1.6, 3.3, 3.4**
-   */
-  it('Property 2: should accept passwords with 6+ chars, 1+ letter, 1+ number', () => {
+  it('aceita qualquer senha com 6+ caracteres', () => {
     fc.assert(
-      fc.property(fc.string({ minLength: 1, maxLength: 100 }), (password) => {
-        const hasMinLength = password.length >= 6;
-        const hasLetter = /[a-zA-Z]/.test(password);
-        const hasNumber = /[0-9]/.test(password);
-
-        const expectedValid = hasMinLength && hasLetter && hasNumber;
-        const result = validatePassword(password);
-
-        expect(result.isValid).toBe(expectedValid);
-        expect(result.hasMinLength).toBe(hasMinLength);
-        expect(result.hasLetter).toBe(hasLetter);
-        expect(result.hasNumber).toBe(hasNumber);
-      }),
-      { numRuns: 100 }
-    );
-  });
-
-  it('Property 2: should always accept valid passwords (6+ chars, letter, number)', () => {
-    // Generator for valid passwords
-    const validPasswordArbitrary = fc
-      .tuple(
-        fc
-          .array(
-            fc.constantFrom(...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')),
-            { minLength: 1 }
-          )
-          .map((arr) => arr.join('')),
-        fc
-          .array(fc.constantFrom(...'0123456789'.split('')), { minLength: 1 })
-          .map((arr) => arr.join('')),
-        fc.string({ minLength: 0, maxLength: 94 }) // Additional characters
-      )
-      .map(([letters, numbers, extra]) => {
-        // Shuffle to create realistic passwords
-        const combined = (letters + numbers + extra).split('');
-        for (let i = combined.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [combined[i], combined[j]] = [combined[j], combined[i]];
-        }
-        return combined.join('');
-      })
-      .filter((pwd) => pwd.length >= 6);
-
-    fc.assert(
-      fc.property(validPasswordArbitrary, (password) => {
+      fc.property(fc.string({ minLength: 6, maxLength: 100 }), (password) => {
         const result = validatePassword(password);
         expect(result.isValid).toBe(true);
+        expect(result.hasMinLength).toBe(true);
         expect(result.errors).toHaveLength(0);
       }),
       { numRuns: 100 }
     );
   });
 
-  it('Property 2: should always reject passwords without letters', () => {
-    const noLetterPasswordArbitrary = fc
-      .array(fc.constantFrom(...'0123456789!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split('')), {
-        minLength: 6,
-        maxLength: 100,
-      })
-      .map((arr) => arr.join(''));
-
-    fc.assert(
-      fc.property(noLetterPasswordArbitrary, (password) => {
-        const result = validatePassword(password);
-        expect(result.isValid).toBe(false);
-        expect(result.hasLetter).toBe(false);
-        expect(result.errors).toContain('Senha deve conter pelo menos 1 letra');
-      }),
-      { numRuns: 100 }
-    );
-  });
-
-  it('Property 2: should always reject passwords without numbers', () => {
-    const noNumberPasswordArbitrary = fc
-      .array(
-        fc.constantFrom(
-          ...'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+-=[]{}|;:,.<>?/~`'.split(
-            ''
-          )
-        ),
-        { minLength: 6, maxLength: 100 }
-      )
-      .map((arr) => arr.join(''));
-
-    fc.assert(
-      fc.property(noNumberPasswordArbitrary, (password) => {
-        const result = validatePassword(password);
-        expect(result.isValid).toBe(false);
-        expect(result.hasNumber).toBe(false);
-        expect(result.errors).toContain('Senha deve conter pelo menos 1 número');
-      }),
-      { numRuns: 100 }
-    );
-  });
-
-  it('Property 2: should always reject passwords shorter than 6 characters', () => {
+  it('rejeita qualquer senha com menos de 6 caracteres', () => {
     fc.assert(
       fc.property(fc.string({ minLength: 0, maxLength: 5 }), (password) => {
         const result = validatePassword(password);
@@ -126,61 +31,44 @@ describe('Property Tests - Password Validation', () => {
       { numRuns: 100 }
     );
   });
+
+  it('hasLetter e hasNumber são informativos mas não bloqueiam', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 6, maxLength: 50 }), (password) => {
+        const result = validatePassword(password);
+        expect(result.hasLetter).toBe(/[a-zA-Z]/.test(password));
+        expect(result.hasNumber).toBe(/[0-9]/.test(password));
+        // Mesmo sem letra ou número, é válido se tem 6+ chars
+        expect(result.isValid).toBe(true);
+      }),
+      { numRuns: 100 }
+    );
+  });
 });
 
 describe('Unit Tests - Password Validation', () => {
-  it('should reject password with less than 6 characters', () => {
-    const result = validatePassword('abc12');
+  it('rejeita senha curta', () => {
+    const result = validatePassword('abc');
     expect(result.isValid).toBe(false);
-    expect(result.hasMinLength).toBe(false);
-    expect(result.errors).toContain('Senha deve ter no mínimo 6 caracteres');
   });
 
-  it('should reject password without letters', () => {
+  it('aceita senha só com números (6+ chars)', () => {
     const result = validatePassword('123456');
-    expect(result.isValid).toBe(false);
-    expect(result.hasLetter).toBe(false);
-    expect(result.errors).toContain('Senha deve conter pelo menos 1 letra');
+    expect(result.isValid).toBe(true);
   });
 
-  it('should reject password without numbers', () => {
+  it('aceita senha só com letras (6+ chars)', () => {
     const result = validatePassword('abcdef');
-    expect(result.isValid).toBe(false);
-    expect(result.hasNumber).toBe(false);
-    expect(result.errors).toContain('Senha deve conter pelo menos 1 número');
+    expect(result.isValid).toBe(true);
   });
 
-  it('should accept valid password with minimum requirements', () => {
+  it('aceita senha mista', () => {
     const result = validatePassword('abc123');
     expect(result.isValid).toBe(true);
-    expect(result.hasMinLength).toBe(true);
-    expect(result.hasLetter).toBe(true);
-    expect(result.hasNumber).toBe(true);
-    expect(result.errors).toHaveLength(0);
   });
 
-  it('should accept password with special characters', () => {
-    const result = validatePassword('abc123!@#');
-    expect(result.isValid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
-
-  it('should accept password with uppercase and lowercase letters', () => {
-    const result = validatePassword('AbC123');
-    expect(result.isValid).toBe(true);
-    expect(result.errors).toHaveLength(0);
-  });
-
-  it('should reject empty password', () => {
+  it('rejeita senha vazia', () => {
     const result = validatePassword('');
     expect(result.isValid).toBe(false);
-    expect(result.errors.length).toBeGreaterThan(0);
-  });
-
-  it('should provide all applicable error messages', () => {
-    const result = validatePassword('ab');
-    expect(result.isValid).toBe(false);
-    expect(result.errors).toContain('Senha deve ter no mínimo 6 caracteres');
-    expect(result.errors).toContain('Senha deve conter pelo menos 1 número');
   });
 });

@@ -30,19 +30,11 @@ export function validatePassword(password: string): PasswordValidation {
     errors.push('Senha deve ter no mínimo 6 caracteres');
   }
 
-  // Check for at least one letter
+  // Letra e número não são mais obrigatórios
   const hasLetter = /[a-zA-Z]/.test(password);
-  if (!hasLetter) {
-    errors.push('Senha deve conter pelo menos 1 letra');
-  }
-
-  // Check for at least one number
   const hasNumber = /[0-9]/.test(password);
-  if (!hasNumber) {
-    errors.push('Senha deve conter pelo menos 1 número');
-  }
 
-  const isValid = hasMinLength && hasLetter && hasNumber;
+  const isValid = hasMinLength;
 
   return {
     isValid,
