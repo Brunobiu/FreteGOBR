@@ -1,7 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { Frete } from '../services/fretes';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { getDocumentsByUser } from '../services/documents';
+
+const REQUIRED_DOCS = [
+  'cpf',
+  'cnh',
+  'antt',
+  'vehicle_registration',
+  'vehicle_insurance',
+  'profile_photo',
+];
 
 interface FreteModalProps {
   frete: Frete | null;
@@ -18,6 +28,8 @@ export default function FreteModal({
 }: FreteModalProps) {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
+  const [checkingProfile, setCheckingProfile] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,11 +37,25 @@ export default function FreteModal({
     } else {
       document.body.style.overflow = 'unset';
     }
-
     return () => {
       document.body.style.overflow = 'unset';
     };
   }, [isOpen]);
+
+  // Verifica perfil completo quando motorista logado abre o modal
+  useEffect(() => {
+    if (isOpen && isAuthenticated && user?.userType === 'motorista') {
+      setCheckingProfile(true);
+      getDocumentsByUser(user.id)
+        .then((docs) => {
+          const docTypes = docs.map((d) => d.documentType);
+          const allDone = REQUIRED_DOCS.every((r) => docTypes.includes(r));
+          setProfileComplete(allDone);
+        })
+        .catch(() => setProfileComplete(false))
+        .finally(() => setCheckingProfile(false));
+    }
+  }, [isOpen, isAuthenticated, user]);
 
   if (!isOpen || !frete) return null;
 
@@ -63,6 +89,17 @@ export default function FreteModal({
 
     if (user?.userType !== 'motorista') {
       alert('Apenas motoristas podem contratar fretes');
+      return;
+    }
+
+    if (profileComplete === false) {
+      if (
+        confirm(
+          'Seu perfil precisa estar 100% completo para contratar fretes. Deseja completar agora?'
+        )
+      ) {
+        navigate('/perfil/motorista');
+      }
       return;
     }
 
@@ -199,14 +236,42 @@ export default function FreteModal({
               >
                 Fechar
               </button>
+
+              {isAuthenticated &&
+                user?.userType === 'motorista' &&
+                profileComplete === false &&
+                !checkingProfile && (
+                  <div className="flex items-center px-4 py-2 bg-yellow-900/30 border border-yellow-700/50 rounded-lg">
+                    <svg
+                      className="w-4 h-4 text-yellow-400 mr-2 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span className="text-xs text-yellow-300">
+                      Complete seu perfil para contratar
+                    </span>
+                  </div>
+                )}
+
               <button
                 onClick={handleContratar}
-                className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 flex items-center"
+                disabled={checkingProfile}
+                className="px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 flex items-center disabled:opacity-50"
               >
                 <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                 </svg>
-                {isAuthenticated ? 'Contratar via WhatsApp' : 'Fazer Login para Contratar'}
+                {!isAuthenticated
+                  ? 'Fazer Login para Contratar'
+                  : checkingProfile
+                    ? 'Verificando...'
+                    : 'Contratar via WhatsApp'}
               </button>
             </div>
           </div>

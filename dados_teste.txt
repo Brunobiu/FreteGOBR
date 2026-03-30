@@ -1,0 +1,24 @@
+========================================
+  FreteGO - Dados de Teste
+========================================
+
+Link: http://localhost:5173/
+
+--- EMBARCADOR ---
+Telefone: 
+Senha: 
+Nome: 
+Empresa: 
+
+--- MOTORISTA ---
+Telefone: 
+Senha: 
+Nome: 
+
+========================================
+  Notas
+========================================
+- Acesse http://localhost:5173/ pra ver os fretes
+- Clique "Cadastrar" no canto superior direito
+- Motorista precisa perfil 100% completo pra contratar frete
+- Formato do telefone pra login: só os números (ex: 62994757249)
