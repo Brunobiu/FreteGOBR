@@ -6,17 +6,15 @@ import HomePage from './pages/HomePage';
 import MotoristaPerfilPage from './pages/MotoristaPerfilPage';
 import EmbarcadorPage from './pages/EmbarcadorPage';
 import EmbarcadorPerfilPage from './pages/EmbarcadorPerfilPage';
+import ChatWidget from './components/ChatWidget';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Página principal: listagem de fretes (pública) */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
-        {/* Perfil do motorista (protegida) */}
         <Route
           path="/perfil/motorista"
           element={
@@ -25,8 +23,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Página principal do embarcador (protegida) */}
         <Route
           path="/embarcador"
           element={
@@ -35,8 +31,6 @@ function App() {
             </ProtectedRoute>
           }
         />
-
-        {/* Perfil do embarcador (protegida) */}
         <Route
           path="/perfil/embarcador"
           element={
@@ -46,6 +40,7 @@ function App() {
           }
         />
       </Routes>
+      <ChatWidget />
     </BrowserRouter>
   );
 }

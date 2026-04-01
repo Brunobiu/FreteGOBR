@@ -448,7 +448,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 20. Checkpoint - Features principais completas
+- [x] 20. Checkpoint - Features principais completas
   - Verificar que mapa exibe fretes corretamente
   - Verificar que sugestão de viagem funciona
   - Verificar que calculadora compara rotas
@@ -456,8 +456,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - Ensure all tests pass, ask the user if questions arise.
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 21. Chat de suporte - Backend
-  - [ ] 21.1 Implementar ChatService
+- [x] 21. Chat de suporte - Backend
+  - [x] 21.1 Implementar ChatService
     - Implementar createConversation(userId)
     - Implementar sendMessage(conversationId, senderId, message, isAdmin)
     - Implementar getMessages(conversationId)
@@ -465,7 +465,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
     - Implementar updateConversationStatus(conversationId, status)
     - _Requirements: 13.1, 13.2, 13.5, 13.8_
   
-  - [ ] 21.2 Configurar Supabase Realtime para chat
+  - [x] 21.2 Configurar Supabase Realtime para chat
     - Habilitar Realtime no canal de chat_messages
     - Implementar listeners para novas mensagens
     - _Requirements: 13.2, 13.3_
@@ -476,13 +476,13 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 22. Chat de suporte - Frontend
-  - [ ] 22.1 Criar componente ChatWidget
+- [-] 22. Chat de suporte - Frontend
+  - [x] 22.1 Criar componente ChatWidget
     - Botão flutuante de suporte
     - Badge de notificações não lidas
     - _Requirements: 13.1, 13.4_
   
-  - [ ] 22.2 Criar componente ChatWindow
+  - [x] 22.2 Criar componente ChatWindow
     - Interface de chat com histórico
     - Input para enviar mensagens
     - Indicador "digitando..."
