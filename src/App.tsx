@@ -6,6 +6,7 @@ import HomePage from './pages/HomePage';
 import MotoristaPerfilPage from './pages/MotoristaPerfilPage';
 import EmbarcadorPage from './pages/EmbarcadorPage';
 import EmbarcadorPerfilPage from './pages/EmbarcadorPerfilPage';
+import AdminPage from './pages/AdminPage';
 import ChatWidget from './components/ChatWidget';
 
 function App() {
@@ -36,6 +37,14 @@ function App() {
           element={
             <ProtectedRoute>
               <EmbarcadorPerfilPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute>
+              <AdminPage />
             </ProtectedRoute>
           }
         />

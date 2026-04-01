@@ -529,15 +529,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 24. Dashboard Admin - Métricas
-  - [ ] 24.1 Implementar AnalyticsService
+- [x] 24. Dashboard Admin - Métricas
+  - [x] 24.1 Implementar AnalyticsService
     - Implementar getPlatformMetrics()
     - Implementar getUserGrowth(startDate, endDate)
     - Implementar getFreteGrowth(startDate, endDate)
     - Implementar getOnlineUsers()
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 14.7, 14.9_
   
-  - [ ] 24.2 Criar componente AdminDashboard
+  - [x] 24.2 Criar componente AdminDashboard
     - Cards com métricas principais
     - Gráficos de crescimento (usar recharts ou similar)
     - Atualização em tempo real
@@ -550,20 +550,20 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 25. Dashboard Admin - Gerenciamento
-  - [ ] 25.1 Criar página de gerenciamento de usuários
+- [x] 25. Dashboard Admin - Gerenciamento
+  - [x] 25.1 Criar página de gerenciamento de usuários
     - Lista de todos os usuários
     - Filtros e busca
     - Ações: visualizar, editar, desativar
     - _Requirements: 15.1, 15.2, 15.3, 15.4, 15.5, 15.6_
   
-  - [ ] 25.2 Criar página de gerenciamento de fretes
+  - [x] 25.2 Criar página de gerenciamento de fretes
     - Lista de todos os fretes
     - Filtros por status, data, valor
     - Ações: visualizar, editar, remover
     - _Requirements: 16.1, 16.2, 16.3, 16.4, 16.5, 16.6, 16.7_
   
-  - [ ] 25.3 Criar página de logs e auditoria
+  - [x] 25.3 Criar página de logs e auditoria
     - Lista de eventos do sistema
     - Filtros por data e tipo
     - Exibir detalhes de cada evento
