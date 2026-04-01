@@ -504,21 +504,21 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 23. Sistema de notificações
-  - [ ] 23.1 Implementar NotificationService
+- [-] 23. Sistema de notificações
+  - [x] 23.1 Implementar NotificationService
     - Criar notificação para novo frete
     - Criar notificação para clique em frete
     - Criar notificação para resposta de suporte
     - Criar notificação para nova avaliação
     - _Requirements: 18.1, 18.2, 18.3, 18.4_
   
-  - [ ] 23.2 Criar componente NotificationBell
+  - [x] 23.2 Criar componente NotificationBell
     - Badge com contagem de não lidas
     - Dropdown com lista de notificações
     - Marcar como lida ao clicar
     - _Requirements: 18.5, 18.6_
   
-  - [ ] 23.3 Implementar navegação por notificações
+  - [x] 23.3 Implementar navegação por notificações
     - Redirecionar para página relevante ao clicar
     - _Requirements: 18.6_
   
