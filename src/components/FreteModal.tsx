@@ -53,7 +53,9 @@ export default function FreteModal({
       getDocumentsByUser(user.id)
         .then((docs) => {
           const docTypes = docs.map((d) => d.documentType);
-          const allDone = REQUIRED_DOCS.every((r) => docTypes.includes(r));
+          const allDone = REQUIRED_DOCS.every((r) =>
+            docTypes.includes(r as (typeof docTypes)[number])
+          );
           setProfileComplete(allDone);
         })
         .catch(() => setProfileComplete(false))

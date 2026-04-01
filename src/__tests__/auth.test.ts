@@ -11,7 +11,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { register, login, logout, AuthError } from '../services/auth';
 import type { RegisterData, LoginCredentials } from '../types';
-import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import type {
+  User as SupabaseUser,
+  Session,
+  AuthError as SupabaseAuthError,
+} from '@supabase/supabase-js';
 
 // Mock Supabase
 vi.mock('../services/supabase', () => ({
@@ -195,7 +199,13 @@ describe('Unit Tests - AuthService', () => {
 
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
         data: { user: null, session: null },
-        error: { message: 'Invalid credentials', name: 'AuthError', status: 400 },
+        error: {
+          message: 'Invalid credentials',
+          name: 'AuthError',
+          status: 400,
+          code: 'invalid_credentials',
+          __isAuthError: true,
+        } as unknown as SupabaseAuthError,
       });
 
       await expect(login(validCredentials)).rejects.toThrow(AuthError);
@@ -336,7 +346,13 @@ describe('Unit Tests - AuthService', () => {
       const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signOut).mockResolvedValue({
-        error: { message: 'Logout failed', name: 'AuthError', status: 500 },
+        error: {
+          message: 'Logout failed',
+          name: 'AuthError',
+          status: 500,
+          code: 'logout_failed',
+          __isAuthError: true,
+        } as unknown as SupabaseAuthError,
       });
 
       await expect(logout('test-user-id')).rejects.toThrow(AuthError);
