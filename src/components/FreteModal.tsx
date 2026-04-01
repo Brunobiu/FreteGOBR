@@ -3,6 +3,8 @@ import type { Frete } from '../services/fretes';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { getDocumentsByUser } from '../services/documents';
+import RatingDisplay from './RatingDisplay';
+import { getEmbarcadorProfile } from '../services/embarcador';
 
 const REQUIRED_DOCS = [
   'cpf',
@@ -30,6 +32,8 @@ export default function FreteModal({
   const navigate = useNavigate();
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const [checkingProfile, setCheckingProfile] = useState(false);
+  const [embarcadorRating, setEmbarcadorRating] = useState(0);
+  const [embarcadorTotalRatings, setEmbarcadorTotalRatings] = useState(0);
 
   useEffect(() => {
     if (isOpen) {
@@ -55,7 +59,18 @@ export default function FreteModal({
         .catch(() => setProfileComplete(false))
         .finally(() => setCheckingProfile(false));
     }
-  }, [isOpen, isAuthenticated, user]);
+    // Carrega rating do embarcador
+    if (isOpen && frete) {
+      getEmbarcadorProfile(frete.embarcadorId)
+        .then((p) => {
+          if (p) {
+            setEmbarcadorRating(p.rating);
+            setEmbarcadorTotalRatings(p.totalRatings);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, isAuthenticated, user, frete]);
 
   if (!isOpen || !frete) return null;
 
@@ -226,6 +241,16 @@ export default function FreteModal({
                 </svg>
                 {frete.clicksCount} cliques
               </span>
+            </div>
+
+            {/* Avaliações do Embarcador */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white mb-3">Avaliações do Embarcador</h3>
+              <RatingDisplay
+                embarcadorId={frete.embarcadorId}
+                rating={embarcadorRating}
+                totalRatings={embarcadorTotalRatings}
+              />
             </div>
 
             {/* Action Button */}

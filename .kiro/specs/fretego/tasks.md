@@ -420,20 +420,20 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 19. Sistema de avaliação
-  - [ ] 19.1 Implementar RatingService
+- [x] 19. Sistema de avaliação
+  - [x] 19.1 Implementar RatingService
     - Implementar createRating(motoristaId, embarcadorId, rating, comment)
     - Implementar getRatingsByEmbarcador(embarcadorId)
     - Implementar hasRated(motoristaId, embarcadorId)
     - _Requirements: 9.1, 9.2, 9.6_
   
-  - [ ] 19.2 Criar componente RatingForm
+  - [x] 19.2 Criar componente RatingForm
     - Seleção de estrelas (1-5)
     - Campo opcional para comentário
     - Validação
     - _Requirements: 9.1, 9.2_
   
-  - [ ] 19.3 Criar componente RatingDisplay
+  - [x] 19.3 Criar componente RatingDisplay
     - Exibir média de avaliações
     - Listar todas as avaliações com comentários
     - _Requirements: 9.5_
