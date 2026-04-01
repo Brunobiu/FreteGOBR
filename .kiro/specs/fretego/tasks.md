@@ -576,8 +576,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 26. Configurações de conta
-  - [ ] 26.1 Criar página de configurações
+- [x] 26. Configurações de conta
+  - [x] 26.1 Criar página de configurações
     - Seção para trocar senha
     - Seção para atualizar dados do perfil
     - Seção para gerenciar notificações
@@ -592,19 +592,19 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 27. Segurança e sanitização
-  - [ ] 27.1 Implementar sanitização de inputs
+  - [x] 27.1 Implementar sanitização de inputs
     - Prevenir SQL injection
     - Prevenir XSS
     - _Requirements: 1.7_
   
-  - [ ] 27.2 Configurar headers de segurança
+  - [x] 27.2 Configurar headers de segurança
     - CORS
     - CSP (Content Security Policy)
     - HSTS
     - X-Frame-Options
     - _Requirements: 1.9_
   
-  - [ ] 27.3 Implementar rate limiting
+  - [x] 27.3 Implementar rate limiting
     - Limitar requisições por IP
     - Prevenir DDoS
     - _Requirements: 1.8_
@@ -621,13 +621,13 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 28. Logs e auditoria
-  - [ ] 28.1 Implementar sistema de logs
+  - [x] 28.1 Implementar sistema de logs
     - Registrar logins e tentativas falhas
     - Registrar acessos não autorizados
     - Registrar modificações de dados
     - _Requirements: 22.1, 22.2, 22.3, 22.7_
   
-  - [ ] 28.2 Configurar retenção de logs
+  - [x] 28.2 Configurar retenção de logs
     - Manter logs por 90 dias
     - _Requirements: 22.8_
   
@@ -638,13 +638,13 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 29. Tratamento de erros
-  - [ ] 29.1 Implementar error handlers globais
+- [-] 29. Tratamento de erros
+  - [x] 29.1 Implementar error handlers globais
     - Frontend: ErrorBoundary
     - Backend: middleware de erro
     - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5_
   
-  - [ ] 29.2 Implementar retry logic
+  - [x] 29.2 Implementar retry logic
     - Retry com exponential backoff para operações de rede
     - Circuit breaker para serviços externos
     - _Requirements: 24.6_
@@ -657,7 +657,7 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   - **RODAR TESTES**: `npm test -- --run`
 
 - [ ] 30. Serialização e validação
-  - [ ] 30.1 Implementar schemas Zod para todos os tipos
+  - [x] 30.1 Implementar schemas Zod para todos os tipos
     - Schema para User, Motorista, Embarcador, Frete
     - Validação em formulários
     - Validação em API
