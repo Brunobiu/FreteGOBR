@@ -674,25 +674,25 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 31. Checkpoint - Sistema completo
+- [x] 31. Checkpoint - Sistema completo
   - Verificar que todas as funcionalidades estão implementadas
   - Verificar que todos os testes passam
   - Verificar segurança e performance
   - Ensure all tests pass, ask the user if questions arise.
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 32. Otimização de performance
-  - [ ] 32.1 Implementar lazy loading
+- [x] 32. Otimização de performance
+  - [x] 32.1 Implementar lazy loading
     - Lazy load de componentes
     - Lazy load de imagens
     - _Requirements: 23.6_
   
-  - [ ] 32.2 Implementar caching
+  - [x] 32.2 Implementar caching
     - Cache de queries com React Query
     - Cache de assets estáticos
     - _Requirements: 23.7_
   
-  - [ ] 32.3 Otimizar imagens
+  - [x] 32.3 Otimizar imagens
     - Compressão de imagens
     - Formatos modernos (WebP)
     - _Requirements: 23.8_
@@ -704,8 +704,8 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 33. Responsividade
-  - [ ] 33.1 Implementar layouts responsivos
+- [x] 33. Responsividade
+  - [x] 33.1 Implementar layouts responsivos
     - Mobile-first design
     - Breakpoints para tablet e desktop
     - _Requirements: 23.1, 23.2, 23.3_
@@ -725,18 +725,18 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 35. Deploy e CI/CD
-  - [ ] 35.1 Configurar deploy no Vercel
+- [x] 35. Deploy e CI/CD
+  - [x] 35.1 Configurar deploy no Vercel
     - Conectar repositório GitHub
     - Configurar variáveis de ambiente
     - Configurar domínio
   
-  - [ ] 35.2 Configurar CI/CD
+  - [x] 35.2 Configurar CI/CD
     - GitHub Actions para rodar testes
     - Deploy automático em merge para main
     - Preview deploys para PRs
   
-  - [ ] 35.3 Configurar monitoramento
+  - [x] 35.3 Configurar monitoramento
     - Error tracking (Sentry ou similar)
     - Analytics (Google Analytics ou similar)
     - Performance monitoring

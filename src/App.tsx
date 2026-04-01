@@ -1,14 +1,31 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
-import MotoristaPerfilPage from './pages/MotoristaPerfilPage';
-import EmbarcadorPage from './pages/EmbarcadorPage';
-import EmbarcadorPerfilPage from './pages/EmbarcadorPerfilPage';
-import AdminPage from './pages/AdminPage';
-import ConfiguracoesPage from './pages/ConfiguracoesPage';
 import ChatWidget from './components/ChatWidget';
+
+// Lazy load pages
+const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
+const EmbarcadorPage = lazy(() => import('./pages/EmbarcadorPage'));
+const EmbarcadorPerfilPage = lazy(() => import('./pages/EmbarcadorPerfilPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
+
+function LazyRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+          <div className="text-gray-400">Carregando...</div>
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 function App() {
   return (
@@ -21,7 +38,9 @@ function App() {
           path="/perfil/motorista"
           element={
             <ProtectedRoute>
-              <MotoristaPerfilPage />
+              <LazyRoute>
+                <MotoristaPerfilPage />
+              </LazyRoute>
             </ProtectedRoute>
           }
         />
@@ -29,7 +48,9 @@ function App() {
           path="/embarcador"
           element={
             <ProtectedRoute>
-              <EmbarcadorPage />
+              <LazyRoute>
+                <EmbarcadorPage />
+              </LazyRoute>
             </ProtectedRoute>
           }
         />
@@ -37,7 +58,9 @@ function App() {
           path="/perfil/embarcador"
           element={
             <ProtectedRoute>
-              <EmbarcadorPerfilPage />
+              <LazyRoute>
+                <EmbarcadorPerfilPage />
+              </LazyRoute>
             </ProtectedRoute>
           }
         />
@@ -45,7 +68,9 @@ function App() {
           path="/admin"
           element={
             <ProtectedRoute>
-              <AdminPage />
+              <LazyRoute>
+                <AdminPage />
+              </LazyRoute>
             </ProtectedRoute>
           }
         />
@@ -53,7 +78,9 @@ function App() {
           path="/configuracoes"
           element={
             <ProtectedRoute>
-              <ConfiguracoesPage />
+              <LazyRoute>
+                <ConfiguracoesPage />
+              </LazyRoute>
             </ProtectedRoute>
           }
         />
