@@ -395,15 +395,15 @@ Este plano divide a implementação do FreteGO em 25 fases incrementais e indepe
   
   - **RODAR TESTES**: `npm test -- --run`
 
-- [ ] 18. Calculadora de frete
-  - [ ] 18.1 Implementar cálculo de rotas
+- [x] 18. Calculadora de frete
+  - [x] 18.1 Implementar cálculo de rotas
     - Calcular distância total
     - Estimar tempo de viagem
     - Calcular dias totais (viagem + carga/descarga)
     - Calcular lucro por dia
     - _Requirements: 12.2, 12.3, 12.4, 12.5, 12.6_
   
-  - [ ] 18.2 Criar componente FreteCalculator
+  - [x] 18.2 Criar componente FreteCalculator
     - Permitir seleção de até 5 fretes
     - Exibir comparação lado a lado
     - Usar localização atual ou manual

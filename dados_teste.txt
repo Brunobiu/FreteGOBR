@@ -5,7 +5,7 @@
 Link: http://localhost:5173/
 
 --- EMBARCADOR ---
-Telefone: 
+Telefone: (65) 4 5465-4131
 Senha: 
 Nome: 
 Empresa: 
