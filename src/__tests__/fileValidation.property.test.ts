@@ -8,7 +8,12 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { validateFile, validateFileSize, validateFileType, formatFileSize } from './fileValidation';
+import {
+  validateFile,
+  validateFileSize,
+  validateFileType,
+  formatFileSize,
+} from '../utils/fileValidation';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 

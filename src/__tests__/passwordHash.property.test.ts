@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { hashPassword, verifyPassword } from './passwordHash';
+import { hashPassword, verifyPassword } from '../utils/passwordHash';
 
 describe('Password Hashing - Property Tests', () => {
   it('Property: hashed password should verify correctly with original password', async () => {

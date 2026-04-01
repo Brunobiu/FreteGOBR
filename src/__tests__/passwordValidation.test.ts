@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import fc from 'fast-check';
-import { validatePassword } from './passwordValidation';
+import { validatePassword } from '../utils/passwordValidation';
 
 describe('Property Tests - Password Validation', () => {
   it('aceita qualquer senha com 6+ caracteres', () => {

@@ -5,7 +5,7 @@
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { validatePassword } from './passwordValidation';
+import { validatePassword } from '../utils/passwordValidation';
 
 describe('Property 2: Password Validation Rules (simplificada)', () => {
   it('isValid === (length >= 6)', () => {

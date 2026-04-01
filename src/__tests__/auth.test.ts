@@ -9,12 +9,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { register, login, logout, AuthError } from './auth';
+import { register, login, logout, AuthError } from '../services/auth';
 import type { RegisterData, LoginCredentials } from '../types';
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
 
 // Mock Supabase
-vi.mock('./supabase', () => ({
+vi.mock('../services/supabase', () => ({
   supabase: {
     auth: {
       signUp: vi.fn(),
@@ -88,7 +88,7 @@ describe('Unit Tests - AuthService', () => {
 
     it('should accept valid motorista registration data', async () => {
       // This test validates the structure, actual Supabase calls are mocked
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: {
@@ -147,7 +147,7 @@ describe('Unit Tests - AuthService', () => {
     });
 
     it('should accept valid embarcador registration data', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signUp).mockResolvedValue({
         data: {
@@ -191,7 +191,7 @@ describe('Unit Tests - AuthService', () => {
     };
 
     it('should reject invalid credentials', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
         data: { user: null, session: null },
@@ -203,7 +203,7 @@ describe('Unit Tests - AuthService', () => {
     });
 
     it('should successfully login with valid credentials', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       const mockUser: SupabaseUser = {
         id: 'test-user-id',
@@ -265,7 +265,7 @@ describe('Unit Tests - AuthService', () => {
     });
 
     it('should reject login for inactive user', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signInWithPassword).mockResolvedValue({
         data: {
@@ -317,7 +317,7 @@ describe('Unit Tests - AuthService', () => {
 
   describe('logout', () => {
     it('should successfully logout user', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signOut).mockResolvedValue({ error: null });
 
@@ -333,7 +333,7 @@ describe('Unit Tests - AuthService', () => {
     });
 
     it('should handle logout errors', async () => {
-      const { supabase } = await import('./supabase');
+      const { supabase } = await import('../services/supabase');
 
       vi.mocked(supabase.auth.signOut).mockResolvedValue({
         error: { message: 'Logout failed', name: 'AuthError', status: 500 },
