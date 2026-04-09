@@ -9,6 +9,7 @@ import {
   subscribeToMessages,
   type ChatMessage,
 } from '../services/chat';
+import InputValidator, { INPUT_LIMITS } from '../utils/inputValidator';
 
 export default function ChatWidget() {
   const { user, isAuthenticated } = useAuth();
@@ -182,29 +183,45 @@ export default function ChatWidget() {
 
           {/* Input */}
           <div className="px-3 py-3 border-t border-gray-800">
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                placeholder="Digite sua mensagem..."
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-              <button
-                onClick={handleSend}
-                disabled={isSending || !newMessage.trim()}
-                className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                  />
-                </svg>
-              </button>
+            <div className="flex flex-col space-y-1">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    if (value.length <= INPUT_LIMITS.MAX_CHAT_MESSAGE) {
+                      const validation = InputValidator.validateChatMessage(value);
+                      if (validation.isValid || value.length === 0) {
+                        setNewMessage(value);
+                      } else {
+                        setNewMessage(validation.sanitizedValue);
+                      }
+                    }
+                  }}
+                  onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                  maxLength={INPUT_LIMITS.MAX_CHAT_MESSAGE}
+                  placeholder="Digite sua mensagem..."
+                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={isSending || !newMessage.trim()}
+                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                    />
+                  </svg>
+                </button>
+              </div>
+              <span className="text-[10px] text-gray-500 text-right">
+                {newMessage.length}/{INPUT_LIMITS.MAX_CHAT_MESSAGE}
+              </span>
             </div>
           </div>
         </div>

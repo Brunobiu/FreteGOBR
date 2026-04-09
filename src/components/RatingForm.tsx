@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createRating } from '../services/ratings';
+import InputValidator, { INPUT_LIMITS } from '../utils/inputValidator';
 
 interface RatingFormProps {
   motoristaId: string;
@@ -67,10 +68,26 @@ export default function RatingForm({
 
       {/* Comentário */}
       <div>
-        <label className="block text-sm text-gray-400 mb-1">Comentário (opcional)</label>
+        <label className="block text-sm text-gray-400 mb-1">
+          Comentário (opcional)
+          <span className="text-gray-500 ml-1">
+            ({comment.length}/{INPUT_LIMITS.MAX_RATING_COMMENT})
+          </span>
+        </label>
         <textarea
           value={comment}
-          onChange={(e) => setComment(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= INPUT_LIMITS.MAX_RATING_COMMENT) {
+              const validation = InputValidator.validateRatingComment(value);
+              if (validation.isValid || value.length === 0) {
+                setComment(value);
+              } else {
+                setComment(validation.sanitizedValue);
+              }
+            }
+          }}
+          maxLength={INPUT_LIMITS.MAX_RATING_COMMENT}
           rows={3}
           placeholder="Como foi sua experiência?"
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500"

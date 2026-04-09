@@ -2,11 +2,28 @@
  * Password Hashing Utility
  *
  * Provides secure password hashing and verification using bcrypt
+ * 
+ * Security Configuration:
+ * - Cost factor (salt rounds): 12 (recommended minimum for production)
+ * - Higher cost factor = more secure but slower
+ * - Cost factor 12 takes ~250ms on modern hardware
+ * - Consider increasing to 14 when hardware allows
  */
 
 import bcrypt from 'bcryptjs';
 
-const SALT_ROUNDS = 10;
+/**
+ * Bcrypt cost factor (salt rounds)
+ * 
+ * Security recommendation: minimum 12 for production
+ * - 10 = ~100ms (too fast, vulnerable to brute force)
+ * - 12 = ~250ms (recommended minimum)
+ * - 14 = ~1s (more secure, use if performance allows)
+ */
+export const BCRYPT_COST_FACTOR = 12;
+
+// Alias for backward compatibility
+const SALT_ROUNDS = BCRYPT_COST_FACTOR;
 
 /**
  * Hashes a password using bcrypt

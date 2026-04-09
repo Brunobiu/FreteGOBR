@@ -52,33 +52,33 @@ describe('Unit Tests - AuthService', () => {
   describe('register', () => {
     const validMotoristaData: RegisterData = {
       phone: '11999999999',
-      password: 'senha123',
+      password: 'Senha123!',
       name: 'João Silva',
       userType: 'motorista',
     };
 
     const validEmbarcadorData: RegisterData = {
       phone: '11988888888',
-      password: 'senha123',
+      password: 'Senha123!',
       name: 'Maria Santos',
       userType: 'embarcador',
       companyName: 'Transportes ABC',
     };
 
-    it('should reject password with less than 6 characters', async () => {
+    it('should reject password with less than 8 characters', async () => {
       const invalidData: RegisterData = {
         ...validMotoristaData,
-        password: 'abc12',
+        password: 'Ab1!xyz',
       };
 
       await expect(register(invalidData)).rejects.toThrow(AuthError);
-      await expect(register(invalidData)).rejects.toThrow('Senha deve ter no mínimo 6 caracteres');
+      await expect(register(invalidData)).rejects.toThrow('Senha deve ter no mínimo 8 caracteres');
     });
 
     it('should reject embarcador registration without company name', async () => {
       const invalidData: RegisterData = {
         phone: '11988888888',
-        password: 'senha123',
+        password: 'Senha123!',
         name: 'Maria Santos',
         userType: 'embarcador',
         // Missing companyName
@@ -209,7 +209,7 @@ describe('Unit Tests - AuthService', () => {
       });
 
       await expect(login(validCredentials)).rejects.toThrow(AuthError);
-      await expect(login(validCredentials)).rejects.toThrow('Telefone ou senha incorretos');
+      await expect(login(validCredentials)).rejects.toThrow('Credenciais inválidas');
     });
 
     it('should successfully login with valid credentials', async () => {
@@ -321,7 +321,7 @@ describe('Unit Tests - AuthService', () => {
       vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as typeof supabase.from);
 
       await expect(login(validCredentials)).rejects.toThrow(AuthError);
-      await expect(login(validCredentials)).rejects.toThrow('Conta desativada');
+      await expect(login(validCredentials)).rejects.toThrow('Conta temporariamente bloqueada');
     });
   });
 

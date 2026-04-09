@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { LoginCredentials } from '../types';
+import HoneypotDetector from '../services/honeypotDetector';
 
 const loginSchema = z.object({
   phone: z
@@ -23,6 +24,9 @@ interface LoginFormProps {
 export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Honeypot field ref - campo invisível para detectar bots
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const {
     register,
@@ -44,6 +48,22 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
   const handleFormSubmit = async (data: LoginCredentials) => {
     setIsLoading(true);
     setError(null);
+    
+    // Verificar honeypot - se preenchido, é um bot
+    const honeypotValue = honeypotRef.current?.value || '';
+    if (honeypotValue) {
+      // Registrar tentativa de bot silenciosamente
+      await HoneypotDetector.validateField(
+        honeypotValue,
+        'website_url',
+        'client-side',
+        navigator.userAgent
+      );
+      // Simular sucesso para não alertar o bot
+      setIsLoading(false);
+      return;
+    }
+    
     try {
       const cleanPhone = data.phone.replace(/\D/g, '');
       await onSubmit({ ...data, phone: cleanPhone });
@@ -75,6 +95,25 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
           <h2 className="text-2xl font-bold text-white mb-6">Entrar</h2>
 
           <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
+            {/* Honeypot field - invisível para usuários, visível para bots */}
+            <input
+              ref={honeypotRef}
+              type="text"
+              name="website_url"
+              autoComplete="off"
+              tabIndex={-1}
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                top: '-9999px',
+                width: '1px',
+                height: '1px',
+                opacity: 0,
+                overflow: 'hidden',
+              }}
+            />
+            
             {/* Telefone */}
             <div>
               <label className="block text-sm text-gray-400 mb-1">Telefone</label>

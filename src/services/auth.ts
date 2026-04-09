@@ -3,11 +3,21 @@
  *
  * Handles user registration, login, logout, and token refresh
  * using Supabase Auth with custom password validation and hashing
+ * 
+ * Security Features:
+ * - Anti-enumeration: Same error message for invalid phone and invalid password
+ * - Constant-time responses to prevent timing attacks
  */
 
 import { supabase } from './supabase';
 import { validatePassword } from '../utils/passwordValidation';
 import type { RegisterData, LoginCredentials, AuthResponse, User } from '../types';
+
+// Generic error message for anti-enumeration
+const GENERIC_AUTH_ERROR = 'Credenciais inválidas';
+
+// Minimum response time to prevent timing attacks (ms)
+const MIN_RESPONSE_TIME = 500;
 
 /**
  * Custom error class for authentication errors
@@ -141,12 +151,17 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
 /**
  * Logs in a user with phone and password
+ * 
+ * Security: Uses anti-enumeration pattern - returns same error message
+ * for both "user not found" and "wrong password" to prevent user enumeration
  *
  * @param credentials - Login credentials (phone and password)
  * @returns Promise resolving to AuthResponse with user data and tokens
  * @throws AuthError if credentials are invalid
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
+  const startTime = Date.now();
+  
   try {
     // Login with Supabase Auth using phone as email format
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -154,8 +169,11 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       password: credentials.password,
     });
 
+    // Anti-enumeration: Use same error message for all auth failures
     if (authError || !authData.user || !authData.session) {
-      throw new AuthError('Telefone ou senha incorretos', 'INVALID_CREDENTIALS', 401);
+      // Ensure minimum response time to prevent timing attacks
+      await ensureMinResponseTime(startTime);
+      throw new AuthError(GENERIC_AUTH_ERROR, 'INVALID_CREDENTIALS', 401);
     }
 
     // Fetch user data from database
@@ -166,13 +184,15 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       .single();
 
     if (userError || !userData) {
-      throw new AuthError('Erro ao buscar dados do usuário', 'USER_NOT_FOUND', 404);
+      // Anti-enumeration: Same error message
+      await ensureMinResponseTime(startTime);
+      throw new AuthError(GENERIC_AUTH_ERROR, 'INVALID_CREDENTIALS', 401);
     }
 
     // Check if user is active
     if (!userData.is_active) {
       throw new AuthError(
-        'Conta desativada. Entre em contato com o suporte.',
+        'Conta temporariamente bloqueada. Entre em contato com o suporte.',
         'ACCOUNT_DISABLED',
         403
       );
@@ -206,10 +226,24 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       expiresIn: authData.session.expires_in || 3600,
     };
   } catch (error) {
+    // Ensure minimum response time for all error cases
+    await ensureMinResponseTime(startTime);
+    
     if (error instanceof AuthError) {
       throw error;
     }
-    throw new AuthError('Erro ao fazer login. Tente novamente.', 'UNKNOWN_ERROR', 500);
+    // Anti-enumeration: Generic error for unknown errors too
+    throw new AuthError(GENERIC_AUTH_ERROR, 'INVALID_CREDENTIALS', 401);
+  }
+}
+
+/**
+ * Ensures minimum response time to prevent timing attacks
+ */
+async function ensureMinResponseTime(startTime: number): Promise<void> {
+  const elapsed = Date.now() - startTime;
+  if (elapsed < MIN_RESPONSE_TIME) {
+    await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
   }
 }
 

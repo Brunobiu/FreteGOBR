@@ -1,28 +1,48 @@
 /**
  * Property-Based Tests for Password Validation
- * Regra simplificada: mínimo 6 caracteres
+ * Regra atualizada: mínimo 8 chars + maiúscula + minúscula + número + especial + não comum
  */
 
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
 import { validatePassword } from '../utils/passwordValidation';
 
-describe('Property 2: Password Validation Rules (simplificada)', () => {
-  it('isValid === (length >= 6)', () => {
+describe('Property 2: Password Validation Rules (enhanced)', () => {
+  it('hasMinLength === (length >= 8)', () => {
     fc.assert(
       fc.property(fc.string({ minLength: 0, maxLength: 100 }), (password) => {
         const result = validatePassword(password);
-        expect(result.isValid).toBe(password.length >= 6);
+        expect(result.requirements.hasMinLength).toBe(password.length >= 8);
       }),
       { numRuns: 200 }
     );
   });
 
-  it('hasMinLength reflete corretamente o tamanho', () => {
+  it('hasUppercase reflete presença de maiúscula', () => {
     fc.assert(
       fc.property(fc.string({ minLength: 0, maxLength: 100 }), (password) => {
         const result = validatePassword(password);
-        expect(result.hasMinLength).toBe(password.length >= 6);
+        expect(result.requirements.hasUppercase).toBe(/[A-Z]/.test(password));
+      }),
+      { numRuns: 100 }
+    );
+  });
+
+  it('hasLowercase reflete presença de minúscula', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 0, maxLength: 100 }), (password) => {
+        const result = validatePassword(password);
+        expect(result.requirements.hasLowercase).toBe(/[a-z]/.test(password));
+      }),
+      { numRuns: 100 }
+    );
+  });
+
+  it('hasNumber reflete presença de número', () => {
+    fc.assert(
+      fc.property(fc.string({ minLength: 0, maxLength: 100 }), (password) => {
+        const result = validatePassword(password);
+        expect(result.requirements.hasNumber).toBe(/[0-9]/.test(password));
       }),
       { numRuns: 100 }
     );

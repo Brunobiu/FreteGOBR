@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getEstados, getCidades, type Estado, type Cidade } from '../services/ibge';
 import { geocodeAddress } from '../services/geolocation';
 import type { CreateFreteData } from '../services/fretes';
+import InputValidator, { INPUT_LIMITS } from '../utils/inputValidator';
 
 const VEHICLE_TYPES = [
   { value: 'bitrem_cacamba', label: 'Bitrem Caçamba' },
@@ -366,14 +367,35 @@ export default function FreteForm({ embarcadorId, onSubmit, onCancel }: FreteFor
 
       {/* Especificações */}
       <div>
-        <label className="block text-xs text-gray-400 mb-1">Especificações Adicionais</label>
+        <label className="block text-xs text-gray-400 mb-1">
+          Especificações Adicionais 
+          <span className="text-gray-500 ml-1">
+            ({specifications.length}/{INPUT_LIMITS.MAX_FRETE_DESCRIPTION})
+          </span>
+        </label>
         <textarea
           value={specifications}
-          onChange={(e) => setSpecifications(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            if (value.length <= INPUT_LIMITS.MAX_FRETE_DESCRIPTION) {
+              const validation = InputValidator.validateFreteDescription(value);
+              if (validation.isValid || value.length === 0) {
+                setSpecifications(value);
+              } else {
+                setSpecifications(validation.sanitizedValue);
+              }
+            }
+          }}
+          maxLength={INPUT_LIMITS.MAX_FRETE_DESCRIPTION}
           rows={3}
           placeholder="Informações adicionais..."
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500"
         />
+        {specifications.length >= INPUT_LIMITS.MAX_FRETE_DESCRIPTION * 0.9 && (
+          <p className="text-xs text-yellow-400 mt-1">
+            Limite de caracteres quase atingido
+          </p>
+        )}
       </div>
 
       {/* Botões */}
