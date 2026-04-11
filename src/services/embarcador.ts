@@ -27,15 +27,14 @@ export interface UpdateEmbarcadorProfileData {
  * Get embarcador profile by user ID
  */
 export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorProfile | null> {
-  const { data, error } = await supabase.from('embarcadores').select('*').eq('id', userId).single();
+  const { data, error } = await supabase.from('embarcadores').select('*').eq('id', userId).maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      // No rows returned
-      return null;
-    }
-    throw new Error(`Erro ao buscar perfil: ${error.message}`);
+    console.warn('[EMBARCADOR] Erro ao buscar perfil:', error.message);
+    return null;
   }
+
+  if (!data) return null;
 
   return {
     id: data.id,

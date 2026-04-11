@@ -43,7 +43,7 @@ export default function RatingForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Estrelas */}
       <div>
-        <label className="block text-sm text-gray-400 mb-2">Nota</label>
+        <label className="block text-sm text-gray-600 mb-2">Nota</label>
         <div className="flex space-x-1">
           {[1, 2, 3, 4, 5].map((star) => (
             <button
@@ -55,7 +55,7 @@ export default function RatingForm({
               className="p-1 transition-transform hover:scale-110"
             >
               <svg
-                className={`w-8 h-8 ${(hoverRating || rating) >= star ? 'text-yellow-400' : 'text-gray-600'}`}
+                className={`w-8 h-8 ${(hoverRating || rating) >= star ? 'text-yellow-400' : 'text-gray-300'}`}
                 fill="currentColor"
                 viewBox="0 0 20 20"
               >
@@ -68,9 +68,9 @@ export default function RatingForm({
 
       {/* Comentário */}
       <div>
-        <label className="block text-sm text-gray-400 mb-1">
+        <label className="block text-sm text-gray-600 mb-1">
           Comentário (opcional)
-          <span className="text-gray-500 ml-1">
+          <span className="text-gray-400 ml-1">
             ({comment.length}/{INPUT_LIMITS.MAX_RATING_COMMENT})
           </span>
         </label>
@@ -90,7 +90,7 @@ export default function RatingForm({
           maxLength={INPUT_LIMITS.MAX_RATING_COMMENT}
           rows={3}
           placeholder="Como foi sua experiência?"
-          className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500"
+          className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
         />
       </div>
 
@@ -100,7 +100,7 @@ export default function RatingForm({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 bg-gray-700 text-white text-sm rounded-lg hover:bg-gray-600"
+          className="px-4 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
         >
           Cancelar
         </button>

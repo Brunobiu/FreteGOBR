@@ -59,57 +59,57 @@ export default function ConfiguracoesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-100">
       <AppHeader />
       <main className="max-w-2xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">Configurações</h1>
-          <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-white">
+          <h1 className="text-2xl font-bold text-gray-800">Configurações</h1>
+          <button onClick={() => navigate(-1)} className="text-sm text-gray-600 hover:text-gray-900">
             ← Voltar
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-200 text-sm">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
             {success}
           </div>
         )}
 
         {/* Trocar senha */}
-        <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 mb-6">
-          <h2 className="text-lg font-semibold text-white mb-4">Alterar Senha</h2>
+        <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">Alterar Senha</h2>
           <form onSubmit={handleChangePassword} className="space-y-3">
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Senha Atual</label>
+              <label className="block text-xs text-gray-600 mb-1">Senha Atual</label>
               <input
                 type="password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Nova Senha</label>
+              <label className="block text-xs text-gray-600 mb-1">Nova Senha</label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Mínimo 6 caracteres"
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-400 mb-1">Confirmar Nova Senha</label>
+              <label className="block text-xs text-gray-600 mb-1">Confirmar Nova Senha</label>
               <input
                 type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               />
             </div>
             <button
@@ -123,9 +123,9 @@ export default function ConfiguracoesPage() {
         </div>
 
         {/* Excluir conta */}
-        <div className="bg-gray-900 border border-red-900/50 rounded-lg p-5">
-          <h2 className="text-lg font-semibold text-red-400 mb-2">Zona de Perigo</h2>
-          <p className="text-sm text-gray-400 mb-4">
+        <div className="bg-white border border-red-200 rounded-lg p-5">
+          <h2 className="text-lg font-semibold text-red-500 mb-2">Zona de Perigo</h2>
+          <p className="text-sm text-gray-600 mb-4">
             Ao excluir sua conta, todos os seus dados serão desativados permanentemente.
           </p>
           <button

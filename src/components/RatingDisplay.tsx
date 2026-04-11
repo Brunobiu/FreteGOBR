@@ -57,7 +57,7 @@ export default function RatingDisplay({ embarcadorId, rating, totalRatings }: Ra
       {/* Média */}
       <div className="flex items-center space-x-3">
         {renderStars(Math.round(rating))}
-        <span className="text-sm text-gray-400">
+        <span className="text-sm text-gray-500">
           {rating > 0 ? rating.toFixed(1) : '—'} ({totalRatings} avaliação
           {totalRatings !== 1 ? 'ões' : ''})
         </span>
@@ -76,7 +76,7 @@ export default function RatingDisplay({ embarcadorId, rating, totalRatings }: Ra
 
       {/* Formulário */}
       {showForm && user && (
-        <div className="bg-gray-800 rounded-lg p-4">
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
           <RatingForm
             motoristaId={user.id}
             embarcadorId={embarcadorId}
@@ -98,14 +98,14 @@ export default function RatingDisplay({ embarcadorId, rating, totalRatings }: Ra
       ) : (
         <div className="space-y-3">
           {reviews.map((review) => (
-            <div key={review.id} className="bg-gray-800 rounded-lg p-3">
+            <div key={review.id} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
               <div className="flex items-center justify-between mb-1">
                 {renderStars(review.rating)}
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-gray-400">
                   {new Date(review.createdAt).toLocaleDateString('pt-BR')}
                 </span>
               </div>
-              {review.comment && <p className="text-sm text-gray-300">{review.comment}</p>}
+              {review.comment && <p className="text-sm text-gray-700">{review.comment}</p>}
             </div>
           ))}
         </div>

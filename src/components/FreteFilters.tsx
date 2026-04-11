@@ -48,7 +48,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
   const activeFilterCount = Object.keys(filters).length;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg mb-6">
+    <div className="bg-white border border-gray-200 rounded-lg mb-6 shadow-sm">
       {/* Header */}
       <div
         className="flex items-center justify-between p-4 cursor-pointer"
@@ -68,7 +68,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z"
             />
           </svg>
-          <span className="text-white font-medium">Filtros</span>
+          <span className="text-gray-800 font-medium">Filtros</span>
           {activeFilterCount > 0 && (
             <span className="px-2 py-0.5 bg-blue-600 text-white text-xs rounded-full">
               {activeFilterCount}
@@ -76,7 +76,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
           )}
         </div>
         <div className="flex items-center space-x-4">
-          <span className="text-sm text-gray-400">
+          <span className="text-sm text-gray-500">
             {totalResults} resultado{totalResults !== 1 ? 's' : ''}
           </span>
           {activeFilterCount > 0 && (
@@ -103,38 +103,38 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
 
       {/* Filter Fields */}
       {isExpanded && (
-        <div className="border-t border-gray-800 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="border-t border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Origem */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Origem</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Origem</label>
             <input
               type="text"
               value={filters.origin || ''}
               onChange={(e) => updateFilter('origin', e.target.value)}
               placeholder="Ex: Goiânia, GO"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Destino */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Destino</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Destino</label>
             <input
               type="text"
               value={filters.destination || ''}
               onChange={(e) => updateFilter('destination', e.target.value)}
               placeholder="Ex: São Paulo, SP"
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
           {/* Tipo de Carga */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Tipo de Carga</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Carga</label>
             <select
               value={filters.cargoType || ''}
               onChange={(e) => updateFilter('cargoType', e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
               {CARGO_TYPES.map((t) => (
@@ -147,11 +147,11 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
 
           {/* Tipo de Veículo */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Tipo de Veículo</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Tipo de Veículo</label>
             <select
               value={filters.vehicleType || ''}
               onChange={(e) => updateFilter('vehicleType', e.target.value)}
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Todos</option>
               {VEHICLE_TYPES.map((t) => (
@@ -164,7 +164,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
 
           {/* Peso */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Peso (kg)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Peso (kg)</label>
             <div className="flex space-x-2">
               <input
                 type="number"
@@ -174,7 +174,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
                 }
                 placeholder="Mín"
                 min={0}
-                className="w-1/2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-1/2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <input
                 type="number"
@@ -184,14 +184,14 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
                 }
                 placeholder="Máx"
                 min={0}
-                className="w-1/2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-1/2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
 
           {/* Valor */}
           <div>
-            <label className="block text-xs font-medium text-gray-400 mb-1">Valor (R$)</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Valor (R$)</label>
             <div className="flex space-x-2">
               <input
                 type="number"
@@ -201,7 +201,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
                 }
                 placeholder="Mín"
                 min={0}
-                className="w-1/2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-1/2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <input
                 type="number"
@@ -211,7 +211,7 @@ export default function FreteFilters({ onFilterChange, totalResults }: FreteFilt
                 }
                 placeholder="Máx"
                 min={0}
-                className="w-1/2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-1/2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>

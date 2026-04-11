@@ -126,11 +126,11 @@ export default function ChatWidget() {
 
       {/* Chat window */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-80 h-[28rem] bg-gray-900 border border-gray-800 rounded-lg shadow-xl flex flex-col z-50">
+        <div className="fixed bottom-6 right-6 w-80 h-[28rem] bg-white border border-gray-200 rounded-lg shadow-xl flex flex-col z-50">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-blue-600 rounded-t-lg">
             <h3 className="text-sm font-semibold text-white">Suporte FreteGO</h3>
-            <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white">
+            <button onClick={() => setIsOpen(false)} className="text-blue-200 hover:text-white">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -143,13 +143,13 @@ export default function ChatWidget() {
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-gray-50">
             {isLoading ? (
               <p className="text-sm text-gray-500 text-center">Carregando...</p>
             ) : messages.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-gray-400">Olá! Como podemos ajudar?</p>
-                <p className="text-xs text-gray-500 mt-1">Envie uma mensagem para iniciar</p>
+                <p className="text-sm text-gray-600">Olá! Como podemos ajudar?</p>
+                <p className="text-xs text-gray-400 mt-1">Envie uma mensagem para iniciar</p>
               </div>
             ) : (
               messages.map((msg) => (
@@ -161,11 +161,11 @@ export default function ChatWidget() {
                     className={`max-w-[75%] px-3 py-2 rounded-lg text-sm ${
                       msg.senderId === user?.id
                         ? 'bg-blue-600 text-white'
-                        : 'bg-gray-800 text-gray-200'
+                        : 'bg-white border border-gray-200 text-gray-800'
                     }`}
                   >
                     {msg.isAdmin && msg.senderId !== user?.id && (
-                      <p className="text-xs text-blue-400 mb-1">Suporte</p>
+                      <p className="text-xs text-blue-500 mb-1">Suporte</p>
                     )}
                     <p>{msg.message}</p>
                     <p className="text-[10px] opacity-60 mt-1">
@@ -182,7 +182,7 @@ export default function ChatWidget() {
           </div>
 
           {/* Input */}
-          <div className="px-3 py-3 border-t border-gray-800">
+          <div className="px-3 py-3 border-t border-gray-200 bg-white rounded-b-lg">
             <div className="flex flex-col space-y-1">
               <div className="flex space-x-2">
                 <input
@@ -202,7 +202,7 @@ export default function ChatWidget() {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                   maxLength={INPUT_LIMITS.MAX_CHAT_MESSAGE}
                   placeholder="Digite sua mensagem..."
-                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
                 <button
                   onClick={handleSend}
@@ -219,7 +219,7 @@ export default function ChatWidget() {
                   </svg>
                 </button>
               </div>
-              <span className="text-[10px] text-gray-500 text-right">
+              <span className="text-[10px] text-gray-400 text-right">
                 {newMessage.length}/{INPUT_LIMITS.MAX_CHAT_MESSAGE}
               </span>
             </div>

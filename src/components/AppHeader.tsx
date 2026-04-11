@@ -33,7 +33,7 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="bg-gray-900 border-b border-gray-800 sticky top-0 z-40">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14">
             {/* Logo + tipo de usuário */}
@@ -45,7 +45,7 @@ export default function AppHeader() {
                 FreteGO
               </Link>
               {isAuthenticated && user && (
-                <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
+                <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
                   {userTypeLabel}
                 </span>
               )}
@@ -63,7 +63,7 @@ export default function AppHeader() {
                     <button
                       onClick={() => setCalcOpen(true)}
                       title="Calculadora de Frete"
-                      className="p-2 text-gray-400 hover:text-white transition-colors"
+                      className="p-2 text-gray-500 hover:text-gray-800 transition-colors"
                     >
                       <svg
                         className="w-5 h-5"
@@ -86,8 +86,8 @@ export default function AppHeader() {
                       onClick={() => setMenuOpen(!menuOpen)}
                       className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
                     >
-                      <span className="text-sm text-gray-300 hidden sm:block">{user.name}</span>
-                      <div className="w-8 h-8 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700">
+                      <span className="text-sm text-gray-700 hidden sm:block">{user.name}</span>
+                      <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300">
                         {user.profilePhotoUrl ? (
                           <img
                             src={user.profilePhotoUrl}
@@ -96,7 +96,7 @@ export default function AppHeader() {
                           />
                         ) : (
                           <svg
-                            className="w-4 h-4 text-gray-500"
+                            className="w-4 h-4 text-gray-400"
                             fill="currentColor"
                             viewBox="0 0 20 20"
                           >
@@ -109,7 +109,7 @@ export default function AppHeader() {
                         )}
                       </div>
                       <svg
-                        className={`w-4 h-4 text-gray-400 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
+                        className={`w-4 h-4 text-gray-500 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -125,11 +125,11 @@ export default function AppHeader() {
 
                     {/* Dropdown menu */}
                     {menuOpen && (
-                      <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-xl py-1 z-50">
+                      <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
                         <Link
                           to={profileLink}
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                         >
                           <svg
                             className="w-4 h-4 mr-2"
@@ -149,7 +149,7 @@ export default function AppHeader() {
                         <Link
                           to="/configuracoes"
                           onClick={() => setMenuOpen(false)}
-                          className="flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white transition-colors"
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
                         >
                           <svg
                             className="w-4 h-4 mr-2"
@@ -172,10 +172,10 @@ export default function AppHeader() {
                           </svg>
                           Configurações
                         </Link>
-                        <div className="border-t border-gray-700 my-1" />
+                        <div className="border-t border-gray-200 my-1" />
                         <button
                           onClick={handleLogout}
-                          className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-red-300 transition-colors"
+                          className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100 hover:text-red-700 transition-colors"
                         >
                           <svg
                             className="w-4 h-4 mr-2"
@@ -200,7 +200,7 @@ export default function AppHeader() {
                 <>
                   <Link
                     to="/login"
-                    className="px-4 py-1.5 text-sm text-gray-300 hover:text-white transition-colors"
+                    className="px-4 py-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     Entrar
                   </Link>

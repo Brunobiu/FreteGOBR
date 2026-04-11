@@ -202,10 +202,15 @@ export async function getActiveFretes(filters?: FreteFilters): Promise<Frete[]> 
   const { data, error } = await query;
 
   if (error) {
+    // Se for erro de auth/conexão, retornar lista vazia silenciosamente
+    if (error.message?.includes('lock') || error.message?.includes('auth') || error.code === 'PGRST301') {
+      console.warn('[FRETES] Erro de conexão ao buscar fretes:', error.message);
+      return [];
+    }
     throw new Error(`Erro ao buscar fretes: ${error.message}`);
   }
 
-  return data.map(mapFreteFromDb);
+  return (data || []).map(mapFreteFromDb);
 }
 
 /**

@@ -6,14 +6,14 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
 
 ## Tarefas
 
-- [ ] 1. Configuração base do tema
-  - [ ] 1.1 Atualizar tailwind.config.js com paleta de cores light mode
+- [x] 1. Configuração base do tema
+  - [x] 1.1 Atualizar tailwind.config.js com paleta de cores light mode
     - Adicionar cores customizadas para fundos claros (gray-50, gray-100)
     - Manter cores de destaque (blue-500, blue-600, green-400, green-600, red-400, yellow-400)
     - Definir cores de texto escuro (gray-700, gray-800, gray-900)
     - _Requisitos: 1.1, 1.2, 1.3_
 
-  - [ ] 1.2 Atualizar src/index.css com estilos globais light mode
+  - [x] 1.2 Atualizar src/index.css com estilos globais light mode
     - Alterar background-color do :root para cinza claro (#f5f5f5)
     - Alterar color do :root para texto escuro (gray-800)
     - Remover color-scheme: light dark
@@ -22,8 +22,8 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
 - [ ] 2. Checkpoint - Validar configuração base
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 3. Migrar componentes de layout
-  - [ ] 3.1 Migrar AppHeader.tsx para light mode
+- [x] 3. Migrar componentes de layout
+  - [x] 3.1 Migrar AppHeader.tsx para light mode
     - Substituir bg-gray-900/950 por bg-white
     - Adicionar border-b border-gray-200
     - Substituir text-white por text-gray-800 nos itens de navegação
@@ -31,7 +31,7 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
     - Atualizar dropdown menu para bg-white com border-gray-200
     - _Requisitos: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 3.2 Migrar HomePage.tsx para light mode
+  - [x] 3.2 Migrar HomePage.tsx para light mode
     - Substituir bg-gray-950 por bg-gray-100
     - Substituir text-white por text-gray-800 nos títulos
     - Substituir text-gray-400 por text-gray-600 nos textos secundários
@@ -39,13 +39,13 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
     - Atualizar cards vazios para bg-white border-gray-200
     - _Requisitos: 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 3.3 Migrar EmbarcadorPage.tsx para light mode
+  - [x] 3.3 Migrar EmbarcadorPage.tsx para light mode
     - Aplicar mesmas substituições de cores da HomePage
     - Atualizar stats cards para bg-white border-gray-200
     - Atualizar modal de formulário para bg-white
     - _Requisitos: 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 3.4 Migrar demais páginas para light mode
+  - [x] 3.4 Migrar demais páginas para light mode
     - LoginPage.tsx, RegisterPage.tsx
     - EmbarcadorPerfilPage.tsx, EmbarcadorPlanPage.tsx
     - MotoristaPerfilPage.tsx, MotoristaPlanPage.tsx
@@ -57,25 +57,25 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 5. Migrar componentes de UI (Cards e Modais)
-  - [ ] 5.1 Migrar FreteCard.tsx para light mode
+  - [x] 5.1 Migrar FreteCard.tsx para light mode
     - Substituir bg-gray-900 por bg-white
     - Substituir border-gray-800 por border-gray-200
     - Adicionar shadow-sm para profundidade
     - Atualizar cores de texto
     - _Requisitos: 3.2, 3.3, 3.4_
 
-  - [ ] 5.2 Migrar FreteModal.tsx para light mode
+  - [x] 5.2 Migrar FreteModal.tsx para light mode
     - Substituir bg-gray-900 por bg-white
     - Manter backdrop bg-black/75
     - Atualizar seções internas para bg-gray-50
     - _Requisitos: 6.1, 6.2, 6.3_
 
-  - [ ] 5.3 Migrar ChatWidget.tsx para light mode
+  - [x] 5.3 Migrar ChatWidget.tsx para light mode
     - Atualizar container e mensagens para cores claras
     - _Requisitos: 3.2, 6.1_
 
 - [ ] 6. Migrar componentes de UI (Formulários)
-  - [ ] 6.1 Migrar FreteForm.tsx para light mode
+  - [x] 6.1 Migrar FreteForm.tsx para light mode
     - Substituir bg-gray-800 por bg-gray-50 nas seções
     - Substituir bg-gray-700 por bg-white nos inputs/selects
     - Substituir border-gray-600/700 por border-gray-300
@@ -94,7 +94,7 @@ Migração do tema visual do FreteGO de dark mode para light mode, seguindo a es
     - Aplicar mesmas substituições do LoginForm
     - _Requisitos: 5.1, 5.2, 5.3, 5.4_
 
-  - [ ] 6.4 Migrar FreteFilters.tsx para light mode
+  - [x] 6.4 Migrar FreteFilters.tsx para light mode
     - Atualizar selects e inputs de filtro
     - _Requisitos: 5.1, 5.2, 5.3, 5.4_
 

@@ -5,6 +5,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
 import ChatWidget from './components/ChatWidget';
+import FreteChatWidget from './components/FreteChatWidget';
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -150,6 +151,7 @@ function App() {
         />
       </Routes>
       <ChatWidget />
+      <FreteChatWidget />
     </BrowserRouter>
   );
 }

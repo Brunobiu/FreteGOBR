@@ -1,6 +1,6 @@
 /**
  * MotoristaPlanPage - Página "Meu Plano" para Motoristas
- * 
+ *
  * PLACEHOLDER: Esta página está preparada para futura integração de pagamentos.
  * Atualmente exibe apenas informações sobre planos futuros.
  */
@@ -69,14 +69,14 @@ export default function MotoristaPlanPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-100">
       <AppHeader />
-      
+
       <main className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-3xl font-bold text-white mb-4">Meu Plano</h1>
-          <p className="text-gray-400 max-w-2xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-800 mb-4">Meu Plano</h1>
+          <p className="text-gray-600 max-w-2xl mx-auto">
             Escolha o plano ideal para impulsionar sua carreira como motorista de frete.
           </p>
         </div>
@@ -90,8 +90,8 @@ export default function MotoristaPlanPage() {
               </svg>
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-white">Em Breve</h2>
-              <p className="text-blue-300 text-sm">
+              <h2 className="text-xl font-semibold text-gray-800">Em Breve</h2>
+              <p className="text-blue-700 text-sm">
                 Sistema de planos e pagamentos será lançado em breve. Fique atento!
               </p>
             </div>
@@ -99,18 +99,18 @@ export default function MotoristaPlanPage() {
         </div>
 
         {/* Current Plan Info */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 mb-8">
+        <div className="bg-white border border-gray-200 rounded-xl p-6 mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-gray-400 text-sm">Plano Atual</p>
-              <p className="text-2xl font-bold text-white">Gratuito</p>
+              <p className="text-gray-600 text-sm">Plano Atual</p>
+              <p className="text-2xl font-bold text-gray-800">Gratuito</p>
             </div>
-            <div className="px-4 py-2 bg-green-900/30 border border-green-700/50 rounded-lg">
-              <span className="text-green-400 font-medium">Ativo</span>
+            <div className="px-4 py-2 bg-green-100 border border-green-200 rounded-lg">
+              <span className="text-green-700 font-medium">Ativo</span>
             </div>
           </div>
           <p className="text-gray-500 text-sm mt-4">
-            Você está usando o plano gratuito. Quando os planos pagos estiverem disponíveis, 
+            Você está usando o plano gratuito. Quando os planos pagos estiverem disponíveis,
             você poderá fazer upgrade para desbloquear mais recursos.
           </p>
         </div>
@@ -120,12 +120,12 @@ export default function MotoristaPlanPage() {
           {PLANS.map((plan) => (
             <div
               key={plan.id}
-              className={`relative bg-gray-900 border rounded-xl p-6 transition-all ${
+              className={`relative bg-white border rounded-xl p-6 transition-all ${
                 plan.recommended
                   ? 'border-blue-500 ring-2 ring-blue-500/20'
                   : plan.current
-                  ? 'border-green-700'
-                  : 'border-gray-800 hover:border-gray-700'
+                  ? 'border-green-300'
+                  : 'border-gray-200 hover:border-gray-300'
               }`}
             >
               {/* Recommended Badge */}
@@ -148,17 +148,17 @@ export default function MotoristaPlanPage() {
 
               {/* Plan Header */}
               <div className="text-center mb-6 pt-2">
-                <h3 className="text-xl font-bold text-white mb-2">{plan.name}</h3>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center">
                   {plan.price === 0 ? (
-                    <span className="text-3xl font-bold text-white">Grátis</span>
+                    <span className="text-3xl font-bold text-gray-800">Grátis</span>
                   ) : (
                     <>
-                      <span className="text-gray-400 text-lg">R$</span>
-                      <span className="text-3xl font-bold text-white mx-1">
+                      <span className="text-gray-600 text-lg">R$</span>
+                      <span className="text-3xl font-bold text-gray-800 mx-1">
                         {plan.price.toFixed(2).replace('.', ',')}
                       </span>
-                      <span className="text-gray-400">/{plan.period}</span>
+                      <span className="text-gray-600">/{plan.period}</span>
                     </>
                   )}
                 </div>
@@ -171,12 +171,12 @@ export default function MotoristaPlanPage() {
                     <svg className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
-                    <span className="text-gray-300 text-sm">{feature}</span>
+                    <span className="text-gray-600 text-sm">{feature}</span>
                   </li>
                 ))}
                 {plan.limitations.map((limitation, index) => (
                   <li key={`limit-${index}`} className="flex items-start space-x-2">
-                    <svg className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                     <span className="text-gray-500 text-sm">{limitation}</span>
@@ -190,10 +190,10 @@ export default function MotoristaPlanPage() {
                 disabled={plan.current || true} // Disabled until payments are implemented
                 className={`w-full py-3 rounded-lg font-medium transition-colors ${
                   plan.current
-                    ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
                     : plan.recommended
                     ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
-                    : 'bg-gray-800 text-white hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                    : 'bg-gray-200 text-gray-800 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed'
                 }`}
               >
                 {plan.current ? 'Plano Atual' : 'Em Breve'}
@@ -203,24 +203,24 @@ export default function MotoristaPlanPage() {
         </div>
 
         {/* FAQ Section */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-          <h2 className="text-xl font-bold text-white mb-4">Perguntas Frequentes</h2>
+        <div className="bg-white border border-gray-200 rounded-xl p-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Perguntas Frequentes</h2>
           <div className="space-y-4">
             <div>
-              <h3 className="text-white font-medium mb-1">Quando os planos pagos estarão disponíveis?</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-gray-800 font-medium mb-1">Quando os planos pagos estarão disponíveis?</h3>
+              <p className="text-gray-600 text-sm">
                 Estamos trabalhando para lançar os planos pagos em breve. Você será notificado quando estiverem disponíveis.
               </p>
             </div>
             <div>
-              <h3 className="text-white font-medium mb-1">Posso cancelar a qualquer momento?</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-gray-800 font-medium mb-1">Posso cancelar a qualquer momento?</h3>
+              <p className="text-gray-600 text-sm">
                 Sim, você poderá cancelar sua assinatura a qualquer momento sem multas ou taxas adicionais.
               </p>
             </div>
             <div>
-              <h3 className="text-white font-medium mb-1">Quais formas de pagamento serão aceitas?</h3>
-              <p className="text-gray-400 text-sm">
+              <h3 className="text-gray-800 font-medium mb-1">Quais formas de pagamento serão aceitas?</h3>
+              <p className="text-gray-600 text-sm">
                 Aceitaremos cartão de crédito, débito, PIX e boleto bancário.
               </p>
             </div>

@@ -97,48 +97,48 @@ export default function EmbarcadorPerfilPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-gray-100">
         <AppHeader />
-        <div className="flex justify-center py-20 text-gray-400">Carregando perfil...</div>
+        <div className="flex justify-center py-20 text-gray-600">Carregando perfil...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-100">
       <AppHeader />
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-white">Perfil da Empresa</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Perfil da Empresa</h1>
           <button
             onClick={() => navigate('/embarcador')}
-            className="text-sm text-gray-400 hover:text-white"
+            className="text-sm text-gray-600 hover:text-gray-900"
           >
             ← Voltar
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-200 text-sm">
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 bg-green-900/50 border border-green-700 rounded-lg text-green-200 text-sm">
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
             {success}
           </div>
         )}
 
         <form onSubmit={handleSave} className="space-y-6">
           {/* Foto + Logo */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h2 className="text-lg font-semibold text-white mb-4">Foto de Perfil</h2>
+          <div className="bg-white border border-gray-200 rounded-lg p-5">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">Foto de Perfil</h2>
             <div className="flex items-center space-x-6">
-              <div className="w-20 h-20 rounded-full bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-700">
+              <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-300">
                 {profilePhotoUrl ? (
                   <img src={profilePhotoUrl} alt="Foto" className="w-full h-full object-cover" />
                 ) : (
-                  <svg className="w-10 h-10 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
@@ -147,7 +147,7 @@ export default function EmbarcadorPerfilPage() {
                   </svg>
                 )}
               </div>
-              <label className="cursor-pointer px-4 py-2 bg-gray-800 border border-gray-700 text-white text-sm rounded-lg hover:bg-gray-700">
+              <label className="cursor-pointer px-4 py-2 bg-gray-200 border border-gray-300 text-gray-800 text-sm rounded-lg hover:bg-gray-300">
                 {uploadingPhoto ? 'Enviando...' : 'Alterar foto'}
                 <input
                   type="file"
@@ -161,47 +161,47 @@ export default function EmbarcadorPerfilPage() {
           </div>
 
           {/* Dados */}
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-white">Dados da Empresa</h2>
+          <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
+            <h2 className="text-lg font-semibold text-gray-800">Dados da Empresa</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Nome Completo *</label>
+                <label className="block text-xs text-gray-600 mb-1">Nome Completo *</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">E-mail</label>
+                <label className="block text-xs text-gray-600 mb-1">E-mail</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Nome da Empresa *</label>
+                <label className="block text-xs text-gray-600 mb-1">Nome da Empresa *</label>
                 <input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   required
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">WhatsApp</label>
+                <label className="block text-xs text-gray-600 mb-1">WhatsApp</label>
                 <input
                   type="text"
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(formatWhatsApp(e.target.value))}
                   placeholder="(00) 0 0000-0000"
                   maxLength={17}
-                  className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -211,7 +211,7 @@ export default function EmbarcadorPerfilPage() {
             <button
               type="button"
               onClick={() => navigate('/embarcador')}
-              className="px-5 py-2 bg-gray-800 text-white text-sm rounded-lg hover:bg-gray-700"
+              className="px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
             >
               ← Voltar
             </button>

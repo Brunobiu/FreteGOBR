@@ -69,7 +69,7 @@ export default function NotificationBell() {
     <div className="relative" ref={menuRef}>
       <button
         onClick={handleOpen}
-        className="p-2 text-gray-400 hover:text-white transition-colors relative"
+        className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
@@ -87,11 +87,11 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-700">
-            <span className="text-sm font-medium text-white">Notificações</span>
+        <div className="absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-y-auto">
+          <div className="flex items-center justify-between px-4 py-2 border-b border-gray-200">
+            <span className="text-sm font-medium text-gray-800">Notificações</span>
             {unreadCount > 0 && (
-              <button onClick={handleMarkAll} className="text-xs text-blue-400 hover:text-blue-300">
+              <button onClick={handleMarkAll} className="text-xs text-blue-500 hover:text-blue-600">
                 Marcar todas
               </button>
             )}
@@ -103,11 +103,11 @@ export default function NotificationBell() {
               <button
                 key={notif.id}
                 onClick={() => handleClick(notif)}
-                className={`w-full text-left px-4 py-3 border-b border-gray-700/50 hover:bg-gray-700 transition-colors ${!notif.readAt ? 'bg-gray-750' : ''}`}
+                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${!notif.readAt ? 'bg-blue-50' : ''}`}
               >
-                <p className="text-sm text-white">{notif.title}</p>
-                <p className="text-xs text-gray-400 mt-0.5">{notif.message}</p>
-                <p className="text-[10px] text-gray-500 mt-1">
+                <p className="text-sm text-gray-800">{notif.title}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{notif.message}</p>
+                <p className="text-[10px] text-gray-400 mt-1">
                   {new Date(notif.createdAt).toLocaleDateString('pt-BR')}
                 </p>
                 {!notif.readAt && (

@@ -80,26 +80,26 @@ export default function AdminPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-gray-100">
         <AppHeader />
-        <div className="flex justify-center py-20 text-gray-400">Carregando painel admin...</div>
+        <div className="flex justify-center py-20 text-gray-600">Carregando painel admin...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-gray-100">
       <AppHeader />
       <main className="max-w-7xl mx-auto px-4 py-6">
-        <h1 className="text-2xl font-bold text-white mb-6">Painel Administrativo</h1>
+        <h1 className="text-2xl font-bold text-gray-800 mb-6">Painel Administrativo</h1>
 
         {/* Tabs */}
-        <div className="flex space-x-1 mb-6 bg-gray-900 rounded-lg p-1 w-fit">
+        <div className="flex space-x-1 mb-6 bg-white rounded-lg p-1 w-fit border border-gray-200">
           {(['metrics', 'users', 'fretes'] as Tab[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
-              className={`px-4 py-2 text-sm rounded-md transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`px-4 py-2 text-sm rounded-md transition-colors ${tab === t ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-900'}`}
             >
               {t === 'metrics' ? 'Métricas' : t === 'users' ? 'Usuários' : 'Fretes'}
             </button>
@@ -110,23 +110,23 @@ export default function AdminPage() {
         {tab === 'metrics' && metrics && (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {[
-              { label: 'Total Usuários', value: metrics.totalUsers, color: 'text-blue-400' },
-              { label: 'Motoristas', value: metrics.totalMotoristas, color: 'text-green-400' },
-              { label: 'Embarcadores', value: metrics.totalEmbarcadores, color: 'text-purple-400' },
-              { label: 'Fretes Ativos', value: metrics.activeFretes, color: 'text-yellow-400' },
+              { label: 'Total Usuários', value: metrics.totalUsers, color: 'text-blue-600' },
+              { label: 'Motoristas', value: metrics.totalMotoristas, color: 'text-green-600' },
+              { label: 'Embarcadores', value: metrics.totalEmbarcadores, color: 'text-purple-600' },
+              { label: 'Fretes Ativos', value: metrics.activeFretes, color: 'text-yellow-600' },
               {
                 label: 'Fretes Encerrados',
                 value: metrics.completedFretes,
-                color: 'text-gray-400',
+                color: 'text-gray-600',
               },
-              { label: 'Total Fretes', value: metrics.totalFretes, color: 'text-white' },
+              { label: 'Total Fretes', value: metrics.totalFretes, color: 'text-gray-800' },
             ].map((m) => (
               <div
                 key={m.label}
-                className="bg-gray-900 border border-gray-800 rounded-lg p-5 text-center"
+                className="bg-white border border-gray-200 rounded-lg p-5 text-center"
               >
                 <p className={`text-3xl font-bold ${m.color}`}>{m.value}</p>
-                <p className="text-xs text-gray-400 mt-1">{m.label}</p>
+                <p className="text-xs text-gray-600 mt-1">{m.label}</p>
               </div>
             ))}
           </div>
@@ -141,12 +141,12 @@ export default function AdminPage() {
                 value={searchUser}
                 onChange={(e) => setSearchUser(e.target.value)}
                 placeholder="Buscar por nome ou telefone"
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               />
               <select
                 value={filterUserType}
                 onChange={(e) => setFilterUserType(e.target.value)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               >
                 <option value="">Todos</option>
                 <option value="motorista">Motorista</option>
@@ -159,32 +159,32 @@ export default function AdminPage() {
                 Buscar
               </button>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-800">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-gray-400">Nome</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Telefone</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Tipo</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Status</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Ações</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Nome</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Telefone</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Tipo</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Status</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((u) => (
-                    <tr key={u.id} className="border-t border-gray-800">
-                      <td className="px-4 py-3 text-white">{u.name}</td>
-                      <td className="px-4 py-3 text-gray-300">{u.phone}</td>
+                    <tr key={u.id} className="border-t border-gray-200">
+                      <td className="px-4 py-3 text-gray-800">{u.name}</td>
+                      <td className="px-4 py-3 text-gray-600">{u.phone}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs ${u.userType === 'motorista' ? 'bg-green-900/50 text-green-300' : 'bg-purple-900/50 text-purple-300'}`}
+                          className={`px-2 py-0.5 rounded text-xs ${u.userType === 'motorista' ? 'bg-green-100 text-green-700' : 'bg-purple-100 text-purple-700'}`}
                         >
                           {u.userType}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <span
-                          className={`px-2 py-0.5 rounded text-xs ${u.isActive ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}
+                          className={`px-2 py-0.5 rounded text-xs ${u.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
                         >
                           {u.isActive ? 'Ativo' : 'Inativo'}
                         </span>
@@ -212,7 +212,7 @@ export default function AdminPage() {
               <select
                 value={filterFreteStatus}
                 onChange={(e) => setFilterFreteStatus(e.target.value)}
-                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm"
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
               >
                 <option value="">Todos</option>
                 <option value="ativo">Ativo</option>
@@ -226,40 +226,40 @@ export default function AdminPage() {
                 Filtrar
               </button>
             </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-lg overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <table className="w-full text-sm">
-                <thead className="bg-gray-800">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-2 text-left text-gray-400">Rota</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Carga</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Status</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Views</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Data</th>
-                    <th className="px-4 py-2 text-left text-gray-400">Ações</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Rota</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Carga</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Status</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Views</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Data</th>
+                    <th className="px-4 py-2 text-left text-gray-600">Ações</th>
                   </tr>
                 </thead>
                 <tbody>
                   {fretes.map((f) => (
-                    <tr key={f.id} className="border-t border-gray-800">
-                      <td className="px-4 py-3 text-white">
+                    <tr key={f.id} className="border-t border-gray-200">
+                      <td className="px-4 py-3 text-gray-800">
                         {f.origin} → {f.destination}
                       </td>
-                      <td className="px-4 py-3 text-gray-300">{f.cargoType}</td>
+                      <td className="px-4 py-3 text-gray-600">{f.cargoType}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`px-2 py-0.5 rounded text-xs ${
                             f.status === 'ativo'
-                              ? 'bg-green-900/50 text-green-300'
+                              ? 'bg-green-100 text-green-700'
                               : f.status === 'encerrado'
-                                ? 'bg-gray-700 text-gray-300'
-                                : 'bg-red-900/50 text-red-300'
+                                ? 'bg-gray-100 text-gray-600'
+                                : 'bg-red-100 text-red-700'
                           }`}
                         >
                           {f.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-300">{f.viewsCount}</td>
-                      <td className="px-4 py-3 text-gray-400">
+                      <td className="px-4 py-3 text-gray-600">{f.viewsCount}</td>
+                      <td className="px-4 py-3 text-gray-600">
                         {new Date(f.createdAt).toLocaleDateString('pt-BR')}
                       </td>
                       <td className="px-4 py-3">

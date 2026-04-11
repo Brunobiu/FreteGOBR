@@ -66,7 +66,7 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-6">
+    <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
       <div className="flex items-center space-x-3 mb-4">
         <div className="w-10 h-10 bg-blue-600/20 rounded-full flex items-center justify-center">
           <svg
@@ -90,8 +90,8 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
           </svg>
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-white">Sugestão de Viagem</h3>
-          <p className="text-sm text-gray-400">Encontre fretes próximos à sua localização</p>
+          <h3 className="text-lg font-semibold text-gray-800">Sugestão de Viagem</h3>
+          <p className="text-sm text-gray-500">Encontre fretes próximos à sua localização</p>
         </div>
       </div>
 
@@ -135,7 +135,7 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
             onChange={(e) => setManualAddress(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleManualSearch()}
             placeholder="Ex: Goiânia, GO"
-            className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             onClick={handleManualSearch}
@@ -149,11 +149,11 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
 
       {/* Raio de busca */}
       <div className="mb-4 flex items-center space-x-3">
-        <label className="text-sm text-gray-400 whitespace-nowrap">Raio:</label>
+        <label className="text-sm text-gray-600 whitespace-nowrap">Raio:</label>
         <select
           value={radiusKm}
           onChange={(e) => setRadiusKm(Number(e.target.value))}
-          className="px-3 py-1.5 bg-gray-800 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value={50}>50 km</option>
           <option value={100}>100 km</option>
@@ -206,7 +206,7 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
       {/* Resultados */}
       {nearbyFretes.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-600">
             {nearbyFretes.length} frete{nearbyFretes.length !== 1 ? 's' : ''} encontrado
             {nearbyFretes.length !== 1 ? 's' : ''} próximo{nearbyFretes.length !== 1 ? 's' : ''}
           </p>
@@ -214,18 +214,18 @@ export default function TripSuggestion({ onFreteSelect }: TripSuggestionProps) {
             <div
               key={frete.id}
               onClick={() => onFreteSelect(frete)}
-              className="p-4 bg-gray-800 border border-gray-700 rounded-lg cursor-pointer hover:border-blue-500 transition-colors"
+              className="p-4 bg-white border border-gray-200 rounded-lg cursor-pointer hover:border-blue-400 hover:shadow-sm transition-all"
             >
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <p className="text-sm font-medium text-white">
+                  <p className="text-sm font-medium text-gray-800">
                     {frete.origin} → {frete.destination}
                   </p>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-500">
                     {frete.cargoType} • {frete.vehicleType}
                   </p>
                 </div>
-                <span className="text-xs text-blue-400 bg-blue-900/30 px-2 py-1 rounded-full whitespace-nowrap">
+                <span className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded-full whitespace-nowrap">
                   {frete.distanceKm.toFixed(0)} km
                 </span>
               </div>

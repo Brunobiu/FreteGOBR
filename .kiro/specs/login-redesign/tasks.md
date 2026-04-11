@@ -13,7 +13,7 @@ Redesign da página de login do FreteGO para incluir imagem de fundo temática, 
     - Salvar em public/login-bg.jpg
     - _Requisitos: 1.1, 1.2, 1.3_
 
-- [ ] 2. Refatorar LoginForm.tsx
+- [x] 2. Refatorar LoginForm.tsx
   - [ ] 2.1 Remover layout externo do LoginForm
     - Remover div wrapper com min-h-screen e bg-gray-950
     - Remover seção de marketing (lado esquerdo)
