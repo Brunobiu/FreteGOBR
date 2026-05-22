@@ -432,17 +432,17 @@ opcionais (testes) e podem ser puladas em uma execução de MVP.
       preenchidos.
     - _Refs: Requirements 11.5, 13.3_
 
-- [ ]* 11. Testes de propriedade (opcionais, mas recomendados)
+- [-]* 11. Testes de propriedade (opcionais, mas recomendados)
   - Cada sub-task abaixo implementa uma das 8 propriedades da
     Seção 10 do design, com `vitest` + `fast-check` e mínimo
     `numRuns: 100`.
   - _Refs: Design Section 10, Design Section 12_
 
-  - [ ]* 11.1 `src/__tests__/plateValidation.property.test.ts`
+  - [x]* 11.1 `src/__tests__/plateValidation.property.test.ts`
     - **Property 1: Validação de placa Mercosul**
     - **Validates: Requirements 3.1, 3.2, 3.3, 3.4**
 
-  - [ ]* 11.2 `src/__tests__/calculoFrete.property.test.ts`
+  - [x]* 11.2 `src/__tests__/calculoFrete.property.test.ts`
     - **Property 2: Cálculo financeiro do frete**
     - **Validates: Requirements 12.2, 12.3, 12.5**
 
@@ -455,15 +455,15 @@ opcionais (testes) e podem ser puladas em uma execução de MVP.
     - **Property 5: Capitalização do nome na persistência**
     - **Validates: Requirements 1.2, 1.3**
 
-  - [ ]* 11.5 `src/__tests__/pisValidation.property.test.ts`
+  - [x]* 11.5 `src/__tests__/pisValidation.property.test.ts`
     - **Property 6: PIS — normalização e validação**
     - **Validates: Requirements 9.2, 9.3, 9.4**
 
-  - [ ]* 11.6 `src/__tests__/yearValidation.property.test.ts`
+  - [x]* 11.6 `src/__tests__/yearValidation.property.test.ts`
     - **Property 7: Validação de pares de anos**
     - **Validates: Requirements 6.2, 6.3, 6.4**
 
-  - [ ]* 11.7 `src/__tests__/sectionCounter.property.test.ts`
+  - [x]* 11.7 `src/__tests__/sectionCounter.property.test.ts`
     - **Property 8: Contador de documentos por seção**
     - **Validates: Requirement 4.7**
 
