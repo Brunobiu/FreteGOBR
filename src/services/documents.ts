@@ -39,6 +39,9 @@ export const VALID_DOCUMENT_TYPES = [
   // Comprovantes de endereço
   'comprovante_endereco_proprietario',
   'comprovante_endereco_motorista',
+  // Documento do proprietário (CPF, CNH ou contrato) — quando o
+  // caminhão não pertence ao motorista. Adicionado pela Migration 017.
+  'documento_proprietario',
 ] as const;
 
 export type DocumentType = (typeof VALID_DOCUMENT_TYPES)[number];

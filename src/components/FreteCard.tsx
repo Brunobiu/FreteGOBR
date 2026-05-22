@@ -1,14 +1,24 @@
 import type { Frete } from '../services/fretes';
+import type { MotoristaCalcContext } from '../services/motorista';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
+import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
 
 interface FreteCardProps {
   frete: Frete;
   onClick: () => void;
   hidePhone?: boolean;
+  /**
+   * Contexto de cálculo financeiro do motorista. Quando presente,
+   * o card exibe um bloco com litros, custo de diesel, pedágio
+   * (placeholder) e lucro líquido estimado. Sem essa prop, o card
+   * renderiza exatamente como antes (não-regressão para visitantes
+   * e embarcadores).
+   */
+  motoristaCalc?: MotoristaCalcContext;
 }
 
-export default function FreteCard({ frete, onClick }: FreteCardProps) {
+export default function FreteCard({ frete, onClick, motoristaCalc }: FreteCardProps) {
   const { isAuthenticated } = useAuth();
 
   const formatCurrency = (value: number) =>
@@ -82,6 +92,81 @@ export default function FreteCard({ frete, onClick }: FreteCardProps) {
         ) : null}
         <span className="text-[11px] text-gray-400 shrink-0">{formatDate(frete.createdAt)}</span>
       </div>
+
+      {/* Bloco de cálculo financeiro — só renderiza quando motoristaCalc
+          é fornecido. Sem a prop, o card permanece idêntico ao
+          comportamento anterior (embarcador/visitante). */}
+      {motoristaCalc &&
+        isAuthenticated &&
+        (() => {
+          const hasContext =
+            motoristaCalc.kmPerLiter !== null &&
+            motoristaCalc.kmPerLiter > 0 &&
+            motoristaCalc.dieselPrice !== null &&
+            motoristaCalc.dieselPrice >= 0;
+
+          // Sem dados de cálculo no perfil → CTA pra completar.
+          if (!hasContext) {
+            return (
+              <div className="mt-2 p-1.5 bg-yellow-50 border border-yellow-200 rounded text-center">
+                <Link
+                  to="/perfil/motorista"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[10px] text-yellow-800 font-medium underline"
+                >
+                  Configure seu veículo para ver os cálculos
+                </Link>
+              </div>
+            );
+          }
+
+          // Sem distância → exibe aviso curto sem travar o card.
+          if (!frete.distanceKm) {
+            return (
+              <div className="mt-2 p-1.5 bg-gray-50 border border-gray-200 rounded text-center">
+                <span className="text-[10px] text-gray-500">Distância não disponível</span>
+              </div>
+            );
+          }
+
+          const calc = calculateFreteFinanceiro({
+            distanceKm: frete.distanceKm,
+            kmPerLiter: motoristaCalc.kmPerLiter as number,
+            dieselPrice: motoristaCalc.dieselPrice as number,
+            freteValue: frete.value,
+          });
+
+          const lucroColor = calc.lucroLiquido >= 0 ? 'text-green-700' : 'text-red-600';
+
+          return (
+            <div className="mt-2 p-2 bg-blue-50/60 border border-blue-100 rounded space-y-0.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-600">Litros estimados</span>
+                <span className="font-medium text-gray-800">
+                  {calc.litros.toLocaleString('pt-BR')} L
+                </span>
+              </div>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-600">Custo de diesel</span>
+                <span className="font-medium text-gray-800">
+                  {formatCurrencyBRL(calc.custoDiesel)}
+                </span>
+              </div>
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-600">Pedágio (em breve)</span>
+                <span className="font-medium text-gray-400">—</span>
+              </div>
+              <div className="flex justify-between text-[11px] pt-1 border-t border-blue-100">
+                <span className="text-gray-700 font-semibold">
+                  Lucro líquido <span className="text-gray-400 font-normal">(sem pedágio)</span>
+                </span>
+                <span className={`font-bold ${lucroColor}`}>
+                  {formatCurrencyBRL(calc.lucroLiquido)}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
       {/* Banner para visitantes */}
       {!isAuthenticated && (

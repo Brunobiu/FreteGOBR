@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -9,10 +9,68 @@ import {
   deleteDocument,
   validateDocumentType,
 } from '../services/documents';
+import {
+  sendEmailVerificationCode,
+  getVerificationStatus,
+  VerificationError,
+} from '../services/verification';
+import { capitalizeName } from '../utils/textCase';
+import { formatPlate, isValidMercosulPlate } from '../utils/plateValidation';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
+import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const PDF_IMG = 'image/*,application/pdf';
+const IMG_ONLY = 'image/*';
+const MAX_SIZE = 5 * 1024 * 1024;
+
+const VEHICLE_TYPES: Array<{ value: string; label: string }> = [
+  { value: 'truck', label: 'Caminhão' },
+  { value: 'van', label: 'Van' },
+  { value: 'pickup', label: 'Pickup' },
+  { value: 'carreta', label: 'Carreta' },
+  { value: 'bitrem', label: 'Bitrem' },
+  { value: 'rodotrem', label: 'Rodotrem' },
+  { value: 'vanderleia', label: 'Vanderleia' },
+];
+
+const MODELOS_CAMINHAO = [
+  'Volvo FH',
+  'Volvo VM',
+  'Scania R450',
+  'Scania G',
+  'Mercedes Atego',
+  'Mercedes Axor',
+  'Mercedes Actros',
+  'Iveco Hi-Way',
+  'Iveco Tector',
+  'Ford Cargo',
+  'VW Constellation',
+  'VW Delivery',
+  'DAF XF',
+  'MAN TGX',
+  'Outro',
+] as const;
+
+// Tipos de documento por seção (Req 4)
+const TIPOS_PESSOAIS = ['cnh', 'foto_segurando_cnh', 'comprovante_endereco_motorista'];
+const TIPOS_VEICULO = [
+  'crlv_cavalo',
+  'crlv_carreta_1',
+  'crlv_carreta_2',
+  'crlv_carreta_3',
+  'crlv_carreta_4',
+  'rntrc_cavalo',
+  'rntrc_carreta_1',
+  'rntrc_carreta_2',
+  'foto_frente_caminhao',
+  'foto_caminhao_completo',
+];
+const TIPOS_PROPRIETARIO = ['comprovante_endereco_proprietario', 'documento_proprietario'];
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 type DocStatus = 'pendente' | 'aprovado' | 'rejeitado';
 
@@ -28,23 +86,7 @@ interface DocRecord {
   url?: string;
 }
 
-// ─── Document section definitions ─────────────────────────────────────────────
-
-const REQUIRED_DOC_TYPES = [
-  'crlv_cavalo',
-  'rntrc_cavalo',
-  'cnh',
-  'foto_segurando_cnh',
-  'foto_frente_caminhao',
-  'comprovante_endereco_proprietario',
-  'foto_caminhao_completo',
-];
-
-const PDF_IMG = '.pdf,.jpg,.jpeg,.png';
-const IMG_ONLY = '.jpg,.jpeg,.png';
-const MAX_SIZE = 5 * 1024 * 1024;
-
-interface SlotDef {
+interface SlotConfig {
   type: string;
   label: string;
   accept: string;
@@ -52,164 +94,85 @@ interface SlotDef {
   optional?: boolean;
 }
 
-interface SectionDef {
-  id: string;
-  title: string;
-  slots: SlotDef[];
-  expandable?: boolean; // for carreta 2-4
-}
+// ─── Componente de Slot de Documento (com câmera ou arquivo) ────────────────
 
-const SECTIONS: SectionDef[] = [
-  {
-    id: 'doc_cavalo',
-    title: 'DOC Cavalo/Carretas',
-    expandable: true,
-    slots: [
-      { type: 'crlv_cavalo', label: 'CRLV Cavalo', accept: PDF_IMG },
-      { type: 'crlv_carreta_1', label: 'CRLV Carreta 1', accept: PDF_IMG },
-      { type: 'crlv_carreta_2', label: 'CRLV Carreta 2', accept: PDF_IMG },
-      { type: 'crlv_carreta_3', label: 'CRLV Carreta 3', accept: PDF_IMG },
-      { type: 'crlv_carreta_4', label: 'CRLV Carreta 4', accept: PDF_IMG },
-    ],
-  },
-  {
-    id: 'antt',
-    title: 'ANTT',
-    slots: [
-      { type: 'rntrc_cavalo', label: 'RNTRC Cavalo', accept: PDF_IMG },
-      { type: 'rntrc_carreta_1', label: 'RNTRC Carreta 1', accept: PDF_IMG },
-      { type: 'rntrc_carreta_2', label: 'RNTRC Carreta 2', accept: PDF_IMG },
-    ],
-  },
-  {
-    id: 'cnh',
-    title: 'CNH',
-    slots: [{ type: 'cnh', label: 'CNH', accept: PDF_IMG }],
-  },
-  {
-    id: 'foto_cnh',
-    title: 'Foto segurando CNH',
-    slots: [
-      {
-        type: 'foto_segurando_cnh',
-        label: 'Foto segurando CNH',
-        accept: IMG_ONLY,
-        note: 'Use câmera traseira, não frontal',
-      },
-    ],
-  },
-  {
-    id: 'foto_frente',
-    title: 'Foto em frente ao caminhão',
-    slots: [
-      { type: 'foto_frente_caminhao', label: 'Foto em frente ao caminhão', accept: IMG_ONLY },
-    ],
-  },
-  {
-    id: 'comp_proprietario',
-    title: 'Comprovante de Endereço - Proprietário',
-    slots: [
-      {
-        type: 'comprovante_endereco_proprietario',
-        label: 'Comprovante de Endereço (Proprietário)',
-        accept: PDF_IMG,
-      },
-    ],
-  },
-  {
-    id: 'comp_motorista',
-    title: 'Comprovante de Endereço - Motorista',
-    slots: [
-      {
-        type: 'comprovante_endereco_motorista',
-        label: 'Comprovante de Endereço (Motorista)',
-        accept: PDF_IMG,
-        optional: true,
-      },
-    ],
-  },
-  {
-    id: 'foto_caminhao',
-    title: 'Foto do caminhão completo',
-    slots: [
-      { type: 'foto_caminhao_completo', label: 'Foto do caminhão completo', accept: IMG_ONLY },
-    ],
-  },
-];
-
-// ─── Status badge ──────────────────────────────────────────────────────────────
-
-function StatusBadge({ doc }: { doc: DocRecord | undefined }) {
-  if (!doc) {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">
-        Pendente envio
-      </span>
-    );
-  }
-  const status = doc.status ?? 'pendente';
-  if (status === 'aprovado') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">
-        ✓ Aprovado
-      </span>
-    );
-  }
-  if (status === 'rejeitado') {
-    return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
-        Rejeitado
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-700">
-      Aguardando aprovação
-    </span>
-  );
-}
-
-// ─── Single document slot ──────────────────────────────────────────────────────
-
-interface SlotProps {
-  slot: SlotDef;
+interface DocSlotProps {
+  slot: SlotConfig;
   doc: DocRecord | undefined;
   uploading: boolean;
   onUpload: (type: string, file: File) => void;
   onDelete: (type: string) => void;
 }
 
-function DocSlot({ slot, doc, uploading, onUpload, onDelete }: SlotProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
+  // Dois inputs separados: um com `capture` para câmera, outro padrão.
+  // Em desktop, ambos abrem o seletor de arquivos (capture é ignorado).
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const status = doc?.status ?? (doc ? 'pendente' : undefined);
   const canDelete = doc && status !== 'aprovado';
+  const isImageOnly = slot.accept === IMG_ONLY;
+
+  const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    onUpload(slot.type, file);
+    e.target.value = '';
+  };
+
+  const statusBadge = (() => {
+    if (!doc) {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+          Não enviado
+        </span>
+      );
+    }
+    if (status === 'aprovado') {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
+          ✓ Aprovado
+        </span>
+      );
+    }
+    if (status === 'rejeitado') {
+      return (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
+          Rejeitado
+        </span>
+      );
+    }
+    return (
+      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
+        Aguardando
+      </span>
+    );
+  })();
 
   return (
-    <div className="flex flex-col gap-1 p-3 bg-white border border-gray-200 rounded-lg">
+    <div className="flex flex-col gap-1 p-2.5 bg-white border border-gray-200 rounded-lg">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">
+          <p className="text-xs font-medium text-gray-800">
             {slot.label}
-            {slot.optional && <span className="ml-1 text-xs text-gray-400">(opcional)</span>}
+            {slot.optional && <span className="ml-1 text-[10px] text-gray-400">(opcional)</span>}
           </p>
-          {slot.note && <p className="text-xs text-gray-500 mt-0.5">{slot.note}</p>}
-          {doc && <p className="text-xs text-gray-400 truncate mt-0.5">{doc.fileName}</p>}
+          {slot.note && <p className="text-[10px] text-gray-500 mt-0.5">{slot.note}</p>}
+          {doc && <p className="text-[10px] text-gray-400 truncate mt-0.5">{doc.fileName}</p>}
           {doc?.status === 'rejeitado' && doc.rejectionReason && (
-            <p className="text-xs text-red-600 mt-0.5">Motivo: {doc.rejectionReason}</p>
+            <p className="text-[10px] text-red-600 mt-0.5">Motivo: {doc.rejectionReason}</p>
           )}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <StatusBadge doc={doc} />
-        </div>
+        <div className="shrink-0">{statusBadge}</div>
       </div>
 
-      <div className="flex items-center gap-2 mt-1">
+      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
         {doc?.url && (
           <a
             href={doc.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline"
+            className="text-[10px] text-blue-600 hover:underline"
           >
             Ver
           </a>
@@ -218,29 +181,48 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: SlotProps) {
           <button
             type="button"
             onClick={() => onDelete(slot.type)}
-            className="text-xs text-red-500 hover:text-red-700"
+            className="text-[10px] text-red-500 hover:text-red-700"
           >
             Deletar
           </button>
         )}
         {status !== 'aprovado' && (
           <>
-            <label className="cursor-pointer px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200">
-              {uploading ? 'Enviando...' : doc ? 'Trocar' : 'Enviar'}
-              <input
-                ref={inputRef}
-                type="file"
-                accept={slot.accept}
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  if (e.target.files?.[0]) {
-                    onUpload(slot.type, e.target.files[0]);
-                    e.target.value = '';
-                  }
-                }}
-              />
-            </label>
+            {/* Inputs ocultos. capture="environment" prioriza câmera traseira;
+                fallback: navegadores desktop ignoram `capture` e abrem o seletor. */}
+            <input
+              ref={cameraRef}
+              type="file"
+              accept={isImageOnly ? IMG_ONLY : 'image/*'}
+              capture="environment"
+              hidden
+              disabled={uploading}
+              onChange={handlePick}
+            />
+            <input
+              ref={fileRef}
+              type="file"
+              accept={slot.accept}
+              hidden
+              disabled={uploading}
+              onChange={handlePick}
+            />
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              disabled={uploading}
+              className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded hover:bg-blue-100 disabled:opacity-50"
+            >
+              📷 Câmera
+            </button>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded hover:bg-gray-200 disabled:opacity-50"
+            >
+              📎 {uploading ? 'Enviando...' : doc ? 'Trocar arquivo' : 'Escolher arquivo'}
+            </button>
           </>
         )}
       </div>
@@ -248,141 +230,109 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: SlotProps) {
   );
 }
 
-// ─── PIS section ───────────────────────────────────────────────────────────────
+// ─── Página principal ────────────────────────────────────────────────────────
 
-interface PisSectionProps {
-  userId: string;
-}
-
-function PisSection({ userId }: PisSectionProps) {
-  const [pis, setPis] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
-
-  useEffect(() => {
-    supabase
-      .from('motorista_pis')
-      .select('pis_number')
-      .eq('user_id', userId)
-      .single()
-      .then(({ data }) => {
-        if (data?.pis_number) setPis(data.pis_number);
-      });
-  }, [userId]);
-
-  const handleSave = async () => {
-    if (pis.length !== 11) {
-      setMsg({ type: 'err', text: 'PIS deve ter exatamente 11 dígitos.' });
-      return;
-    }
-    setSaving(true);
-    setMsg(null);
-    const { error } = await supabase
-      .from('motorista_pis')
-      .upsert({ user_id: userId, pis_number: pis }, { onConflict: 'user_id' });
-    setSaving(false);
-    if (error) {
-      setMsg({ type: 'err', text: 'Erro ao salvar PIS.' });
-    } else {
-      setMsg({ type: 'ok', text: 'PIS salvo!' });
-      setTimeout(() => setMsg(null), 3000);
-    }
-  };
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-5">
-      <h2 className="text-base font-semibold text-gray-800 mb-3">Número PIS</h2>
-      <div className="flex items-center gap-3">
-        <input
-          type="text"
-          value={pis}
-          onChange={(e) => setPis(e.target.value.replace(/\D/g, '').slice(0, 11))}
-          placeholder="00000000000"
-          maxLength={11}
-          className="w-48 px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? 'Salvando...' : 'Salvar PIS'}
-        </button>
-      </div>
-      {msg && (
-        <p className={`mt-2 text-xs ${msg.type === 'ok' ? 'text-green-600' : 'text-red-600'}`}>
-          {msg.text}
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ─── Main page ─────────────────────────────────────────────────────────────────
+const CURRENT_YEAR = new Date().getFullYear();
 
 export default function MotoristaPerfilPage() {
   useDocumentTitle('Perfil do Motorista');
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  // Personal data
+  // === Dados pessoais ========================================================
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [emailVerifiedAtServer, setEmailVerifiedAtServer] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [emailRateLimitedUntil, setEmailRateLimitedUntil] = useState<number | null>(null);
   const [cpf, setCpf] = useState('');
+  const [pis, setPis] = useState('');
 
-  // Vehicle
+  // === Veículo ==============================================================
   const [vehicleType, setVehicleType] = useState('');
   const [vehiclePlate, setVehiclePlate] = useState('');
-  const [vehicleModel, setVehicleModel] = useState('');
-  const [vehicleYear, setVehicleYear] = useState('');
+  const [vehicleModelSelect, setVehicleModelSelect] = useState('');
+  const [vehicleModelOutro, setVehicleModelOutro] = useState('');
+  const [vehicleYearManufacture, setVehicleYearManufacture] = useState('');
+  const [vehicleYearModel, setVehicleYearModel] = useState('');
+  const [kmPerLiter, setKmPerLiter] = useState('');
+  const [trailerAxles, setTrailerAxles] = useState('');
+  const [cargoCapacityTon, setCargoCapacityTon] = useState('');
+  const [dieselPrice, setDieselPrice] = useState('');
 
-  // Documents
+  // === Proprietário =========================================================
+  const [isNotOwner, setIsNotOwner] = useState(false);
+
+  // === Documentos ===========================================================
   const [documents, setDocuments] = useState<Record<string, DocRecord>>({});
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-
-  // Carreta expansion
   const [showExtraCarretas, setShowExtraCarretas] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
-    loadAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  // === Erros por campo ======================================================
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  const loadAll = async () => {
+  // O e-mail está "sujo" se o input difere do valor verificado no servidor
+  const emailDirty =
+    emailInput.trim() !== '' && emailInput.trim() !== (emailVerifiedAtServer ?? '');
+  const emailVerifiedNow =
+    emailInput.trim() === (emailVerifiedAtServer ?? '') && emailInput.trim() !== '';
+
+  const loadAll = useCallback(async () => {
     if (!user) return;
     try {
       setIsLoading(true);
 
-      const [userData, profile, { data: rawDocs }] = await Promise.all([
-        getUserData(user.id),
-        getMotoristaProfile(user.id),
-        supabase
-          .from('documents')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false }),
-      ]);
+      const [userData, profile, { data: rawDocs }, verifStatus, { data: pisRow }] =
+        await Promise.all([
+          getUserData(user.id),
+          getMotoristaProfile(user.id),
+          supabase
+            .from('documents')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
+          getVerificationStatus(),
+          supabase.from('motorista_pis').select('pis_number').eq('user_id', user.id).maybeSingle(),
+        ]);
 
-      setName(userData.name || '');
-      setEmail(userData.email || '');
+      setName(userData.name ? capitalizeName(userData.name) : '');
+      setEmailInput(userData.email || '');
+      setEmailVerifiedAtServer(verifStatus.emailVerified ? userData.email || '' : null);
       setCpf(userData.cpf || '');
+      setPis(pisRow?.pis_number ?? '');
 
       if (profile) {
         setVehicleType(profile.vehicleType || '');
         setVehiclePlate(profile.vehiclePlate || '');
-        setVehicleModel(profile.vehicleModel || '');
-        setVehicleYear(profile.vehicleYear?.toString() || '');
+        // Modelo: se está na lista pré-definida, seleciona; senão, "Outro" + texto.
+        if (profile.vehicleModel) {
+          if ((MODELOS_CAMINHAO as readonly string[]).includes(profile.vehicleModel)) {
+            setVehicleModelSelect(profile.vehicleModel);
+            setVehicleModelOutro('');
+          } else {
+            setVehicleModelSelect('Outro');
+            setVehicleModelOutro(profile.vehicleModel);
+          }
+        }
+        setVehicleYearManufacture(
+          profile.vehicleYearManufacture?.toString() ?? profile.vehicleYear?.toString() ?? ''
+        );
+        setVehicleYearModel(profile.vehicleYearModel?.toString() ?? '');
+        setKmPerLiter(profile.kmPerLiter?.toString() ?? '');
+        setTrailerAxles(profile.trailerAxles?.toString() ?? '');
+        setCargoCapacityTon(profile.cargoCapacityTon?.toString() ?? '');
+        setDieselPrice(profile.dieselPrice?.toFixed(2) ?? '');
+        setIsNotOwner(profile.isOwner === false);
       }
 
       if (rawDocs) {
         const docsMap: Record<string, DocRecord> = {};
-        // Keep only the latest per type
         for (const d of rawDocs) {
           if (!docsMap[d.document_type]) {
             docsMap[d.document_type] = {
@@ -398,7 +348,6 @@ export default function MotoristaPerfilPage() {
           }
         }
 
-        // Fetch signed URLs in parallel
         const urlEntries = await Promise.all(
           Object.entries(docsMap).map(async ([type, doc]) => {
             try {
@@ -415,7 +364,6 @@ export default function MotoristaPerfilPage() {
 
         setDocuments(docsMap);
 
-        // Auto-expand if any carreta 2-4 docs exist
         const hasExtra = ['crlv_carreta_2', 'crlv_carreta_3', 'crlv_carreta_4'].some(
           (t) => docsMap[t]
         );
@@ -426,63 +374,80 @@ export default function MotoristaPerfilPage() {
     } finally {
       setIsLoading(false);
     }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    loadAll();
+  }, [user, loadAll]);
+
+  // ─── Handlers ───────────────────────────────────────────────────────────────
+
+  const handleSendEmailCode = async () => {
+    setError(null);
+    if (!emailInput || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailInput)) {
+      setFieldErrors((p) => ({ ...p, email: 'Informe um e-mail válido.' }));
+      return;
+    }
+    if (emailRateLimitedUntil && Date.now() < emailRateLimitedUntil) return;
+
+    setSendingCode(true);
+    try {
+      await sendEmailVerificationCode(emailInput);
+      setShowEmailModal(true);
+    } catch (err) {
+      if (err instanceof VerificationError && err.code === 'RATE_LIMITED') {
+        setEmailRateLimitedUntil(Date.now() + 60_000);
+        setFieldErrors((p) => ({
+          ...p,
+          email: 'Muitas tentativas. Tente novamente em algumas horas.',
+        }));
+      } else {
+        setFieldErrors((p) => ({
+          ...p,
+          email: err instanceof Error ? err.message : 'Erro ao enviar código',
+        }));
+      }
+    } finally {
+      setSendingCode(false);
+    }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    setIsSaving(true);
-    setError(null);
-    setSuccess(null);
-    try {
-      await updateMotoristaProfile(user.id, {
-        name,
-        email,
-        cpf,
-        vehicleType,
-        vehiclePlate,
-        vehicleModel,
-        vehicleYear: vehicleYear ? parseInt(vehicleYear) : undefined,
-      });
-      setSuccess('Perfil salvo com sucesso!');
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
-    } finally {
-      setIsSaving(false);
-    }
+  const handleEmailVerified = async (verifiedEmail: string) => {
+    setShowEmailModal(false);
+    setEmailVerifiedAtServer(verifiedEmail);
+    setSuccess('E-mail confirmado!');
+    setTimeout(() => setSuccess(null), 3000);
+    await refreshUser();
   };
 
   const handleDocUpload = async (docType: string, file: File) => {
     if (!user) return;
 
     if (!validateDocumentType(docType)) {
-      setError(`Tipo de documento inválido: "${docType}". Recarregue a página e tente novamente.`);
+      setError(`Tipo de documento inválido: "${docType}".`);
       return;
     }
 
     if (file.size > MAX_SIZE) {
-      setError(`Arquivo muito grande. Máximo permitido: 5MB.`);
+      setError('Arquivo muito grande. Máximo permitido: 5MB.');
       return;
     }
 
     setUploadingDoc(docType);
     setError(null);
     try {
-      // If replacing, delete old first
       const existing = documents[docType];
       if (existing && existing.status !== 'aprovado') {
         await deleteDocument(existing.id);
       }
-
       const doc = await uploadDocument(user.id, docType, file);
       let url: string | undefined;
       try {
         url = await getSignedUrl(doc.id);
       } catch {
-        /* ignore */
+        // ignore
       }
-
       setDocuments((prev) => ({
         ...prev,
         [docType]: {
@@ -519,11 +484,118 @@ export default function MotoristaPerfilPage() {
     }
   };
 
-  // Progress: count required docs that are 'aprovado'
-  const approvedRequired = REQUIRED_DOC_TYPES.filter(
-    (t) => documents[t]?.status === 'aprovado'
-  ).length;
-  const progress = Math.round((approvedRequired / REQUIRED_DOC_TYPES.length) * 100);
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    const errs: Record<string, string> = {};
+
+    // Nome
+    const trimmedName = name.trim();
+    if (!trimmedName) errs.name = 'Informe seu nome completo';
+
+    // Placa Mercosul (apenas se tiver algum valor)
+    if (vehiclePlate && !isValidMercosulPlate(vehiclePlate)) {
+      errs.plate = 'Placa inválida. Formato esperado: ABC1D23';
+    }
+
+    // Modelo "Outro" exige texto
+    if (vehicleModelSelect === 'Outro' && !vehicleModelOutro.trim()) {
+      errs.model = 'Informe o modelo do caminhão';
+    }
+
+    // Anos
+    const yearFab = vehicleYearManufacture ? parseInt(vehicleYearManufacture) : undefined;
+    const yearMod = vehicleYearModel ? parseInt(vehicleYearModel) : undefined;
+    if (yearFab !== undefined && (yearFab < 1980 || yearFab > CURRENT_YEAR + 1)) {
+      errs.yearManufacture = 'Ano de fabricação fora do intervalo permitido';
+    }
+    if (yearMod !== undefined && (yearMod < 1980 || yearMod > CURRENT_YEAR + 2)) {
+      errs.yearModel = 'Ano modelo fora do intervalo permitido';
+    }
+    if (yearFab !== undefined && yearMod !== undefined && yearMod < yearFab) {
+      errs.yearModel = 'Ano modelo deve ser maior ou igual ao ano de fabricação';
+    }
+
+    // Ranges operacionais
+    if (kmPerLiter && (parseFloat(kmPerLiter) < 1 || parseFloat(kmPerLiter) > 10)) {
+      errs.kmPerLiter = 'Valor fora do intervalo permitido (1,0 a 10,0)';
+    }
+    if (trailerAxles && (parseInt(trailerAxles) < 2 || parseInt(trailerAxles) > 9)) {
+      errs.trailerAxles = 'Valor fora do intervalo permitido (2 a 9)';
+    }
+    if (
+      cargoCapacityTon &&
+      (parseFloat(cargoCapacityTon) < 1 || parseFloat(cargoCapacityTon) > 80)
+    ) {
+      errs.cargoCapacityTon = 'Valor fora do intervalo permitido (1,0 a 80,0)';
+    }
+    if (dieselPrice && (parseFloat(dieselPrice) < 1 || parseFloat(dieselPrice) > 20)) {
+      errs.dieselPrice = 'Valor fora do intervalo permitido (R$ 1,00 a R$ 20,00)';
+    }
+
+    // PIS — bloqueia se preenchido com tamanho diferente de 11
+    if (pis && pis.length !== 11) {
+      errs.pis = 'PIS deve ter exatamente 11 dígitos';
+    }
+
+    // E-mail dirty exige verificação antes de salvar
+    if (emailDirty) {
+      errs.email = 'Verifique o novo e-mail antes de salvar';
+    }
+
+    setFieldErrors(errs);
+    if (Object.keys(errs).length > 0) {
+      setError('Verifique os campos destacados em vermelho.');
+      // Foco no primeiro campo com erro
+      const first = document.querySelector<HTMLElement>('[data-error="true"]');
+      first?.focus();
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const finalModel =
+        vehicleModelSelect === 'Outro' ? vehicleModelOutro.trim() : vehicleModelSelect;
+
+      await updateMotoristaProfile(user.id, {
+        name: trimmedName,
+        cpf: cpf || undefined,
+        vehicleType: vehicleType || undefined,
+        vehiclePlate: vehiclePlate || undefined,
+        vehicleModel: finalModel || undefined,
+        vehicleYearManufacture: yearFab,
+        vehicleYearModel: yearMod,
+        kmPerLiter: kmPerLiter ? parseFloat(kmPerLiter) : undefined,
+        trailerAxles: trailerAxles ? parseInt(trailerAxles) : undefined,
+        cargoCapacityTon: cargoCapacityTon ? parseFloat(cargoCapacityTon) : undefined,
+        dieselPrice: dieselPrice ? parseFloat(dieselPrice) : undefined,
+        isOwner: !isNotOwner,
+      });
+
+      // PIS — salva apenas quando tem 11 dígitos exatos
+      if (pis && pis.length === 11) {
+        await supabase
+          .from('motorista_pis')
+          .upsert({ user_id: user.id, pis_number: pis }, { onConflict: 'user_id' });
+      }
+
+      setSuccess('Perfil salvo com sucesso!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // ─── Computed ───────────────────────────────────────────────────────────────
+
+  const countDocs = (types: string[]) => types.filter((t) => documents[t]).length;
+
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
@@ -537,68 +609,60 @@ export default function MotoristaPerfilPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AppHeader />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">Meu Perfil</h1>
+      <main className="max-w-3xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-bold text-gray-800">Meu Perfil</h1>
           <button
             onClick={() => navigate('/')}
-            className="text-sm text-gray-600 hover:text-gray-900"
+            className="text-xs text-gray-600 hover:text-gray-900"
           >
             ← Voltar aos fretes
           </button>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          <div
+            role="alert"
+            className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs"
+          >
             {error}
           </div>
         )}
         {success && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">
+          <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs">
             {success}
           </div>
         )}
 
-        {/* Progress */}
-        <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
-          <div className="flex justify-between text-sm text-gray-600 mb-2">
-            <span>Documentos obrigatórios aprovados</span>
-            <span>
-              {approvedRequired}/{REQUIRED_DOC_TYPES.length}
-            </span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-blue-500 h-2 rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 mt-1">{progress}% completo</p>
-        </div>
+        <form onSubmit={handleSave} className="space-y-4">
+          {/* ──────────────────────────────────────────────────────────────────
+              SEÇÃO 1 — Dados Pessoais (Motorista)
+              ────────────────────────────────────────────────────────────────── */}
+          <section className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-800">Dados Pessoais</h2>
+              <span className="text-[11px] text-gray-500">
+                {countDocs(TIPOS_PESSOAIS)}/{TIPOS_PESSOAIS.length} documentos
+              </span>
+            </div>
 
-        <form onSubmit={handleSave} className="space-y-6">
-          {/* Personal data */}
-          <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">Dados Pessoais</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Nome *</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={(e) => setName(capitalizeName(e.target.value))}
                   required
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  data-error={fieldErrors.name ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.name ? 'border-red-400' : 'border-gray-300'
+                  }`}
                 />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">E-mail</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
+                {fieldErrors.name && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">CPF</label>
@@ -610,153 +674,520 @@ export default function MotoristaPerfilPage() {
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs text-gray-600 mb-1">E-mail</label>
+                {emailVerifiedNow ? (
+                  <div className="flex items-center gap-2">
+                    <p className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-sm">
+                      {emailInput}
+                    </p>
+                    <span className="px-2 py-1 bg-green-50 border border-green-200 text-green-700 text-[11px] font-medium rounded-md">
+                      ✓ E-mail confirmado
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <input
+                      type="email"
+                      value={emailInput}
+                      onChange={(e) => {
+                        setEmailInput(e.target.value);
+                        setFieldErrors((p) => ({ ...p, email: '' }));
+                      }}
+                      placeholder="seu@email.com"
+                      data-error={fieldErrors.email ? 'true' : undefined}
+                      className={`flex-1 px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        fieldErrors.email ? 'border-red-400' : 'border-gray-300'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendEmailCode}
+                      disabled={
+                        sendingCode ||
+                        !emailDirty ||
+                        (emailRateLimitedUntil !== null && Date.now() < emailRateLimitedUntil)
+                      }
+                      className="px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {sendingCode ? 'Enviando...' : 'Verificar e-mail'}
+                    </button>
+                  </div>
+                )}
+                {fieldErrors.email && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.email}</p>
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Vehicle */}
-          <div className="bg-white border border-gray-200 rounded-lg p-5 space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">Veículo</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Documentos pessoais */}
+            <div className="mt-3 space-y-2">
+              <DocSlot
+                slot={{ type: 'cnh', label: 'CNH (frente e verso)', accept: PDF_IMG }}
+                doc={documents.cnh}
+                uploading={uploadingDoc === 'cnh'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{
+                  type: 'foto_segurando_cnh',
+                  label: 'Foto segurando CNH',
+                  accept: IMG_ONLY,
+                  note: 'Use a câmera traseira, não a frontal.',
+                }}
+                doc={documents.foto_segurando_cnh}
+                uploading={uploadingDoc === 'foto_segurando_cnh'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{
+                  type: 'comprovante_endereco_motorista',
+                  label: 'Comprovante de endereço (motorista)',
+                  accept: PDF_IMG,
+                }}
+                doc={documents.comprovante_endereco_motorista}
+                uploading={uploadingDoc === 'comprovante_endereco_motorista'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+            </div>
+
+            {/* PIS — último campo da seção, acima do Salvar */}
+            <div className="mt-3 pt-3 border-t border-gray-100">
+              <label className="block text-xs text-gray-600 mb-1">PIS (11 dígitos)</label>
+              <input
+                type="text"
+                value={pis}
+                onChange={(e) => setPis(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                placeholder="00000000000"
+                maxLength={11}
+                data-error={fieldErrors.pis ? 'true' : undefined}
+                className={`w-48 px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  fieldErrors.pis ? 'border-red-400' : 'border-gray-300'
+                }`}
+              />
+              {fieldErrors.pis && (
+                <p className="mt-1 text-[11px] text-red-600">{fieldErrors.pis}</p>
+              )}
+              {!pis && (
+                <p className="mt-1 text-[11px] text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 inline-block">
+                  ⚠ Transportadoras hoje em dia pedem muito o PIS, favor preencher.
+                </p>
+              )}
+            </div>
+          </section>
+
+          {/* ──────────────────────────────────────────────────────────────────
+              SEÇÃO 2 — Veículo
+              ────────────────────────────────────────────────────────────────── */}
+          <section className="bg-white border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-800">Veículo</h2>
+              <span className="text-[11px] text-gray-500">
+                {countDocs(TIPOS_VEICULO)}/{TIPOS_VEICULO.length} documentos
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Tipo *</label>
+                <label className="block text-xs text-gray-600 mb-1">Tipo</label>
                 <select
                   value={vehicleType}
                   onChange={(e) => setVehicleType(e.target.value)}
-                  required
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Selecione</option>
-                  <option value="truck">Caminhão</option>
-                  <option value="van">Van</option>
-                  <option value="pickup">Pickup</option>
-                  <option value="carreta">Carreta</option>
+                  <option value="">Selecione...</option>
+                  {VEHICLE_TYPES.map((v) => (
+                    <option key={v.value} value={v.value}>
+                      {v.label}
+                    </option>
+                  ))}
                 </select>
               </div>
+
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Placa</label>
+                <label className="block text-xs text-gray-600 mb-1">Placa (Mercosul)</label>
                 <input
                   type="text"
                   value={vehiclePlate}
-                  onChange={(e) => setVehiclePlate(e.target.value.toUpperCase())}
-                  maxLength={8}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => setVehiclePlate(formatPlate(e.target.value))}
+                  placeholder="ABC1D23"
+                  maxLength={7}
+                  data-error={fieldErrors.plate ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.plate ? 'border-red-400' : 'border-gray-300'
+                  }`}
                 />
+                {fieldErrors.plate && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.plate}</p>
+                )}
               </div>
+
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Modelo</label>
-                <input
-                  type="text"
-                  value={vehicleModel}
-                  onChange={(e) => setVehicleModel(e.target.value)}
+                <select
+                  value={vehicleModelSelect}
+                  onChange={(e) => setVehicleModelSelect(e.target.value)}
                   className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Ano</label>
-                <input
-                  type="number"
-                  value={vehicleYear}
-                  onChange={(e) => setVehicleYear(e.target.value)}
-                  min="1900"
-                  max={new Date().getFullYear() + 1}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Documents */}
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold text-gray-800">Documentos</h2>
-
-            {SECTIONS.map((section) => {
-              const baseSlots = section.expandable
-                ? section.slots.slice(0, 2) // CRLV Cavalo + Carreta 1
-                : section.slots;
-              const extraSlots = section.expandable ? section.slots.slice(2) : [];
-
-              return (
-                <div
-                  key={section.id}
-                  className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-3"
                 >
-                  <h3 className="text-sm font-semibold text-gray-700">{section.title}</h3>
+                  <option value="">Selecione...</option>
+                  {MODELOS_CAMINHAO.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                  <div className="space-y-2">
-                    {baseSlots.map((slot) => (
-                      <DocSlot
-                        key={slot.type}
-                        slot={slot}
-                        doc={documents[slot.type]}
-                        uploading={uploadingDoc === slot.type}
-                        onUpload={handleDocUpload}
-                        onDelete={handleDocDelete}
-                      />
-                    ))}
-
-                    {section.expandable &&
-                      showExtraCarretas &&
-                      extraSlots.map((slot) => (
-                        <DocSlot
-                          key={slot.type}
-                          slot={slot}
-                          doc={documents[slot.type]}
-                          uploading={uploadingDoc === slot.type}
-                          onUpload={handleDocUpload}
-                          onDelete={handleDocDelete}
-                        />
-                      ))}
-                  </div>
-
-                  {section.expandable && !showExtraCarretas && (
-                    <button
-                      type="button"
-                      onClick={() => setShowExtraCarretas(true)}
-                      className="text-xs text-blue-600 hover:underline"
-                    >
-                      + Adicionar mais carretas (Carreta 2, 3, 4)
-                    </button>
-                  )}
-                  {section.expandable && showExtraCarretas && (
-                    <button
-                      type="button"
-                      onClick={() => setShowExtraCarretas(false)}
-                      className="text-xs text-gray-400 hover:text-gray-600"
-                    >
-                      − Ocultar carretas extras
-                    </button>
+              {vehicleModelSelect === 'Outro' && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Especifique o modelo</label>
+                  <input
+                    type="text"
+                    value={vehicleModelOutro}
+                    onChange={(e) => setVehicleModelOutro(e.target.value)}
+                    maxLength={60}
+                    data-error={fieldErrors.model ? 'true' : undefined}
+                    className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors.model ? 'border-red-400' : 'border-gray-300'
+                    }`}
+                  />
+                  {fieldErrors.model && (
+                    <p className="mt-1 text-[11px] text-red-600">{fieldErrors.model}</p>
                   )}
                 </div>
-              );
-            })}
-          </div>
+              )}
 
-          {/* Save button */}
-          <div className="flex justify-between">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Ano de fabricação</label>
+                <input
+                  type="number"
+                  value={vehicleYearManufacture}
+                  onChange={(e) => setVehicleYearManufacture(e.target.value.slice(0, 4))}
+                  min={1980}
+                  max={CURRENT_YEAR + 1}
+                  placeholder="2020"
+                  data-error={fieldErrors.yearManufacture ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.yearManufacture ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.yearManufacture && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.yearManufacture}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Ano modelo</label>
+                <input
+                  type="number"
+                  value={vehicleYearModel}
+                  onChange={(e) => setVehicleYearModel(e.target.value.slice(0, 4))}
+                  min={1980}
+                  max={CURRENT_YEAR + 2}
+                  placeholder="2021"
+                  data-error={fieldErrors.yearModel ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.yearModel ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.yearModel && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.yearModel}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Consumo (km/l do cavalo)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={kmPerLiter}
+                  onChange={(e) => setKmPerLiter(e.target.value)}
+                  placeholder="2.5"
+                  min={1}
+                  max={10}
+                  data-error={fieldErrors.kmPerLiter ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.kmPerLiter ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.kmPerLiter && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.kmPerLiter}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Eixos da carreta</label>
+                <input
+                  type="number"
+                  value={trailerAxles}
+                  onChange={(e) => setTrailerAxles(e.target.value)}
+                  placeholder="6"
+                  min={2}
+                  max={9}
+                  data-error={fieldErrors.trailerAxles ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.trailerAxles ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.trailerAxles && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.trailerAxles}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Capacidade (toneladas)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={cargoCapacityTon}
+                  onChange={(e) => setCargoCapacityTon(e.target.value)}
+                  placeholder="30"
+                  min={1}
+                  max={80}
+                  data-error={fieldErrors.cargoCapacityTon ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.cargoCapacityTon ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.cargoCapacityTon && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.cargoCapacityTon}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">
+                  Valor do diesel (R$/litro)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={dieselPrice}
+                  onChange={(e) => setDieselPrice(e.target.value)}
+                  placeholder="5.99"
+                  min={1}
+                  max={20}
+                  data-error={fieldErrors.dieselPrice ? 'true' : undefined}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    fieldErrors.dieselPrice ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.dieselPrice && (
+                  <p className="mt-1 text-[11px] text-red-600">{fieldErrors.dieselPrice}</p>
+                )}
+              </div>
+            </div>
+
+            {(!kmPerLiter || !trailerAxles || !cargoCapacityTon) && (
+              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-800">
+                ⚠ Preencha consumo, eixos e capacidade para desbloquear cálculos no painel.
+              </div>
+            )}
+
+            {/* Documentos do veículo */}
+            <div className="mt-3 space-y-2">
+              <DocSlot
+                slot={{ type: 'crlv_cavalo', label: 'CRLV do cavalo', accept: PDF_IMG }}
+                doc={documents.crlv_cavalo}
+                uploading={uploadingDoc === 'crlv_cavalo'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{ type: 'crlv_carreta_1', label: 'CRLV da carreta 1', accept: PDF_IMG }}
+                doc={documents.crlv_carreta_1}
+                uploading={uploadingDoc === 'crlv_carreta_1'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{ type: 'rntrc_cavalo', label: 'RNTRC do cavalo', accept: PDF_IMG }}
+                doc={documents.rntrc_cavalo}
+                uploading={uploadingDoc === 'rntrc_cavalo'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{
+                  type: 'rntrc_carreta_1',
+                  label: 'RNTRC da carreta 1',
+                  accept: PDF_IMG,
+                  optional: true,
+                }}
+                doc={documents.rntrc_carreta_1}
+                uploading={uploadingDoc === 'rntrc_carreta_1'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+
+              {!showExtraCarretas && (
+                <button
+                  type="button"
+                  onClick={() => setShowExtraCarretas(true)}
+                  className="text-[11px] text-blue-600 hover:underline"
+                >
+                  + adicionar mais carretas
+                </button>
+              )}
+
+              {showExtraCarretas && (
+                <>
+                  <DocSlot
+                    slot={{
+                      type: 'crlv_carreta_2',
+                      label: 'CRLV da carreta 2',
+                      accept: PDF_IMG,
+                      optional: true,
+                    }}
+                    doc={documents.crlv_carreta_2}
+                    uploading={uploadingDoc === 'crlv_carreta_2'}
+                    onUpload={handleDocUpload}
+                    onDelete={handleDocDelete}
+                  />
+                  <DocSlot
+                    slot={{
+                      type: 'rntrc_carreta_2',
+                      label: 'RNTRC da carreta 2',
+                      accept: PDF_IMG,
+                      optional: true,
+                    }}
+                    doc={documents.rntrc_carreta_2}
+                    uploading={uploadingDoc === 'rntrc_carreta_2'}
+                    onUpload={handleDocUpload}
+                    onDelete={handleDocDelete}
+                  />
+                  <DocSlot
+                    slot={{
+                      type: 'crlv_carreta_3',
+                      label: 'CRLV da carreta 3',
+                      accept: PDF_IMG,
+                      optional: true,
+                    }}
+                    doc={documents.crlv_carreta_3}
+                    uploading={uploadingDoc === 'crlv_carreta_3'}
+                    onUpload={handleDocUpload}
+                    onDelete={handleDocDelete}
+                  />
+                  <DocSlot
+                    slot={{
+                      type: 'crlv_carreta_4',
+                      label: 'CRLV da carreta 4',
+                      accept: PDF_IMG,
+                      optional: true,
+                    }}
+                    doc={documents.crlv_carreta_4}
+                    uploading={uploadingDoc === 'crlv_carreta_4'}
+                    onUpload={handleDocUpload}
+                    onDelete={handleDocDelete}
+                  />
+                </>
+              )}
+
+              <DocSlot
+                slot={{
+                  type: 'foto_frente_caminhao',
+                  label: 'Foto da frente do caminhão',
+                  accept: IMG_ONLY,
+                }}
+                doc={documents.foto_frente_caminhao}
+                uploading={uploadingDoc === 'foto_frente_caminhao'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <DocSlot
+                slot={{
+                  type: 'foto_caminhao_completo',
+                  label: 'Foto do caminhão completo (conjunto)',
+                  accept: IMG_ONLY,
+                }}
+                doc={documents.foto_caminhao_completo}
+                uploading={uploadingDoc === 'foto_caminhao_completo'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+            </div>
+
+            {/* Toggle proprietário */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isNotOwner}
+                  onChange={(e) => setIsNotOwner(e.target.checked)}
+                  className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
+                />
+                <span>O caminhão NÃO é meu (é de outro proprietário)</span>
+              </label>
+            </div>
+          </section>
+
+          {/* ──────────────────────────────────────────────────────────────────
+              SEÇÃO 3 — Proprietário (renderiza apenas se isNotOwner)
+              ────────────────────────────────────────────────────────────────── */}
+          {isNotOwner && (
+            <section className="bg-white border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-gray-800">Proprietário</h2>
+                <span className="text-[11px] text-gray-500">
+                  {countDocs(TIPOS_PROPRIETARIO)}/{TIPOS_PROPRIETARIO.length} documentos
+                </span>
+              </div>
+
+              <div className="space-y-2">
+                <DocSlot
+                  slot={{
+                    type: 'documento_proprietario',
+                    label: 'Documento do proprietário (CNH ou RG)',
+                    accept: PDF_IMG,
+                  }}
+                  doc={documents.documento_proprietario}
+                  uploading={uploadingDoc === 'documento_proprietario'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+                <DocSlot
+                  slot={{
+                    type: 'comprovante_endereco_proprietario',
+                    label: 'Comprovante de endereço do proprietário',
+                    accept: PDF_IMG,
+                  }}
+                  doc={documents.comprovante_endereco_proprietario}
+                  uploading={uploadingDoc === 'comprovante_endereco_proprietario'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
+            </section>
+          )}
+
+          {/* Botões de ação */}
+          <div className="flex items-center justify-between gap-3 pt-2">
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
+              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
             >
               ← Voltar
             </button>
             <button
               type="submit"
               disabled={isSaving}
-              className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
               {isSaving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </form>
-
-        {/* PIS - outside form to avoid accidental submit */}
-        {user && (
-          <div className="mt-6">
-            <PisSection userId={user.id} />
-          </div>
-        )}
       </main>
+
+      <ModalVerificacaoEmail
+        email={emailInput}
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        onSuccess={handleEmailVerified}
+      />
     </div>
   );
 }
