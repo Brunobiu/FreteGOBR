@@ -450,7 +450,7 @@ opcionais (testes) e podem ser puladas em uma execução de MVP.
     - **Property 3: Não-regressão estrutural do FreteCard**
     - **Validates: Requirements 12.7, 16.3, 16.4**
 
-  - [ ]* 11.4 `src/__tests__/motoristaService.property.test.ts`
+  - [x]* 11.4 `src/__tests__/motoristaService.property.test.ts`
         (com mock do `supabase`)
     - **Property 5: Capitalização do nome na persistência**
     - **Validates: Requirements 1.2, 1.3**
