@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
 const BG_IMAGE = 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1920&q=80';
@@ -13,13 +14,22 @@ export function RegisterPage() {
 
   const handleRegister = async (data: RegisterData) => {
     await register(data);
-    const stored = localStorage.getItem('fretego_user');
-    if (stored) {
-      const u = JSON.parse(stored);
-      navigate(u.userType === 'embarcador' ? '/embarcador' : '/');
-    } else {
-      navigate('/');
+    // Encerra a sessão criada automaticamente pelo Supabase Auth.signUp
+    // para que o usuário precise fazer login manualmente.
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore — best effort
     }
+    localStorage.removeItem('fretego_access_token');
+    localStorage.removeItem('fretego_refresh_token');
+    localStorage.removeItem('fretego_user');
+    navigate('/login', {
+      state: {
+        successMessage: 'Conta criada com sucesso. Faça login para continuar.',
+        phone: data.phone,
+      },
+    });
   };
 
   return (

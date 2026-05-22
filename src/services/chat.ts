@@ -4,6 +4,50 @@
 
 import { supabase } from './supabase';
 
+// ============================================================================
+// ChatError tipada (Bug 15)
+// ============================================================================
+
+export type ChatErrorCode =
+  | 'PERMISSION_DENIED'
+  | 'NOT_FOUND'
+  | 'NETWORK_ERROR'
+  | 'VALIDATION_ERROR'
+  | 'UNKNOWN';
+
+export class ChatError extends Error {
+  constructor(
+    message: string,
+    public code: ChatErrorCode,
+    public statusCode: number = 400
+  ) {
+    super(message);
+    this.name = 'ChatError';
+  }
+}
+
+/**
+ * Mapeia um erro do Supabase (PostgrestError-like) para uma ChatError
+ * com código discriminado e mensagem em pt-BR. Permite que a UI distinga
+ * problemas recuperáveis (rede) de problemas de permissão ou validação.
+ */
+export function mapSupabaseError(error: { code?: string; message: string }): ChatError {
+  const msg = error.message ?? '';
+  if (error.code === 'PGRST301' || /permission|denied|forbidden/i.test(msg)) {
+    return new ChatError('Sem permissão para esta operação', 'PERMISSION_DENIED', 403);
+  }
+  if (error.code === 'PGRST116' || /not\s*found/i.test(msg)) {
+    return new ChatError('Recurso não encontrado', 'NOT_FOUND', 404);
+  }
+  if (/network|fetch|connection|timeout/i.test(msg)) {
+    return new ChatError('Falha de rede ao acessar o chat', 'NETWORK_ERROR', 503);
+  }
+  if (/check|constraint|invalid|missing/i.test(msg)) {
+    return new ChatError(`Dados inválidos: ${msg}`, 'VALIDATION_ERROR', 400);
+  }
+  return new ChatError(`Erro no chat: ${msg}`, 'UNKNOWN', 500);
+}
+
 export interface ChatConversation {
   id: string;
   userId: string;
@@ -44,7 +88,7 @@ export async function getOrCreateConversation(userId: string): Promise<ChatConve
     .select()
     .single();
 
-  if (error) throw new Error(`Erro ao criar conversa: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
   return mapConversation(data);
 }
 
@@ -68,7 +112,7 @@ export async function sendMessage(
     .select()
     .single();
 
-  if (error) throw new Error(`Erro ao enviar mensagem: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
   return mapMessage(data);
 }
 
@@ -82,7 +126,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
-  if (error) throw new Error(`Erro ao buscar mensagens: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
   return data.map(mapMessage);
 }
 
@@ -97,7 +141,7 @@ export async function markMessagesAsRead(conversationId: string, userId: string)
     .neq('sender_id', userId)
     .is('read_at', null);
 
-  if (error) throw new Error(`Erro ao marcar como lidas: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
 }
 
 /**
@@ -112,7 +156,7 @@ export async function updateConversationStatus(
     .update({ status })
     .eq('id', conversationId);
 
-  if (error) throw new Error(`Erro ao atualizar status: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
 }
 
 /**

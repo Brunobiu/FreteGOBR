@@ -4,6 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { RegisterData } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
+import { capitalizeName } from '../utils/textCase';
+import PasswordInput from './PasswordInput';
 
 const registerSchema = z
   .object({
@@ -46,7 +48,13 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
   const [error, setError] = useState<string | null>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
 
-  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm<RegisterFormData>({
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   });
 
@@ -54,14 +62,22 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
   const hasSelectedType = userType === 'motorista' || userType === 'embarcador';
 
   const selectUserType = (type: 'embarcador' | 'motorista') => {
-    reset({ userType: type, name: '', phone: '', password: '', confirmPassword: '', companyName: '' });
+    reset({
+      userType: type,
+      name: '',
+      phone: '',
+      password: '',
+      confirmPassword: '',
+      companyName: '',
+    });
   };
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);
     if (numbers.length <= 2) return numbers;
     if (numbers.length <= 3) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    if (numbers.length <= 7) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)} ${numbers.slice(3)}`;
+    if (numbers.length <= 7)
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)} ${numbers.slice(3)}`;
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)} ${numbers.slice(3, 7)}-${numbers.slice(7)}`;
   };
 
@@ -70,7 +86,12 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
     setError(null);
     const honeypotValue = honeypotRef.current?.value || '';
     if (honeypotValue) {
-      await HoneypotDetector.validateField(honeypotValue, 'fax_number', 'client-side', navigator.userAgent);
+      await HoneypotDetector.validateField(
+        honeypotValue,
+        'fax_number',
+        'client-side',
+        navigator.userAgent
+      );
       setIsLoading(false);
       return;
     }
@@ -78,9 +99,9 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
       await onSubmit({
         phone: data.phone.replace(/\D/g, ''),
         password: data.password,
-        name: data.name,
+        name: capitalizeName(data.name),
         userType: data.userType,
-        companyName: data.companyName,
+        companyName: data.companyName ? capitalizeName(data.companyName) : data.companyName,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar conta');
@@ -105,7 +126,14 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
           autoComplete="off"
           tabIndex={-1}
           aria-hidden="true"
-          style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+          style={{
+            position: 'absolute',
+            left: '-9999px',
+            top: '-9999px',
+            width: '1px',
+            height: '1px',
+            opacity: 0,
+          }}
         />
 
         {/* Seleção de perfil */}
@@ -138,7 +166,9 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
             </button>
           </div>
           <input type="hidden" {...register('userType')} />
-          {errors.userType && <p className="mt-2 text-sm text-red-500 text-center">{errors.userType.message}</p>}
+          {errors.userType && (
+            <p className="mt-2 text-sm text-red-500 text-center">{errors.userType.message}</p>
+          )}
         </div>
 
         {/* Campos só aparecem após selecionar tipo */}
@@ -166,7 +196,9 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
                   disabled={isLoading}
                   className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.companyName ? 'border-red-400' : 'border-gray-300'}`}
                 />
-                {errors.companyName && <p className="mt-1 text-sm text-red-500">{errors.companyName.message}</p>}
+                {errors.companyName && (
+                  <p className="mt-1 text-sm text-red-500">{errors.companyName.message}</p>
+                )}
               </div>
             )}
 
@@ -189,26 +221,28 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
 
             <div>
               <label className="block text-sm text-gray-700 mb-1">Senha</label>
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="Mínimo 8 caracteres"
                 {...register('password')}
                 disabled={isLoading}
                 className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.password ? 'border-red-400' : 'border-gray-300'}`}
               />
-              {errors.password && <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>}
+              {errors.password && (
+                <p className="mt-1 text-sm text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm text-gray-700 mb-1">Confirmar Senha</label>
-              <input
-                type="password"
+              <PasswordInput
                 placeholder="Repita a senha"
                 {...register('confirmPassword')}
                 disabled={isLoading}
                 className={`w-full px-4 py-3 bg-white border rounded-xl text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none ${errors.confirmPassword ? 'border-red-400' : 'border-gray-300'}`}
               />
-              {errors.confirmPassword && <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>}
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-500">{errors.confirmPassword.message}</p>
+              )}
             </div>
 
             {error && (
@@ -222,7 +256,7 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
               disabled={isLoading}
               className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Criando conta...' : 'Transporte conosco'}
+              {isLoading ? 'Criando conta...' : 'Criar conta'}
             </button>
           </>
         )}

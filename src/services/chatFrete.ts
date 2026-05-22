@@ -4,6 +4,8 @@
  */
 
 import { supabase } from './supabase';
+import { mapSupabaseError } from './chat';
+export { ChatError } from './chat';
 
 export interface FreteConversation {
   id: string;
@@ -54,7 +56,7 @@ export async function getOrCreateFreteConversation(
     .select()
     .single();
 
-  if (error) throw new Error(`Erro ao criar conversa: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
   return mapConversation(data);
 }
 
@@ -64,16 +66,18 @@ export async function getOrCreateFreteConversation(
 export async function getUserConversations(userId: string): Promise<FreteConversation[]> {
   const { data, error } = await supabase
     .from('conversations')
-    .select(`
+    .select(
+      `
       *,
       frete:fretes(origin, destination),
       motorista:users!conversations_motorista_id_fkey(name),
       embarcador:users!conversations_embarcador_id_fkey(name)
-    `)
+    `
+    )
     .or(`motorista_id.eq.${userId},embarcador_id.eq.${userId}`)
     .order('updated_at', { ascending: false });
 
-  if (error) throw new Error(`Erro ao buscar conversas: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
 
   // Para cada conversa, busca última mensagem e contagem de não lidas
   const conversations = await Promise.all(
@@ -130,7 +134,7 @@ export async function getFreteMessages(conversationId: string): Promise<FreteMes
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true });
 
-  if (error) throw new Error(`Erro ao buscar mensagens: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
   return (data || []).map(mapMessage);
 }
 
@@ -148,7 +152,7 @@ export async function sendFreteMessage(
     .select(`*, sender:users!messages_sender_id_fkey(name)`)
     .single();
 
-  if (error) throw new Error(`Erro ao enviar mensagem: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
 
   // Atualiza updated_at da conversa
   await supabase
@@ -173,7 +177,7 @@ export async function markFreteMessagesAsRead(
     .neq('sender_id', userId)
     .is('read_at', null);
 
-  if (error) throw new Error(`Erro ao marcar como lidas: ${error.message}`);
+  if (error) throw mapSupabaseError(error);
 }
 
 /**

@@ -16,6 +16,8 @@ export interface Frete {
   destination: string;
   destinationLocation: GeographicPoint;
   cargoType: string;
+  product?: string;
+  cargoSpecies?: string;
   vehicleType: string;
   weight: number;
   value: number;
@@ -28,6 +30,22 @@ export interface Frete {
   clicksCount: number;
   createdAt: Date;
   updatedAt: Date;
+  // Campos estendidos (Migration 014)
+  onuNumber?: string;
+  temperature?: number;
+  weightUnit?: string;
+  freightType?: string;
+  occupancyPercentage?: number;
+  bodyTypes?: string;
+  requiresLona?: boolean;
+  requiresTracker?: boolean;
+  requiresInsurance?: boolean;
+  valueKnown?: boolean;
+  priceCalculation?: string;
+  paymentMethods?: string;
+  advancePercentage?: number;
+  // Distância calculada (Migration 015)
+  distanceKm?: number;
 }
 
 export interface CreateFreteData {
@@ -37,6 +55,8 @@ export interface CreateFreteData {
   destination: string;
   destinationLocation: GeographicPoint;
   cargoType: string;
+  product?: string;
+  cargoSpecies?: string;
   vehicleType: string;
   weight: number;
   value: number;
@@ -44,6 +64,21 @@ export interface CreateFreteData {
   loadingTime: number;
   unloadingTime: number;
   specifications?: string;
+  // Campos estendidos
+  onuNumber?: string;
+  temperature?: number;
+  weightUnit?: string;
+  freightType?: string;
+  occupancyPercentage?: number;
+  bodyTypes?: string;
+  requiresLona?: boolean;
+  requiresTracker?: boolean;
+  requiresInsurance?: boolean;
+  valueKnown?: boolean;
+  priceCalculation?: string;
+  paymentMethods?: string;
+  advancePercentage?: number;
+  distanceKm?: number;
 }
 
 export interface UpdateFreteData {
@@ -52,6 +87,8 @@ export interface UpdateFreteData {
   destination?: string;
   destinationLocation?: GeographicPoint;
   cargoType?: string;
+  product?: string;
+  cargoSpecies?: string;
   vehicleType?: string;
   weight?: number;
   value?: number;
@@ -60,6 +97,20 @@ export interface UpdateFreteData {
   unloadingTime?: number;
   specifications?: string;
   status?: FreteStatus;
+  // Campos estendidos
+  onuNumber?: string;
+  temperature?: number;
+  weightUnit?: string;
+  freightType?: string;
+  occupancyPercentage?: number;
+  bodyTypes?: string;
+  requiresLona?: boolean;
+  requiresTracker?: boolean;
+  requiresInsurance?: boolean;
+  valueKnown?: boolean;
+  priceCalculation?: string;
+  paymentMethods?: string;
+  advancePercentage?: number;
 }
 
 export interface FreteFilters {
@@ -78,6 +129,15 @@ export interface FreteFilters {
  * Create a new frete
  */
 export async function createFrete(data: CreateFreteData): Promise<Frete> {
+  // Guard: cadastro do embarcador precisa estar 100% completo.
+  // Embora a RLS já bloqueie no banco, validamos antes para retornar
+  // mensagem clara ao usuário.
+  const { getEmbarcadorOnboardingProgress } = await import('./embarcador');
+  const progress = await getEmbarcadorOnboardingProgress(data.embarcadorId);
+  if (progress.percent < 100) {
+    throw new Error('Cadastro incompleto. Verifique e-mail, foto e logo da empresa.');
+  }
+
   const { data: freteData, error } = await supabase
     .from('fretes')
     .insert({
@@ -87,6 +147,8 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
       destination: data.destination,
       destination_location: `POINT(${data.destinationLocation.longitude} ${data.destinationLocation.latitude})`,
       cargo_type: data.cargoType,
+      product: data.product ?? null,
+      cargo_species: data.cargoSpecies ?? null,
       vehicle_type: data.vehicleType,
       weight: data.weight,
       value: data.value,
@@ -94,6 +156,20 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
       loading_time: data.loadingTime,
       unloading_time: data.unloadingTime,
       specifications: data.specifications,
+      onu_number: data.onuNumber ?? null,
+      temperature: data.temperature ?? null,
+      weight_unit: data.weightUnit ?? null,
+      freight_type: data.freightType ?? null,
+      occupancy_percentage: data.occupancyPercentage ?? null,
+      body_types: data.bodyTypes ?? null,
+      requires_lona: data.requiresLona ?? false,
+      requires_tracker: data.requiresTracker ?? false,
+      requires_insurance: data.requiresInsurance ?? false,
+      value_known: data.valueKnown ?? true,
+      price_calculation: data.priceCalculation ?? null,
+      payment_methods: data.paymentMethods ?? null,
+      advance_percentage: data.advancePercentage ?? null,
+      distance_km: data.distanceKm ?? null,
     })
     .select()
     .single();
@@ -120,6 +196,8 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
     updateData.destination_location = `POINT(${data.destinationLocation.longitude} ${data.destinationLocation.latitude})`;
   }
   if (data.cargoType) updateData.cargo_type = data.cargoType;
+  if (data.product !== undefined) updateData.product = data.product;
+  if (data.cargoSpecies !== undefined) updateData.cargo_species = data.cargoSpecies;
   if (data.vehicleType) updateData.vehicle_type = data.vehicleType;
   if (data.weight !== undefined) updateData.weight = data.weight;
   if (data.value !== undefined) updateData.value = data.value;
@@ -128,6 +206,21 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
   if (data.unloadingTime !== undefined) updateData.unloading_time = data.unloadingTime;
   if (data.specifications !== undefined) updateData.specifications = data.specifications;
   if (data.status) updateData.status = data.status;
+  if (data.onuNumber !== undefined) updateData.onu_number = data.onuNumber;
+  if (data.temperature !== undefined) updateData.temperature = data.temperature;
+  if (data.weightUnit !== undefined) updateData.weight_unit = data.weightUnit;
+  if (data.freightType !== undefined) updateData.freight_type = data.freightType;
+  if (data.occupancyPercentage !== undefined)
+    updateData.occupancy_percentage = data.occupancyPercentage;
+  if (data.bodyTypes !== undefined) updateData.body_types = data.bodyTypes;
+  if (data.requiresLona !== undefined) updateData.requires_lona = data.requiresLona;
+  if (data.requiresTracker !== undefined) updateData.requires_tracker = data.requiresTracker;
+  if (data.requiresInsurance !== undefined) updateData.requires_insurance = data.requiresInsurance;
+  if (data.valueKnown !== undefined) updateData.value_known = data.valueKnown;
+  if (data.priceCalculation !== undefined) updateData.price_calculation = data.priceCalculation;
+  if (data.paymentMethods !== undefined) updateData.payment_methods = data.paymentMethods;
+  if (data.advancePercentage !== undefined) updateData.advance_percentage = data.advancePercentage;
+  if (data.distanceKm !== undefined) updateData.distance_km = data.distanceKm;
 
   const { error } = await supabase.from('fretes').update(updateData).eq('id', freteId);
 
@@ -202,11 +295,14 @@ export async function getActiveFretes(filters?: FreteFilters): Promise<Frete[]> 
   const { data, error } = await query;
 
   if (error) {
-    // Se for erro de auth/conexão, retornar lista vazia silenciosamente
-    if (error.message?.includes('lock') || error.message?.includes('auth') || error.code === 'PGRST301') {
-      console.warn('[FRETES] Erro de conexão ao buscar fretes:', error.message);
-      return [];
-    }
+    // Bug 8 — propagar erros com log estruturado em vez de mascarar
+    // a falha retornando array vazio. A UI deve capturar e exibir
+    // mensagem amigável ao usuário (ErrorBoundary já existe).
+    console.error('[FRETES] getActiveFretes failed', {
+      code: error.code,
+      message: error.message,
+      filters,
+    });
     throw new Error(`Erro ao buscar fretes: ${error.message}`);
   }
 
@@ -286,27 +382,46 @@ export async function getFreteAnalytics(freteId: string): Promise<{
 /**
  * Helper function to map database row to Frete object
  */
-function mapFreteFromDb(data: {
-  id: string;
-  embarcador_id: string;
-  origin: string;
-  origin_location: string;
-  destination: string;
-  destination_location: string;
-  cargo_type: string;
-  vehicle_type: string;
-  weight: number;
-  value: number;
-  deadline: string;
-  loading_time: number;
-  unloading_time: number;
-  specifications: string | null;
-  status: string;
-  views_count: number;
-  clicks_count: number;
-  created_at: string;
-  updated_at: string;
-}): Frete {
+function mapFreteFromDb(
+  data: {
+    id: string;
+    embarcador_id: string;
+    origin: string;
+    origin_location: string;
+    destination: string;
+    destination_location: string;
+    cargo_type: string;
+    vehicle_type: string;
+    weight: number;
+    value: number;
+    deadline: string;
+    loading_time: number;
+    unloading_time: number;
+    specifications: string | null;
+    status: string;
+    views_count: number;
+    clicks_count: number;
+    created_at: string;
+    updated_at: string;
+  } & Record<string, unknown>
+): Frete {
+  // Atalho para campos estendidos (Migration 014) que podem ou não existir
+  const extra = data as unknown as {
+    onu_number?: string | null;
+    temperature?: number | string | null;
+    weight_unit?: string | null;
+    freight_type?: string | null;
+    occupancy_percentage?: number | null;
+    body_types?: string | null;
+    requires_lona?: boolean | null;
+    requires_tracker?: boolean | null;
+    requires_insurance?: boolean | null;
+    value_known?: boolean | null;
+    price_calculation?: string | null;
+    payment_methods?: string | null;
+    advance_percentage?: number | null;
+    distance_km?: number | null;
+  };
   // Parse PostGIS POINT format: "POINT(longitude latitude)" or WKB hex
   const parsePoint = (pointStr: string): GeographicPoint => {
     // Try text format first: POINT(lng lat)
@@ -374,6 +489,8 @@ function mapFreteFromDb(data: {
     destination: data.destination,
     destinationLocation: parsePoint(data.destination_location),
     cargoType: data.cargo_type,
+    product: (data as unknown as { product?: string | null }).product ?? undefined,
+    cargoSpecies: (data as unknown as { cargo_species?: string | null }).cargo_species ?? undefined,
     vehicleType: data.vehicle_type,
     weight: typeof data.weight === 'string' ? parseFloat(data.weight) : data.weight,
     value: typeof data.value === 'string' ? parseFloat(data.value) : data.value,
@@ -386,6 +503,24 @@ function mapFreteFromDb(data: {
     clicksCount: data.clicks_count,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
+    // Campos estendidos
+    onuNumber: extra.onu_number ?? undefined,
+    temperature:
+      extra.temperature !== null && extra.temperature !== undefined
+        ? Number(extra.temperature)
+        : undefined,
+    weightUnit: extra.weight_unit ?? undefined,
+    freightType: extra.freight_type ?? undefined,
+    occupancyPercentage: extra.occupancy_percentage ?? undefined,
+    bodyTypes: extra.body_types ?? undefined,
+    requiresLona: extra.requires_lona ?? false,
+    requiresTracker: extra.requires_tracker ?? false,
+    requiresInsurance: extra.requires_insurance ?? false,
+    valueKnown: extra.value_known ?? true,
+    priceCalculation: extra.price_calculation ?? undefined,
+    paymentMethods: extra.payment_methods ?? undefined,
+    advancePercentage: extra.advance_percentage ?? undefined,
+    distanceKm: extra.distance_km ?? undefined,
   };
 }
 

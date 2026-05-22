@@ -15,8 +15,12 @@ import FreteTable from '../components/FreteTable';
 import ViewToggle from '../components/ViewToggle';
 import { useViewPreference } from '../hooks/useViewPreference';
 import { useIsMobile } from '../hooks/useIsMobile';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useAuth } from '../hooks/useAuth';
 
 export default function HomePage() {
+  const { user } = useAuth();
+  useDocumentTitle(user?.userType === 'motorista' ? 'Motorista' : null);
   const [fretes, setFretes] = useState<Frete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,9 +111,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            {!isMobile && (
-              <ViewToggle currentView={viewMode} onViewChange={setViewMode} />
-            )}
+            {!isMobile && <ViewToggle currentView={viewMode} onViewChange={setViewMode} />}
             <button
               onClick={() => setShowMap((v) => !v)}
               className="flex items-center px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm"
@@ -141,11 +143,7 @@ export default function HomePage() {
             <p className="text-gray-500">Novos fretes aparecerão aqui quando forem publicados.</p>
           </div>
         ) : effectiveView === 'table' ? (
-          <FreteTable
-            fretes={fretes}
-            onFreteClick={handleFreteClick}
-            showActions={false}
-          />
+          <FreteTable fretes={fretes} onFreteClick={handleFreteClick} showActions={false} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">

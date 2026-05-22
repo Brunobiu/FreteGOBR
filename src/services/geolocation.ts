@@ -84,3 +84,33 @@ export function calculateDistance(point1: GeographicPoint, point2: GeographicPoi
 function toRad(deg: number): number {
   return (deg * Math.PI) / 180;
 }
+
+/**
+ * Calcula a distância de rota real (por estrada) entre dois pontos usando
+ * OSRM (Open Source Routing Machine) — gratuito, sem API key.
+ *
+ * @returns distância em km, arredondada, ou null em caso de falha.
+ */
+export async function calculateRouteDistance(
+  origin: GeographicPoint,
+  destination: GeographicPoint
+): Promise<number | null> {
+  try {
+    const url =
+      `https://router.project-osrm.org/route/v1/driving/` +
+      `${origin.longitude},${origin.latitude};` +
+      `${destination.longitude},${destination.latitude}` +
+      `?overview=false`;
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const meters = data?.routes?.[0]?.distance;
+    if (typeof meters !== 'number') return null;
+
+    return Math.round(meters / 1000);
+  } catch {
+    return null;
+  }
+}

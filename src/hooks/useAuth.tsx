@@ -16,6 +16,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -142,6 +143,24 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  /**
+   * Recarrega os dados do usuário a partir do banco e atualiza o estado +
+   * localStorage. Usado quando o perfil muda (ex: nova foto, e-mail
+   * verificado, etc) para refletir a alteração imediatamente no resto da
+   * UI sem precisar fazer logout/login.
+   */
+  const refreshUser = async () => {
+    try {
+      const fresh = await getCurrentUser();
+      if (fresh) {
+        localStorage.setItem(USER_KEY, JSON.stringify(fresh));
+        setUser(fresh);
+      }
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -150,6 +169,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshToken,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

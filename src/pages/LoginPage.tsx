@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks/useAuth';
@@ -9,8 +9,11 @@ const BG_IMAGE = 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, user } = useAuth();
   const [imageError, setImageError] = useState(false);
+
+  const state = (location.state ?? null) as { successMessage?: string; phone?: string } | null;
 
   useEffect(() => {
     if (user) {
@@ -52,6 +55,8 @@ export function LoginPage() {
         <LoginForm
           onSubmit={handleLogin}
           onRegisterClick={() => navigate('/register')}
+          successMessage={state?.successMessage}
+          initialPhone={state?.phone}
         />
       </div>
     </div>

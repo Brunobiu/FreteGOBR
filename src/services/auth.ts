@@ -3,7 +3,7 @@
  *
  * Handles user registration, login, logout, and token refresh
  * using Supabase Auth with custom password validation and hashing
- * 
+ *
  * Security Features:
  * - Anti-enumeration: Same error message for invalid phone and invalid password
  * - Constant-time responses to prevent timing attacks
@@ -85,22 +85,50 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     }
 
     // Create user record in users table
+    // Importante: NÃO salvamos o email sintético `{phone}@example.com` em
+    // `users.email`. Esse email é usado só pelo Supabase Auth para login;
+    // o email "real" do embarcador fica vazio até ser verificado via
+    // fluxo de OTP no perfil.
     const { error: dbError } = await supabase.from('users').insert({
       id: authData.user.id,
       phone: data.phone,
       user_type: data.userType,
       name: data.name,
-      email: authData.user.email,
     });
 
     if (dbError) {
       console.error('Database error:', dbError);
+      // Rollback do usuário em Auth: não temos privilégio para deletar
+      // de auth.users via client, mas garantimos signOut para limpar token.
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // ignorar
+      }
       throw new AuthError(
         'Erro ao criar perfil de usuário: ' + dbError.message,
         'DATABASE_ERROR',
         500
       );
     }
+
+    // Helper de rollback compensatório para falhas em motoristas/embarcadores.
+    // Como o Supabase JS não expõe transações multi-tabela, executamos a
+    // operação inversa (delete em users) e signOut para evitar um usuário
+    // órfão capaz de logar.
+    const compensateUserRollback = async (cause: string): Promise<never> => {
+      try {
+        await supabase.from('users').delete().eq('id', authData.user!.id);
+      } catch {
+        // best effort
+      }
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // best effort
+      }
+      throw new AuthError(cause, 'DATABASE_ERROR', 500);
+    };
 
     // Create type-specific record (motorista or embarcador)
     if (data.userType === 'motorista') {
@@ -109,7 +137,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       });
 
       if (motoristaError) {
-        throw new AuthError('Erro ao criar perfil de motorista', 'DATABASE_ERROR', 500);
+        await compensateUserRollback('Erro ao criar perfil de motorista');
       }
     } else if (data.userType === 'embarcador') {
       const { error: embarcadorError } = await supabase.from('embarcadores').insert({
@@ -119,7 +147,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       });
 
       if (embarcadorError) {
-        throw new AuthError('Erro ao criar perfil de embarcador', 'DATABASE_ERROR', 500);
+        await compensateUserRollback('Erro ao criar perfil de embarcador');
       }
     }
 
@@ -151,7 +179,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
 /**
  * Logs in a user with phone and password
- * 
+ *
  * Security: Uses anti-enumeration pattern - returns same error message
  * for both "user not found" and "wrong password" to prevent user enumeration
  *
@@ -161,7 +189,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
  */
 export async function login(credentials: LoginCredentials): Promise<AuthResponse> {
   const startTime = Date.now();
-  
+
   try {
     // Login with Supabase Auth using phone as email format
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
@@ -228,7 +256,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
   } catch (error) {
     // Ensure minimum response time for all error cases
     await ensureMinResponseTime(startTime);
-    
+
     if (error instanceof AuthError) {
       throw error;
     }
@@ -243,7 +271,7 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
 async function ensureMinResponseTime(startTime: number): Promise<void> {
   const elapsed = Date.now() - startTime;
   if (elapsed < MIN_RESPONSE_TIME) {
-    await new Promise(resolve => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
+    await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
   }
 }
 

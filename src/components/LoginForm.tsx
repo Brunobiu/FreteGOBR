@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { LoginCredentials } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
+import PasswordInput from './PasswordInput';
 
 const loginSchema = z.object({
   phone: z
@@ -19,22 +20,21 @@ const loginSchema = z.object({
 interface LoginFormProps {
   onSubmit: (credentials: LoginCredentials) => Promise<void>;
   onRegisterClick?: () => void;
+  successMessage?: string;
+  initialPhone?: string;
 }
 
-export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
+export function LoginForm({
+  onSubmit,
+  onRegisterClick,
+  successMessage,
+  initialPhone,
+}: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<'embarcador' | 'motorista' | null>(null);
 
   const honeypotRef = useRef<HTMLInputElement>(null);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginCredentials>({
-    resolver: zodResolver(loginSchema),
-  });
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);
@@ -45,13 +45,30 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)} ${numbers.slice(3, 7)}-${numbers.slice(7)}`;
   };
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginCredentials>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: {
+      phone: initialPhone ? formatPhone(initialPhone) : '',
+      password: '',
+    },
+  });
+
   const handleFormSubmit = async (data: LoginCredentials) => {
     setIsLoading(true);
     setError(null);
 
     const honeypotValue = honeypotRef.current?.value || '';
     if (honeypotValue) {
-      await HoneypotDetector.validateField(honeypotValue, 'website_url', 'client-side', navigator.userAgent);
+      await HoneypotDetector.validateField(
+        honeypotValue,
+        'website_url',
+        'client-side',
+        navigator.userAgent
+      );
       setIsLoading(false);
       return;
     }
@@ -74,6 +91,12 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
       </div>
 
       <h2 className="text-xl font-bold text-gray-800 mb-6 text-center">Entrar na sua conta</h2>
+
+      {successMessage && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl">
+          <p className="text-sm text-green-700">{successMessage}</p>
+        </div>
+      )}
 
       {/* Seleção de perfil */}
       <div className="mb-6">
@@ -117,7 +140,14 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
             autoComplete="off"
             tabIndex={-1}
             aria-hidden="true"
-            style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              width: '1px',
+              height: '1px',
+              opacity: 0,
+            }}
           />
 
           {/* Telefone */}
@@ -141,8 +171,7 @@ export function LoginForm({ onSubmit, onRegisterClick }: LoginFormProps) {
           {/* Senha */}
           <div>
             <label className="block text-sm text-gray-700 mb-1">Senha</label>
-            <input
-              type="password"
+            <PasswordInput
               placeholder="••••••••"
               {...register('password')}
               disabled={isLoading}

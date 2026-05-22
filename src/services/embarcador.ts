@@ -9,6 +9,7 @@ export interface EmbarcadorProfile {
   id: string;
   userId: string;
   companyName: string;
+  cnpj?: string | null;
   whatsapp?: string;
   rating: number;
   totalRatings: number;
@@ -20,14 +21,31 @@ export interface UpdateEmbarcadorProfileData {
   name?: string;
   email?: string;
   companyName?: string;
+  cnpj?: string;
   whatsapp?: string;
+  companyLogoUrl?: string;
 }
+
+export interface EmbarcadorOnboardingProgress {
+  profilePhoto: boolean;
+  emailVerified: boolean;
+  companyLogo: boolean;
+  percent: number;
+  missing: string[];
+}
+
+const ALLOWED_LOGO_MIMES = ['image/jpeg', 'image/png', 'image/webp'] as const;
+const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
 
 /**
  * Get embarcador profile by user ID
  */
 export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorProfile | null> {
-  const { data, error } = await supabase.from('embarcadores').select('*').eq('id', userId).maybeSingle();
+  const { data, error } = await supabase
+    .from('embarcadores')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
   if (error) {
     console.warn('[EMBARCADOR] Erro ao buscar perfil:', error.message);
@@ -40,6 +58,7 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
     id: data.id,
     userId: data.id,
     companyName: data.company_name,
+    cnpj: (data as unknown as { cnpj?: string | null }).cnpj ?? null,
     whatsapp: data.whatsapp,
     rating: data.rating,
     totalRatings: data.total_ratings,
@@ -70,7 +89,9 @@ export async function updateEmbarcadorProfile(
   // Update embarcador table
   const embarcadorUpdate: Record<string, string> = {};
   if (data.companyName !== undefined) embarcadorUpdate.company_name = data.companyName;
+  if (data.cnpj !== undefined) embarcadorUpdate.cnpj = data.cnpj;
   if (data.whatsapp !== undefined) embarcadorUpdate.whatsapp = data.whatsapp;
+  if (data.companyLogoUrl !== undefined) embarcadorUpdate.company_logo_url = data.companyLogoUrl;
 
   if (Object.keys(embarcadorUpdate).length > 0) {
     const { error: embarcadorError } = await supabase
@@ -181,4 +202,84 @@ export async function getEmbarcadorRatings(embarcadorId: string) {
       motoristaPhoto: motoristas.users.profile_photo_url,
     };
   });
+}
+
+/**
+ * Faz upload do logo da empresa para o bucket `company-logos`.
+ *
+ * Caminho: `embarcadores/<userId>/logo.<ext>`.
+ * Validações: mime ∈ {jpg, png, webp} e tamanho ≤ 2 MB.
+ *
+ * @returns URL pública do logo após o upload
+ */
+export async function uploadCompanyLogo(userId: string, file: File): Promise<string> {
+  if (!ALLOWED_LOGO_MIMES.includes(file.type as (typeof ALLOWED_LOGO_MIMES)[number])) {
+    throw new Error('Formato inválido. Envie JPG, PNG ou WEBP.');
+  }
+  if (file.size > MAX_LOGO_SIZE_BYTES) {
+    throw new Error('Arquivo muito grande. Limite de 2 MB.');
+  }
+
+  const ext = (file.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+  const path = `embarcadores/${userId}/logo.${ext}`;
+
+  const { error: uploadError } = await supabase.storage.from('company-logos').upload(path, file, {
+    upsert: true,
+    contentType: file.type,
+    cacheControl: '3600',
+  });
+
+  if (uploadError) {
+    throw new Error(`Erro no upload do logo: ${uploadError.message}`);
+  }
+
+  const { data: pub } = supabase.storage.from('company-logos').getPublicUrl(path);
+  const url = pub.publicUrl;
+
+  const { error: dbError } = await supabase
+    .from('embarcadores')
+    .update({ company_logo_url: url, updated_at: new Date().toISOString() })
+    .eq('id', userId);
+
+  if (dbError) {
+    throw new Error(`Erro ao salvar URL do logo: ${dbError.message}`);
+  }
+
+  return url;
+}
+
+/**
+ * Calcula o progresso de onboarding do embarcador.
+ *
+ * Itens (peso igual): foto de perfil, e-mail verificado, logo da empresa.
+ * Retorna percentual arredondado e a lista de pendências em pt-BR.
+ */
+export async function getEmbarcadorOnboardingProgress(
+  userId: string
+): Promise<EmbarcadorOnboardingProgress> {
+  const [{ data: u }, { data: e }] = await Promise.all([
+    supabase
+      .from('users')
+      .select('profile_photo_url, email_verified')
+      .eq('id', userId)
+      .maybeSingle(),
+    supabase.from('embarcadores').select('company_logo_url').eq('id', userId).maybeSingle(),
+  ]);
+
+  const items = {
+    profilePhoto: !!u?.profile_photo_url,
+    emailVerified: !!u?.email_verified,
+    companyLogo: !!e?.company_logo_url,
+  };
+
+  const total = 3;
+  const done = Object.values(items).filter(Boolean).length;
+  const percent = Math.round((done / total) * 100);
+
+  const missing: string[] = [];
+  if (!items.profilePhoto) missing.push('Adicionar foto de perfil');
+  if (!items.emailVerified) missing.push('Verificar e-mail');
+  if (!items.companyLogo) missing.push('Adicionar logo da empresa');
+
+  return { ...items, percent, missing };
 }

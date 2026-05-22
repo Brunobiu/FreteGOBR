@@ -11,109 +11,89 @@ interface FreteCardProps {
 export default function FreteCard({ frete, onClick }: FreteCardProps) {
   const { isAuthenticated } = useAuth();
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+
+  const formatDate = (date: Date) =>
+    new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+
+  const statusStyles: Record<string, string> = {
+    ativo: 'bg-green-100 text-green-700',
+    encerrado: 'bg-gray-100 text-gray-600',
+    cancelado: 'bg-red-100 text-red-700',
   };
-
-  const formatWeight = (weight: number) => {
-    if (weight >= 1000) return `${(weight / 1000).toFixed(1)}t`;
-    return `${weight}kg`;
-  };
-
-  const formatDate = (date: Date) => new Date(date).toLocaleDateString('pt-BR');
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ativo': return 'bg-green-100 text-green-700 border-green-300';
-      case 'encerrado': return 'bg-gray-100 text-gray-600 border-gray-300';
-      case 'cancelado': return 'bg-red-100 text-red-700 border-red-300';
-      default: return 'bg-gray-100 text-gray-600 border-gray-300';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'ativo': return 'Ativo';
-      case 'encerrado': return 'Encerrado';
-      case 'cancelado': return 'Cancelado';
-      default: return status;
-    }
+  const statusLabels: Record<string, string> = {
+    ativo: 'Ativo',
+    encerrado: 'Encerrado',
+    cancelado: 'Cancelado',
   };
 
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-gray-200 rounded-lg p-6 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
+      className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
     >
-      {/* Header */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-800 mb-1">
-            {frete.origin} → {frete.destination}
-          </h3>
-          <p className="text-sm text-gray-500">
-            {frete.cargoType} • {frete.vehicleType}
-          </p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(frete.status)}`}>
-          {getStatusLabel(frete.status)}
+      {/* Header: rota + status */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h3 className="text-sm font-semibold text-gray-800 truncate flex-1">
+          {frete.origin} → {frete.destination}
+        </h3>
+        <span
+          className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+            statusStyles[frete.status] || 'bg-gray-100 text-gray-600'
+          }`}
+        >
+          {statusLabels[frete.status] || frete.status}
         </span>
       </div>
 
-      {/* Details */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Peso</p>
-          <p className="text-sm font-medium text-gray-800">{formatWeight(frete.weight)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Valor</p>
+      {/* Produto + Veículo (compacto, em uma linha cada) */}
+      <div className="space-y-1 mb-2">
+        {frete.product && (
+          <p className="text-xs text-gray-700">
+            <span className="text-gray-400">Produto:</span>{' '}
+            <span className="font-medium">{frete.product}</span>
+          </p>
+        )}
+        <p className="text-[11px] text-gray-500 truncate" title={frete.vehicleType}>
+          {frete.vehicleType}
+        </p>
+      </div>
+
+      {/* Linha de stats: valor + km + data */}
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
+        <div className="flex-1 min-w-0">
           {isAuthenticated ? (
-            <p className="text-sm font-medium text-green-600">{formatCurrency(frete.value)}</p>
+            <p className="text-sm font-semibold text-green-600">{formatCurrency(frete.value)}</p>
           ) : (
             <Link
               to="/login"
               onClick={(e) => e.stopPropagation()}
-              className="text-xs text-blue-500 hover:text-blue-600 underline"
+              className="text-[11px] text-blue-500 hover:text-blue-600 underline"
             >
-              Faça login para ver
+              Login para ver
             </Link>
           )}
         </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Prazo</p>
-          <p className="text-sm font-medium text-gray-800">{formatDate(frete.deadline)}</p>
-        </div>
-        <div>
-          <p className="text-xs text-gray-500 mb-1">Visualizações</p>
-          <p className="text-sm font-medium text-gray-800">{frete.viewsCount}</p>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-        <div className="flex items-center space-x-4 text-xs text-gray-500">
-          <span className="flex items-center">
-            <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
-              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-            </svg>
-            {frete.viewsCount}
+        {frete.distanceKm ? (
+          <span className="text-[11px] text-gray-500 shrink-0">
+            {frete.distanceKm.toLocaleString('pt-BR')} km
           </span>
-        </div>
-        <button className="text-blue-500 hover:text-blue-600 text-sm font-medium">
-          Ver detalhes →
-        </button>
+        ) : null}
+        <span className="text-[11px] text-gray-400 shrink-0">{formatDate(frete.createdAt)}</span>
       </div>
 
       {/* Banner para visitantes */}
       {!isAuthenticated && (
-        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded-lg text-center">
-          <p className="text-xs text-blue-600">
-            <Link to="/login" onClick={(e) => e.stopPropagation()} className="font-medium underline">
+        <div className="mt-2 p-1.5 bg-blue-50 border border-blue-100 rounded text-center">
+          <p className="text-[10px] text-blue-600">
+            <Link
+              to="/login"
+              onClick={(e) => e.stopPropagation()}
+              className="font-medium underline"
+            >
               Crie uma conta grátis
-            </Link>{' '}
-            para ver valores e entrar em contato
+            </Link>
           </p>
         </div>
       )}

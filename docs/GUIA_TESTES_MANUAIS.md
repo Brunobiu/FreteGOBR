@@ -140,13 +140,23 @@ Exemplo válido: `Frete2024!`
 
 embarcador 
 jose dias
-(45) 6 4326-2345
-Santana799637@@
+(45) 6 4326-2123
+vgfasdWD23423@@
 
+(62) 9 9475-7290
+Santana799637@@
 
 
 
 motorista
 antonio dias
 (76) 8 5756-7564
+(45) 5 6325-4353
 Santana799637@@
+
+
+rodar o projeto
+
+cd "C:\Users\bruno\BRUNO\Meus Projetos\FreteGO\FreteGO"; & "C:\Program Files\nodejs\npm.cmd" run dev
+
+

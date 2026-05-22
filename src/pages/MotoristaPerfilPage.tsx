@@ -1,8 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { getMotoristaProfile, getUserData, updateMotoristaProfile } from '../services/motorista';
-import { uploadDocument, getSignedUrl, deleteDocument } from '../services/documents';
+import {
+  uploadDocument,
+  getSignedUrl,
+  deleteDocument,
+  validateDocumentType,
+} from '../services/documents';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
 
@@ -95,13 +101,19 @@ const SECTIONS: SectionDef[] = [
   {
     id: 'foto_frente',
     title: 'Foto em frente ao caminhão',
-    slots: [{ type: 'foto_frente_caminhao', label: 'Foto em frente ao caminhão', accept: IMG_ONLY }],
+    slots: [
+      { type: 'foto_frente_caminhao', label: 'Foto em frente ao caminhão', accept: IMG_ONLY },
+    ],
   },
   {
     id: 'comp_proprietario',
     title: 'Comprovante de Endereço - Proprietário',
     slots: [
-      { type: 'comprovante_endereco_proprietario', label: 'Comprovante de Endereço (Proprietário)', accept: PDF_IMG },
+      {
+        type: 'comprovante_endereco_proprietario',
+        label: 'Comprovante de Endereço (Proprietário)',
+        accept: PDF_IMG,
+      },
     ],
   },
   {
@@ -119,7 +131,9 @@ const SECTIONS: SectionDef[] = [
   {
     id: 'foto_caminhao',
     title: 'Foto do caminhão completo',
-    slots: [{ type: 'foto_caminhao_completo', label: 'Foto do caminhão completo', accept: IMG_ONLY }],
+    slots: [
+      { type: 'foto_caminhao_completo', label: 'Foto do caminhão completo', accept: IMG_ONLY },
+    ],
   },
 ];
 
@@ -179,9 +193,7 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: SlotProps) {
             {slot.optional && <span className="ml-1 text-xs text-gray-400">(opcional)</span>}
           </p>
           {slot.note && <p className="text-xs text-gray-500 mt-0.5">{slot.note}</p>}
-          {doc && (
-            <p className="text-xs text-gray-400 truncate mt-0.5">{doc.fileName}</p>
-          )}
+          {doc && <p className="text-xs text-gray-400 truncate mt-0.5">{doc.fileName}</p>}
           {doc?.status === 'rejeitado' && doc.rejectionReason && (
             <p className="text-xs text-red-600 mt-0.5">Motivo: {doc.rejectionReason}</p>
           )}
@@ -310,6 +322,7 @@ function PisSection({ userId }: PisSectionProps) {
 // ─── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MotoristaPerfilPage() {
+  useDocumentTitle('Perfil do Motorista');
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -443,6 +456,11 @@ export default function MotoristaPerfilPage() {
   const handleDocUpload = async (docType: string, file: File) => {
     if (!user) return;
 
+    if (!validateDocumentType(docType)) {
+      setError(`Tipo de documento inválido: "${docType}". Recarregue a página e tente novamente.`);
+      return;
+    }
+
     if (file.size > MAX_SIZE) {
       setError(`Arquivo muito grande. Máximo permitido: 5MB.`);
       return;
@@ -457,8 +475,7 @@ export default function MotoristaPerfilPage() {
         await deleteDocument(existing.id);
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const doc = await uploadDocument(user.id, docType as any, file);
+      const doc = await uploadDocument(user.id, docType, file);
       let url: string | undefined;
       try {
         url = await getSignedUrl(doc.id);
@@ -677,7 +694,8 @@ export default function MotoristaPerfilPage() {
                       />
                     ))}
 
-                    {section.expandable && showExtraCarretas &&
+                    {section.expandable &&
+                      showExtraCarretas &&
                       extraSlots.map((slot) => (
                         <DocSlot
                           key={slot.type}

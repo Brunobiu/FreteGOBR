@@ -1,21 +1,61 @@
 /**
  * Document Service
  *
- * Handles document upload, retrieval, and deletion using Supabase Storage
+ * Handles document upload, retrieval, and deletion using Supabase Storage.
+ *
+ * Os tipos válidos de documento são definidos em VALID_DOCUMENT_TYPES
+ * (fonte única de verdade) e devem espelhar exatamente o CHECK constraint
+ * de documents.document_type definido na migration 009.
  */
 
 import { supabase } from './supabase';
 
 /**
- * Document types supported by the system
+ * Lista canônica de tipos de documento aceitos pelo sistema.
+ * Sincronizada com supabase/migrations/009_consolidated_alignment.sql.
  */
-export type DocumentType =
-  | 'cpf'
-  | 'cnh'
-  | 'antt'
-  | 'vehicle_registration'
-  | 'vehicle_insurance'
-  | 'profile_photo';
+export const VALID_DOCUMENT_TYPES = [
+  // Tipos genéricos
+  'cpf',
+  'cnh',
+  'antt',
+  'vehicle_registration',
+  'vehicle_insurance',
+  'profile_photo',
+  // CRLV (cavalo + carretas 1 a 4)
+  'crlv_cavalo',
+  'crlv_carreta_1',
+  'crlv_carreta_2',
+  'crlv_carreta_3',
+  'crlv_carreta_4',
+  // RNTRC (cavalo + carretas 1 e 2)
+  'rntrc_cavalo',
+  'rntrc_carreta_1',
+  'rntrc_carreta_2',
+  // Fotos específicas do motorista
+  'foto_segurando_cnh',
+  'foto_frente_caminhao',
+  'foto_caminhao_completo',
+  // Comprovantes de endereço
+  'comprovante_endereco_proprietario',
+  'comprovante_endereco_motorista',
+] as const;
+
+export type DocumentType = (typeof VALID_DOCUMENT_TYPES)[number];
+
+/**
+ * Type guard que valida se uma string arbitrária é um DocumentType válido.
+ * Usado tanto no client (validação prévia) quanto na defesa em profundidade
+ * dentro de uploadDocument.
+ */
+export function validateDocumentType(type: string): type is DocumentType {
+  return (VALID_DOCUMENT_TYPES as readonly string[]).includes(type);
+}
+
+/**
+ * Status de revisão de um documento (alinhado ao CHECK no banco).
+ */
+export type DocumentStatus = 'pendente' | 'aprovado' | 'rejeitado';
 
 /**
  * Document metadata interface
@@ -28,6 +68,10 @@ export interface DocumentMetadata {
   fileSize: number;
   mimeType: string;
   uploadedAt: Date;
+  status?: DocumentStatus;
+  rejectionReason?: string | null;
+  reviewedBy?: string | null;
+  reviewedAt?: Date | null;
   url?: string;
 }
 
@@ -45,20 +89,46 @@ export class DocumentError extends Error {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapDocumentRow(row: any): DocumentMetadata {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    documentType: row.document_type as DocumentType,
+    fileName: row.file_name,
+    fileSize: row.file_size,
+    mimeType: row.mime_type,
+    uploadedAt: new Date(row.created_at),
+    status: (row.status as DocumentStatus | undefined) ?? undefined,
+    rejectionReason: row.rejection_reason ?? null,
+    reviewedBy: row.reviewed_by ?? null,
+    reviewedAt: row.reviewed_at ? new Date(row.reviewed_at) : null,
+  };
+}
+
 /**
- * Uploads a document to Supabase Storage
+ * Uploads a document to Supabase Storage.
  *
  * @param userId - The ID of the user uploading the document
  * @param documentType - The type of document being uploaded
  * @param file - The file to upload
  * @returns Promise resolving to document metadata
- * @throws DocumentError if upload fails
+ * @throws DocumentError if validation or upload fails
  */
 export async function uploadDocument(
   userId: string,
-  documentType: DocumentType,
+  documentType: DocumentType | string,
   file: File
 ): Promise<DocumentMetadata> {
+  // Defesa em profundidade: validar tipo antes de qualquer chamada de rede.
+  if (!validateDocumentType(documentType)) {
+    throw new DocumentError(
+      `Tipo de documento inválido: "${documentType}"`,
+      'INVALID_DOCUMENT_TYPE',
+      400
+    );
+  }
+
   try {
     // Generate unique file name
     const fileExt = file.name.split('.').pop();
@@ -93,18 +163,28 @@ export async function uploadDocument(
     if (docError) {
       // Rollback: delete uploaded file
       await supabase.storage.from('documents').remove([fileName]);
-      throw new DocumentError('Erro ao salvar informações do documento', 'DATABASE_ERROR', 500);
+      throw new DocumentError(
+        `Erro ao salvar informações do documento: ${docError.message}`,
+        'DATABASE_ERROR',
+        500
+      );
     }
 
-    return {
-      id: docData.id,
-      userId: docData.user_id,
-      documentType: docData.document_type as DocumentType,
-      fileName: docData.file_name,
-      fileSize: docData.file_size,
-      mimeType: docData.mime_type,
-      uploadedAt: new Date(docData.created_at),
-    };
+    // Defesa em profundidade: caso o trigger SQL sync_profile_photo_url
+    // não esteja ativo no ambiente, atualizamos manualmente o avatar.
+    if (documentType === 'profile_photo') {
+      const { error: avatarError } = await supabase
+        .from('users')
+        .update({ profile_photo_url: uploadData.path })
+        .eq('id', userId);
+      if (avatarError) {
+        // Não interrompe o upload — o trigger SQL pode já ter feito o trabalho.
+        // eslint-disable-next-line no-console
+        console.warn('[documents] sync profile_photo_url falhou:', avatarError.message);
+      }
+    }
+
+    return mapDocumentRow(docData);
   } catch (error) {
     if (error instanceof DocumentError) {
       throw error;
@@ -115,9 +195,6 @@ export async function uploadDocument(
 
 /**
  * Gets all documents for a specific user
- *
- * @param userId - The ID of the user
- * @returns Promise resolving to array of document metadata
  */
 export async function getDocumentsByUser(userId: string): Promise<DocumentMetadata[]> {
   try {
@@ -131,15 +208,7 @@ export async function getDocumentsByUser(userId: string): Promise<DocumentMetada
       throw new DocumentError('Erro ao buscar documentos', 'FETCH_FAILED', 500);
     }
 
-    return data.map((doc) => ({
-      id: doc.id,
-      userId: doc.user_id,
-      documentType: doc.document_type as DocumentType,
-      fileName: doc.file_name,
-      fileSize: doc.file_size,
-      mimeType: doc.mime_type,
-      uploadedAt: new Date(doc.created_at),
-    }));
+    return (data ?? []).map(mapDocumentRow);
   } catch (error) {
     if (error instanceof DocumentError) {
       throw error;
@@ -150,10 +219,6 @@ export async function getDocumentsByUser(userId: string): Promise<DocumentMetada
 
 /**
  * Deletes a document
- *
- * @param documentId - The ID of the document to delete
- * @returns Promise that resolves when deletion is complete
- * @throws DocumentError if deletion fails
  */
 export async function deleteDocument(documentId: string): Promise<void> {
   try {
@@ -193,15 +258,9 @@ export async function deleteDocument(documentId: string): Promise<void> {
 
 /**
  * Gets a signed URL for accessing a document
- *
- * @param documentId - The ID of the document
- * @param expiresIn - URL expiration time in seconds (default: 3600 = 1 hour)
- * @returns Promise resolving to signed URL
- * @throws DocumentError if URL generation fails
  */
 export async function getSignedUrl(documentId: string, expiresIn: number = 3600): Promise<string> {
   try {
-    // Get document info
     const { data: docData, error: docError } = await supabase
       .from('documents')
       .select('file_path')
@@ -212,7 +271,6 @@ export async function getSignedUrl(documentId: string, expiresIn: number = 3600)
       throw new DocumentError('Documento não encontrado', 'NOT_FOUND', 404);
     }
 
-    // Generate signed URL
     const { data: urlData, error: urlError } = await supabase.storage
       .from('documents')
       .createSignedUrl(docData.file_path, expiresIn);
@@ -232,10 +290,6 @@ export async function getSignedUrl(documentId: string, expiresIn: number = 3600)
 
 /**
  * Gets a document by type for a specific user
- *
- * @param userId - The ID of the user
- * @param documentType - The type of document to retrieve
- * @returns Promise resolving to document metadata or null if not found
  */
 export async function getDocumentByType(
   userId: string,
@@ -253,25 +307,38 @@ export async function getDocumentByType(
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No rows returned
         return null;
       }
       throw new DocumentError('Erro ao buscar documento', 'FETCH_FAILED', 500);
     }
 
-    return {
-      id: data.id,
-      userId: data.user_id,
-      documentType: data.document_type as DocumentType,
-      fileName: data.file_name,
-      fileSize: data.file_size,
-      mimeType: data.mime_type,
-      uploadedAt: new Date(data.created_at),
-    };
+    return mapDocumentRow(data);
   } catch (error) {
     if (error instanceof DocumentError) {
       throw error;
     }
     throw new DocumentError('Erro ao buscar documento', 'UNKNOWN_ERROR', 500);
+  }
+}
+
+/**
+ * Resolve uma referência de foto de perfil para uma URL acessível.
+ * - Se já for uma URL (http/https), retorna como está.
+ * - Se for um path de storage (privado), gera uma signed URL temporária.
+ * - Se for null/undefined, retorna null.
+ */
+export async function resolveProfilePhotoUrl(
+  pathOrUrl: string | null | undefined
+): Promise<string | null> {
+  if (!pathOrUrl) return null;
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  try {
+    const { data, error } = await supabase.storage
+      .from('documents')
+      .createSignedUrl(pathOrUrl, 3600);
+    if (error || !data) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
   }
 }

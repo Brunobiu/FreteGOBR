@@ -3,16 +3,63 @@ import { useAuth } from '../hooks/useAuth';
 import { useState, useRef, useEffect } from 'react';
 import FreteCalculator from './FreteCalculator';
 import NotificationBell from './NotificationBell';
+import BadgeEmpresa from './BadgeEmpresa';
+import { getEmbarcadorProfile } from '../services/embarcador';
+import { resolveProfilePhotoUrl } from '../services/documents';
+import { capitalizeName } from '../utils/textCase';
 
 export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const profileLink = user?.userType === 'embarcador' ? '/perfil/embarcador' : '/perfil/motorista';
+  const planLink = user?.userType === 'embarcador' ? '/embarcador/plano' : '/motorista/plano';
   const userTypeLabel = user?.userType === 'embarcador' ? 'Embarcador' : 'Motorista';
+  const displayName = user?.name ? capitalizeName(user.name) : '';
+
+  // Carrega o nome da empresa quando o usuário é embarcador
+  useEffect(() => {
+    let cancelled = false;
+    if (user?.userType !== 'embarcador') {
+      setCompanyName(null);
+      return;
+    }
+    getEmbarcadorProfile(user.id)
+      .then((profile) => {
+        if (!cancelled)
+          setCompanyName(profile?.companyName ? capitalizeName(profile.companyName) : null);
+      })
+      .catch(() => {
+        if (!cancelled) setCompanyName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.userType]);
+
+  // Resolve a URL da foto (signed URL se for path privado)
+  useEffect(() => {
+    let cancelled = false;
+    if (!user?.profilePhotoUrl) {
+      setPhotoUrl(null);
+      return;
+    }
+    resolveProfilePhotoUrl(user.profilePhotoUrl)
+      .then((url) => {
+        if (!cancelled) setPhotoUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setPhotoUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.profilePhotoUrl]);
 
   // Fecha menu ao clicar fora
   useEffect(() => {
@@ -49,6 +96,9 @@ export default function AppHeader() {
                   {userTypeLabel}
                 </span>
               )}
+              {isAuthenticated && user?.userType === 'embarcador' && companyName && (
+                <BadgeEmpresa companyName={companyName} />
+              )}
             </div>
 
             {/* Right side */}
@@ -57,6 +107,22 @@ export default function AppHeader() {
                 <>
                   {/* Notificações */}
                   <NotificationBell />
+
+                  {/* Mensagens */}
+                  <Link
+                    to="/mensagens"
+                    title="Mensagens"
+                    className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                  </Link>
 
                   {/* Calculadora - só motorista */}
                   {user.userType === 'motorista' && (
@@ -86,13 +152,14 @@ export default function AppHeader() {
                       onClick={() => setMenuOpen(!menuOpen)}
                       className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
                     >
-                      <span className="text-sm text-gray-700 hidden sm:block">{user.name}</span>
+                      <span className="text-sm text-gray-700 hidden sm:block">{displayName}</span>
                       <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300">
-                        {user.profilePhotoUrl ? (
+                        {photoUrl ? (
                           <img
-                            src={user.profilePhotoUrl}
+                            src={photoUrl}
                             alt="Foto"
                             className="w-full h-full object-cover"
+                            onError={() => setPhotoUrl(null)}
                           />
                         ) : (
                           <svg
@@ -171,6 +238,26 @@ export default function AppHeader() {
                             />
                           </svg>
                           Configurações
+                        </Link>
+                        <Link
+                          to={planLink}
+                          onClick={() => setMenuOpen(false)}
+                          className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                            />
+                          </svg>
+                          Planos
                         </Link>
                         <div className="border-t border-gray-200 my-1" />
                         <button

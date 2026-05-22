@@ -4,8 +4,6 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
-import ChatWidget from './components/ChatWidget';
-import FreteChatWidget from './components/FreteChatWidget';
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -15,6 +13,7 @@ const EmbarcadorPerfilPage = lazy(() => import('./pages/EmbarcadorPerfilPage'));
 const EmbarcadorPlanPage = lazy(() => import('./pages/EmbarcadorPlanPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
+const MensagensPage = lazy(() => import('./pages/MensagensPage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
@@ -123,7 +122,17 @@ function App() {
             </ProtectedRoute>
           }
         />
-        
+        <Route
+          path="/mensagens"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <MensagensPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+
         {/* Honeypot routes - armadilhas para detectar scanners */}
         <Route
           path="/admin-legacy"
@@ -150,8 +159,6 @@ function App() {
           }
         />
       </Routes>
-      <ChatWidget />
-      <FreteChatWidget />
     </BrowserRouter>
   );
 }
