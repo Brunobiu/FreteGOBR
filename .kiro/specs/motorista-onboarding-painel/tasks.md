@@ -477,82 +477,82 @@ opcionais (testes) e podem ser puladas em uma execução de MVP.
       CHECK antes/depois; validar que `embarcadores`, `fretes` e
       `users` permanecem bit a bit idênticos.
 
-- [ ] 12. Smoke tests manuais (caminho-feliz)
+- [x] 12. Smoke tests manuais (caminho-feliz)
   - _Refs: Design Section 8 (smoke caminho-feliz)_
 
-  - [ ] 12.1 Aplicar Migration 017 no Supabase do ambiente
+  - [x] 12.1 Aplicar Migration 017 no Supabase do ambiente
     - Rodar `017_motorista_painel_fields.sql`, confirmar sucesso e
       executar uma segunda vez para validar idempotência.
 
-  - [ ] 12.2 Login como motorista
+  - [x] 12.2 Login como motorista
     - Confirmar que `MotoristaPerfilPage` carrega sem erros e que o
       header da home renderiza o `DieselDashboardInput`.
 
-  - [ ] 12.3 Editar nome em CAIXA-ALTA → ao salvar, retorna
+  - [x] 12.3 Editar nome em CAIXA-ALTA → ao salvar, retorna
         capitalizado
     - _Refs: Requirement 1_
 
-  - [ ] 12.4 Mudar e-mail → "Verificar e-mail" → modal abre →
+  - [x] 12.4 Mudar e-mail → "Verificar e-mail" → modal abre →
         confirmar código
     - _Refs: Requirement 2_
 
-  - [ ] 12.5 Digitar placa `abc1d23` → vira `ABC1D23` e salva
+  - [x] 12.5 Digitar placa `abc1d23` → vira `ABC1D23` e salva
     - _Refs: Requirement 3_
 
-  - [ ] 12.6 Digitar placa `ABCD123` → erro inline, salvar
+  - [x] 12.6 Digitar placa `ABCD123` → erro inline, salvar
         bloqueado
     - _Refs: Requirement 3_
 
-  - [ ] 12.7 Marcar "O caminhão NÃO é meu" → seção "Proprietário"
+  - [x] 12.7 Marcar "O caminhão NÃO é meu" → seção "Proprietário"
         aparece
     - _Refs: Requirement 4_
 
-  - [ ] 12.8 Selecionar "Outro" no modelo → campo de texto livre
+  - [x] 12.8 Selecionar "Outro" no modelo → campo de texto livre
         aparece
     - _Refs: Requirement 5_
 
-  - [ ] 12.9 Ano modelo < ano fabricação → erro, bloqueia salvar
+  - [x] 12.9 Ano modelo < ano fabricação → erro, bloqueia salvar
     - _Refs: Requirement 6_
 
-  - [ ] 12.10 Upload via "Abrir câmera" no celular → câmera traseira
+  - [x] 12.10 Upload via "Abrir câmera" no celular → câmera traseira
         abre
     - _Refs: Requirement 7_
 
-  - [ ] 12.11 Upload via "Escolher arquivo" → seletor padrão abre
+  - [x] 12.11 Upload via "Escolher arquivo" → seletor padrão abre
     - _Refs: Requirement 7_
 
-  - [ ] 12.12 PIS vazio → aviso amarelo, salvar OK
+  - [x] 12.12 PIS vazio → aviso amarelo, salvar OK
     - _Refs: Requirement 9_
 
-  - [ ] 12.13 PIS com 5 dígitos → erro vermelho, salvar bloqueado
+  - [x] 12.13 PIS com 5 dígitos → erro vermelho, salvar bloqueado
     - _Refs: Requirement 9_
 
-  - [ ] 12.14 No dashboard, alterar diesel → recálculo nos cards em
+  - [x] 12.14 No dashboard, alterar diesel → recálculo nos cards em
         menos de 1 s
     - _Refs: Requirements 11, 12_
 
-  - [ ] 12.15 No dashboard com km/l vazio → banner amarelo + link
+  - [x] 12.15 No dashboard com km/l vazio → banner amarelo + link
         nos cards
     - _Refs: Requirement 13_
 
-- [ ] 13. Smoke não-regressão do embarcador
+- [x] 13. Smoke não-regressão do embarcador
   - _Refs: Requirement 16, Design Section 8 (não-regressão)_
 
-  - [ ] 13.1 Login como embarcador → home renderiza tabela/cards
+  - [x] 13.1 Login como embarcador → home renderiza tabela/cards
         normalmente, sem bloco de cálculo financeiro
 
-  - [ ] 13.2 Cadastrar novo frete via `FreteForm` (arquivo não
+  - [x] 13.2 Cadastrar novo frete via `FreteForm` (arquivo não
         tocado)
 
-  - [ ] 13.3 Editar perfil em `EmbarcadorPerfilPage` (arquivo não
+  - [x] 13.3 Editar perfil em `EmbarcadorPerfilPage` (arquivo não
         tocado)
 
-  - [ ] 13.4 Upload de logo via `LogoUploadField` (arquivo não
+  - [x] 13.4 Upload de logo via `LogoUploadField` (arquivo não
         tocado)
 
-  - [ ] 13.5 Verificação de e-mail do embarcador (modal não tocado)
+  - [x] 13.5 Verificação de e-mail do embarcador (modal não tocado)
 
-  - [ ] 13.6 Visitante (deslogado) abrindo home → cards exibem
+  - [x] 13.6 Visitante (deslogado) abrindo home → cards exibem
         "Login para ver" como hoje, sem cálculo financeiro
 
 ---
