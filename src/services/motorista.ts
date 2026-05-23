@@ -105,13 +105,18 @@ export interface MotoristaCalcContext {
  * Get motorista profile by user ID.
  */
 export async function getMotoristaProfile(userId: string): Promise<MotoristaProfile | null> {
-  const { data, error } = await supabase.from('motoristas').select('*').eq('id', userId).single();
+  const { data, error } = await supabase
+    .from('motoristas')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle();
 
   if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
     throw new Error(`Erro ao buscar perfil: ${error.message}`);
+  }
+
+  if (!data) {
+    return null;
   }
 
   return {
@@ -269,17 +274,30 @@ export async function getMotoristaCalcContext(userId: string): Promise<Motorista
 }
 
 /**
- * Get user data by ID (mantido como estava — apenas leitura).
+ * Get user data by ID. Usa `maybeSingle()` para evitar exception
+ * quando a linha em `users` ainda não foi criada (cadastro recém-feito,
+ * trigger pendente ou RLS). Retorna campos vazios em vez de throw —
+ * a UI pode renderizar o perfil em branco e o motorista pode preencher.
  */
 export async function getUserData(userId: string) {
   const { data, error } = await supabase
     .from('users')
     .select('id, name, email, cpf, profile_photo_url')
     .eq('id', userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     throw new Error(`Erro ao buscar dados do usuário: ${error.message}`);
+  }
+
+  if (!data) {
+    return {
+      id: userId,
+      name: '',
+      email: '',
+      cpf: '',
+      profilePhotoUrl: null as string | null,
+    };
   }
 
   return {
