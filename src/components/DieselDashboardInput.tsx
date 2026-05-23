@@ -76,6 +76,12 @@ export default function DieselDashboardInput({
 
   const persist = useCallback(
     async (priceStr: string) => {
+      // Permite limpar o campo sem disparar erro. O valor vazio
+      // representa "ainda não preenchido" — não é um erro.
+      if (priceStr.trim() === '') {
+        return;
+      }
+
       const num = parseFloat(priceStr);
       if (Number.isNaN(num) || num < 1.0 || num > 20.0) {
         // Range inválido: reverte e avisa.

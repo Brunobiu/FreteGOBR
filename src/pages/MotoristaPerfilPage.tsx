@@ -1464,7 +1464,9 @@ export default function MotoristaPerfilPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Consumo (km/l do cavalo)</label>
+                <label className="block text-xs text-gray-600 mb-1">
+                  Consumo (km por litro do cavalo)
+                </label>
                 <input
                   type="number"
                   step="0.1"
@@ -1481,6 +1483,9 @@ export default function MotoristaPerfilPage() {
                     fieldErrors.kmPerLiter ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
+                <p className="mt-1 text-[10px] text-gray-500">
+                  Ex: caminhão pesado carregado faz 2,5 a 4 km/L.
+                </p>
                 {fieldErrors.kmPerLiter && (
                   <p className="mt-1 text-[11px] text-red-600">{fieldErrors.kmPerLiter}</p>
                 )}
