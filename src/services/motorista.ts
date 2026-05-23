@@ -31,6 +31,19 @@ export interface MotoristaProfile {
   cargoCapacityTon?: number;
   dieselPrice?: number;
   isOwner?: boolean;
+  // === Campos novos (Migration 018) ============================================
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressUf?: string;
+  rgNumber?: string;
+  ownerCnpj?: string;
+  ownerCompanyName?: string;
+  ownerPisNumber?: string;
+  ownerIsDriver?: boolean;
   // =============================================================================
   createdAt: Date;
   updatedAt: Date;
@@ -44,7 +57,7 @@ export interface UpdateMotoristaProfileData {
   vehiclePlate?: string;
   vehicleModel?: string;
   vehicleYear?: number;
-  // === Campos novos ===========================================================
+  // === Campos novos (Migration 017) ===========================================
   vehicleYearManufacture?: number;
   vehicleYearModel?: number;
   kmPerLiter?: number;
@@ -52,6 +65,31 @@ export interface UpdateMotoristaProfileData {
   cargoCapacityTon?: number;
   dieselPrice?: number;
   isOwner?: boolean;
+  // === Campos novos (Migration 018) ===========================================
+  addressCep?: string;
+  addressStreet?: string;
+  addressNumber?: string;
+  addressComplement?: string;
+  addressNeighborhood?: string;
+  addressCity?: string;
+  addressUf?: string;
+  rgNumber?: string;
+  ownerCnpj?: string;
+  ownerCompanyName?: string;
+  ownerPisNumber?: string;
+  ownerIsDriver?: boolean;
+}
+
+/**
+ * Referência profissional do motorista (transportadora ou empresa
+ * com quem ele já trabalhou).
+ */
+export interface MotoristaReference {
+  id: string;
+  userId: string;
+  companyName: string;
+  phone: string;
+  createdAt: Date;
 }
 
 /**
@@ -99,6 +137,20 @@ export async function getMotoristaProfile(userId: string): Promise<MotoristaProf
         ? Number(data.diesel_price)
         : undefined,
     isOwner: data.is_owner ?? undefined,
+    // === Migration 018 ========================================================
+    addressCep: data.address_cep ?? undefined,
+    addressStreet: data.address_street ?? undefined,
+    addressNumber: data.address_number ?? undefined,
+    addressComplement: data.address_complement ?? undefined,
+    addressNeighborhood: data.address_neighborhood ?? undefined,
+    addressCity: data.address_city ?? undefined,
+    addressUf: data.address_uf ?? undefined,
+    rgNumber: data.rg_number ?? undefined,
+    ownerCnpj: data.owner_cnpj ?? undefined,
+    ownerCompanyName: data.owner_company_name ?? undefined,
+    ownerPisNumber: data.owner_pis_number ?? undefined,
+    ownerIsDriver: data.owner_is_driver ?? undefined,
+    // =========================================================================
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
   };
@@ -143,6 +195,23 @@ export async function updateMotoristaProfile(
     motoristaUpdate.cargo_capacity_ton = data.cargoCapacityTon;
   if (data.dieselPrice !== undefined) motoristaUpdate.diesel_price = data.dieselPrice;
   if (data.isOwner !== undefined) motoristaUpdate.is_owner = data.isOwner;
+  // === Migration 018: endereço, RG e dados do proprietário ===================
+  if (data.addressCep !== undefined) motoristaUpdate.address_cep = data.addressCep;
+  if (data.addressStreet !== undefined) motoristaUpdate.address_street = data.addressStreet;
+  if (data.addressNumber !== undefined) motoristaUpdate.address_number = data.addressNumber;
+  if (data.addressComplement !== undefined)
+    motoristaUpdate.address_complement = data.addressComplement;
+  if (data.addressNeighborhood !== undefined)
+    motoristaUpdate.address_neighborhood = data.addressNeighborhood;
+  if (data.addressCity !== undefined) motoristaUpdate.address_city = data.addressCity;
+  if (data.addressUf !== undefined) motoristaUpdate.address_uf = data.addressUf;
+  if (data.rgNumber !== undefined) motoristaUpdate.rg_number = data.rgNumber;
+  if (data.ownerCnpj !== undefined) motoristaUpdate.owner_cnpj = data.ownerCnpj;
+  if (data.ownerCompanyName !== undefined)
+    motoristaUpdate.owner_company_name = data.ownerCompanyName;
+  if (data.ownerPisNumber !== undefined) motoristaUpdate.owner_pis_number = data.ownerPisNumber;
+  if (data.ownerIsDriver !== undefined) motoristaUpdate.owner_is_driver = data.ownerIsDriver;
+  // ===========================================================================
 
   if (Object.keys(motoristaUpdate).length > 0) {
     const { error: motoristaError } = await supabase
@@ -220,4 +289,67 @@ export async function getUserData(userId: string) {
     cpf: data.cpf,
     profilePhotoUrl: data.profile_photo_url,
   };
+}
+
+/**
+ * Lê todas as referências profissionais do motorista, ordenadas por
+ * data de criação (mais antigas primeiro). Retorna `[]` se não houver.
+ */
+export async function getMotoristaReferences(userId: string): Promise<MotoristaReference[]> {
+  const { data, error } = await supabase
+    .from('motorista_references')
+    .select('id, user_id, company_name, phone, created_at')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    throw new Error(`Erro ao buscar referências: ${error.message}`);
+  }
+
+  return (data ?? []).map((r) => ({
+    id: r.id,
+    userId: r.user_id,
+    companyName: r.company_name,
+    phone: r.phone,
+    createdAt: new Date(r.created_at),
+  }));
+}
+
+/**
+ * Substitui completamente as referências do motorista. Padrão
+ * replace-all (DELETE + INSERT) executado no client. Não é atômico
+ * server-side; em caso de falha do INSERT após o DELETE, o caller
+ * deve refetch a lista para mostrar o estado real.
+ *
+ * Aplica `capitalizeName` em `companyName` antes de inserir.
+ * Linhas com `companyName.trim() === ''` são descartadas.
+ */
+export async function replaceMotoristaReferences(
+  userId: string,
+  refs: { companyName: string; phone: string }[]
+): Promise<void> {
+  // Passo 1: limpar tudo do usuário
+  const { error: delErr } = await supabase
+    .from('motorista_references')
+    .delete()
+    .eq('user_id', userId);
+  if (delErr) {
+    throw new Error(`Erro ao limpar referências: ${delErr.message}`);
+  }
+
+  // Passo 2: filtrar e inserir
+  const rows = refs
+    .filter((r) => r.companyName.trim() !== '')
+    .map((r) => ({
+      user_id: userId,
+      company_name: capitalizeName(r.companyName.trim()),
+      phone: (r.phone ?? '').replace(/\D/g, ''),
+    }));
+
+  if (rows.length === 0) return;
+
+  const { error: insErr } = await supabase.from('motorista_references').insert(rows);
+  if (insErr) {
+    throw new Error(`Erro ao inserir referências: ${insErr.message}`);
+  }
 }

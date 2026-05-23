@@ -42,6 +42,9 @@ export const VALID_DOCUMENT_TYPES = [
   // Documento do proprietário (CPF, CNH ou contrato) — quando o
   // caminhão não pertence ao motorista. Adicionado pela Migration 017.
   'documento_proprietario',
+  // Contrato de arrendamento — PDF único quando o caminhão é
+  // alugado/arrendado. Adicionado pela Migration 018.
+  'contrato_arrendamento',
 ] as const;
 
 export type DocumentType = (typeof VALID_DOCUMENT_TYPES)[number];
