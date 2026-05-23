@@ -2,7 +2,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import { getMotoristaProfile, getUserData, updateMotoristaProfile } from '../services/motorista';
+import {
+  getMotoristaProfile,
+  getUserData,
+  updateMotoristaProfile,
+  getMotoristaReferences,
+  replaceMotoristaReferences,
+} from '../services/motorista';
 import {
   uploadDocument,
   getSignedUrl,
@@ -14,8 +20,11 @@ import {
   getVerificationStatus,
   VerificationError,
 } from '../services/verification';
+import { lookupCnpj, formatCnpj, sanitizeCnpj, CnpjLookupError } from '../services/cnpj';
+import { lookupCep, formatCep, sanitizeCep, CepLookupError } from '../services/cep';
 import { capitalizeName } from '../utils/textCase';
 import { formatPlate, isValidMercosulPlate } from '../utils/plateValidation';
+import { sanitizePhone, formatPhoneBR, isValidPhoneBR } from '../utils/phoneFormat';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
 import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
@@ -24,6 +33,7 @@ import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
 
 const PDF_IMG = 'image/*,application/pdf';
 const IMG_ONLY = 'image/*';
+const PDF_ONLY = 'application/pdf';
 const MAX_SIZE = 5 * 1024 * 1024;
 
 const VEHICLE_TYPES: Array<{ value: string; label: string }> = [
@@ -54,7 +64,7 @@ const MODELOS_CAMINHAO = [
   'Outro',
 ] as const;
 
-// Tipos de documento por seção (Req 4)
+// Tipos de documento por seção
 const TIPOS_PESSOAIS = ['cnh', 'foto_segurando_cnh', 'comprovante_endereco_motorista'];
 const TIPOS_VEICULO = [
   'crlv_cavalo',
@@ -69,6 +79,11 @@ const TIPOS_VEICULO = [
   'foto_caminhao_completo',
 ];
 const TIPOS_PROPRIETARIO = ['comprovante_endereco_proprietario', 'documento_proprietario'];
+const TIPOS_CONTRATO = ['contrato_arrendamento'];
+
+const CURRENT_YEAR = new Date().getFullYear();
+
+type SecaoKey = 'dadosPessoais' | 'veiculo' | 'proprietario' | 'contrato';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -94,6 +109,13 @@ interface SlotConfig {
   optional?: boolean;
 }
 
+interface ReferenciaLocal {
+  id: string;
+  companyName: string;
+  phone: string;
+  persisted: boolean;
+}
+
 // ─── Componente de Slot de Documento (com câmera ou arquivo) ────────────────
 
 interface DocSlotProps {
@@ -105,13 +127,12 @@ interface DocSlotProps {
 }
 
 function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
-  // Dois inputs separados: um com `capture` para câmera, outro padrão.
-  // Em desktop, ambos abrem o seletor de arquivos (capture é ignorado).
   const cameraRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const status = doc?.status ?? (doc ? 'pendente' : undefined);
   const canDelete = doc && status !== 'aprovado';
   const isImageOnly = slot.accept === IMG_ONLY;
+  const isPdfOnly = slot.accept === PDF_ONLY;
 
   const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -188,17 +209,18 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
         )}
         {status !== 'aprovado' && (
           <>
-            {/* Inputs ocultos. capture="environment" prioriza câmera traseira;
-                fallback: navegadores desktop ignoram `capture` e abrem o seletor. */}
-            <input
-              ref={cameraRef}
-              type="file"
-              accept={isImageOnly ? IMG_ONLY : 'image/*'}
-              capture="environment"
-              hidden
-              disabled={uploading}
-              onChange={handlePick}
-            />
+            {/* Slots PDF-only não exibem câmera (não faz sentido tirar foto). */}
+            {!isPdfOnly && (
+              <input
+                ref={cameraRef}
+                type="file"
+                accept={isImageOnly ? IMG_ONLY : 'image/*'}
+                capture="environment"
+                hidden
+                disabled={uploading}
+                onChange={handlePick}
+              />
+            )}
             <input
               ref={fileRef}
               type="file"
@@ -207,21 +229,30 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
               disabled={uploading}
               onChange={handlePick}
             />
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              disabled={uploading}
-              className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded hover:bg-blue-100 disabled:opacity-50"
-            >
-              📷 Câmera
-            </button>
+            {!isPdfOnly && (
+              <button
+                type="button"
+                onClick={() => cameraRef.current?.click()}
+                disabled={uploading}
+                className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded hover:bg-blue-100 disabled:opacity-50"
+              >
+                📷 Câmera
+              </button>
+            )}
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
               disabled={uploading}
               className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] rounded hover:bg-gray-200 disabled:opacity-50"
             >
-              📎 {uploading ? 'Enviando...' : doc ? 'Trocar arquivo' : 'Escolher arquivo'}
+              📎{' '}
+              {uploading
+                ? 'Enviando...'
+                : doc
+                  ? 'Trocar arquivo'
+                  : isPdfOnly
+                    ? 'Anexar PDF'
+                    : 'Escolher arquivo'}
             </button>
           </>
         )}
@@ -232,17 +263,13 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
 
 // ─── Página principal ────────────────────────────────────────────────────────
 
-const CURRENT_YEAR = new Date().getFullYear();
-
 export default function MotoristaPerfilPage() {
   useDocumentTitle('Perfil do Motorista');
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [topError, setTopError] = useState<string | null>(null);
 
   // === Dados pessoais ========================================================
   const [name, setName] = useState('');
@@ -252,7 +279,24 @@ export default function MotoristaPerfilPage() {
   const [sendingCode, setSendingCode] = useState(false);
   const [emailRateLimitedUntil, setEmailRateLimitedUntil] = useState<number | null>(null);
   const [cpf, setCpf] = useState('');
+  const [rgNumber, setRgNumber] = useState('');
   const [pis, setPis] = useState('');
+
+  // === Endereço (Migration 018) =============================================
+  const [addressCep, setAddressCep] = useState('');
+  const [addressStreet, setAddressStreet] = useState('');
+  const [addressNumber, setAddressNumber] = useState('');
+  const [addressComplement, setAddressComplement] = useState('');
+  const [addressNeighborhood, setAddressNeighborhood] = useState('');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressUf, setAddressUf] = useState('');
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepError, setCepError] = useState<string | null>(null);
+  const lastCepRef = useRef<string>('');
+  const cepReqIdRef = useRef(0);
+
+  // === Referências profissionais ============================================
+  const [references, setReferences] = useState<ReferenciaLocal[]>([]);
 
   // === Veículo ==============================================================
   const [vehicleType, setVehicleType] = useState('');
@@ -268,6 +312,14 @@ export default function MotoristaPerfilPage() {
 
   // === Proprietário =========================================================
   const [isNotOwner, setIsNotOwner] = useState(false);
+  const [ownerCnpj, setOwnerCnpj] = useState('');
+  const [ownerCompanyName, setOwnerCompanyName] = useState('');
+  const [ownerPisNumber, setOwnerPisNumber] = useState('');
+  const [ownerIsDriver, setOwnerIsDriver] = useState(false);
+  const [cnpjLoading, setCnpjLoading] = useState(false);
+  const [cnpjError, setCnpjError] = useState<string | null>(null);
+  const lastCnpjRef = useRef<string>('');
+  const cnpjReqIdRef = useRef(0);
 
   // === Documentos ===========================================================
   const [documents, setDocuments] = useState<Record<string, DocRecord>>({});
@@ -277,18 +329,44 @@ export default function MotoristaPerfilPage() {
   // === Erros por campo ======================================================
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
-  // O e-mail está "sujo" se o input difere do valor verificado no servidor
+  // === Estado dirty/saving/feedback por seção ==============================
+  const [dirty, setDirty] = useState<Record<SecaoKey, boolean>>({
+    dadosPessoais: false,
+    veiculo: false,
+    proprietario: false,
+    contrato: false,
+  });
+  const [saving, setSaving] = useState<Record<SecaoKey, boolean>>({
+    dadosPessoais: false,
+    veiculo: false,
+    proprietario: false,
+    contrato: false,
+  });
+  const [sectionFeedback, setSectionFeedback] = useState<
+    Record<SecaoKey, { type: 'success' | 'error'; msg: string } | null>
+  >({
+    dadosPessoais: null,
+    veiculo: null,
+    proprietario: null,
+    contrato: null,
+  });
+
+  const markDirty = (s: SecaoKey) => setDirty((p) => ({ ...p, [s]: true }));
+  const setSecaoFeedback = (s: SecaoKey, fb: { type: 'success' | 'error'; msg: string } | null) =>
+    setSectionFeedback((p) => ({ ...p, [s]: fb }));
+
   const emailDirty =
     emailInput.trim() !== '' && emailInput.trim() !== (emailVerifiedAtServer ?? '');
   const emailVerifiedNow =
     emailInput.trim() === (emailVerifiedAtServer ?? '') && emailInput.trim() !== '';
 
+  // ─── Carregamento inicial ────────────────────────────────────────────────
   const loadAll = useCallback(async () => {
     if (!user) return;
     try {
       setIsLoading(true);
 
-      const [userData, profile, { data: rawDocs }, verifStatus, { data: pisRow }] =
+      const [userData, profile, { data: rawDocs }, verifStatus, { data: pisRow }, refsList] =
         await Promise.all([
           getUserData(user.id),
           getMotoristaProfile(user.id),
@@ -299,6 +377,7 @@ export default function MotoristaPerfilPage() {
             .order('created_at', { ascending: false }),
           getVerificationStatus(),
           supabase.from('motorista_pis').select('pis_number').eq('user_id', user.id).maybeSingle(),
+          getMotoristaReferences(user.id).catch(() => []),
         ]);
 
       setName(userData.name ? capitalizeName(userData.name) : '');
@@ -310,7 +389,6 @@ export default function MotoristaPerfilPage() {
       if (profile) {
         setVehicleType(profile.vehicleType || '');
         setVehiclePlate(profile.vehiclePlate || '');
-        // Modelo: se está na lista pré-definida, seleciona; senão, "Outro" + texto.
         if (profile.vehicleModel) {
           if ((MODELOS_CAMINHAO as readonly string[]).includes(profile.vehicleModel)) {
             setVehicleModelSelect(profile.vehicleModel);
@@ -329,7 +407,32 @@ export default function MotoristaPerfilPage() {
         setCargoCapacityTon(profile.cargoCapacityTon?.toString() ?? '');
         setDieselPrice(profile.dieselPrice?.toFixed(2) ?? '');
         setIsNotOwner(profile.isOwner === false);
+
+        // Migration 018: endereço, RG, owner_*
+        setAddressCep(profile.addressCep ?? '');
+        lastCepRef.current = sanitizeCep(profile.addressCep ?? '');
+        setAddressStreet(profile.addressStreet ?? '');
+        setAddressNumber(profile.addressNumber ?? '');
+        setAddressComplement(profile.addressComplement ?? '');
+        setAddressNeighborhood(profile.addressNeighborhood ?? '');
+        setAddressCity(profile.addressCity ?? '');
+        setAddressUf(profile.addressUf ?? '');
+        setRgNumber(profile.rgNumber ?? '');
+        setOwnerCnpj(profile.ownerCnpj ?? '');
+        lastCnpjRef.current = sanitizeCnpj(profile.ownerCnpj ?? '');
+        setOwnerCompanyName(profile.ownerCompanyName ?? '');
+        setOwnerPisNumber(profile.ownerPisNumber ?? '');
+        setOwnerIsDriver(profile.ownerIsDriver ?? false);
       }
+
+      setReferences(
+        refsList.map((r) => ({
+          id: r.id,
+          companyName: r.companyName,
+          phone: r.phone,
+          persisted: true,
+        }))
+      );
 
       if (rawDocs) {
         const docsMap: Record<string, DocRecord> = {};
@@ -370,7 +473,7 @@ export default function MotoristaPerfilPage() {
         if (hasExtra) setShowExtraCarretas(true);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar perfil');
+      setTopError(err instanceof Error ? err.message : 'Erro ao carregar perfil');
     } finally {
       setIsLoading(false);
     }
@@ -381,10 +484,78 @@ export default function MotoristaPerfilPage() {
     loadAll();
   }, [user, loadAll]);
 
-  // ─── Handlers ───────────────────────────────────────────────────────────────
+  // ─── Lookup automático de CEP ────────────────────────────────────────────
+  useEffect(() => {
+    const digits = sanitizeCep(addressCep);
+    if (digits.length !== 8) {
+      setCepError(null);
+      return;
+    }
+    if (digits === lastCepRef.current) return;
+    lastCepRef.current = digits;
 
+    const myReq = ++cepReqIdRef.current;
+    setCepLoading(true);
+    setCepError(null);
+    (async () => {
+      try {
+        const data = await lookupCep(digits);
+        if (myReq !== cepReqIdRef.current) return;
+        setAddressStreet(data.logradouro);
+        setAddressNeighborhood(data.bairro);
+        setAddressCity(data.localidade);
+        setAddressUf(data.uf);
+      } catch (err) {
+        if (myReq !== cepReqIdRef.current) return;
+        if (err instanceof CepLookupError && err.code === 'NOT_FOUND') {
+          setCepError('CEP não encontrado. Verifique o número digitado.');
+        } else if (err instanceof CepLookupError && err.code === 'NETWORK') {
+          setCepError('Não foi possível consultar o CEP agora. Tente novamente.');
+        } else {
+          setCepError('Erro ao consultar CEP.');
+        }
+      } finally {
+        if (myReq === cepReqIdRef.current) setCepLoading(false);
+      }
+    })();
+  }, [addressCep]);
+
+  // ─── Lookup automático de CNPJ do proprietário ───────────────────────────
+  useEffect(() => {
+    const digits = sanitizeCnpj(ownerCnpj);
+    if (digits.length !== 14) {
+      setCnpjError(null);
+      return;
+    }
+    if (digits === lastCnpjRef.current) return;
+    lastCnpjRef.current = digits;
+
+    const myReq = ++cnpjReqIdRef.current;
+    setCnpjLoading(true);
+    setCnpjError(null);
+    (async () => {
+      try {
+        const data = await lookupCnpj(digits);
+        if (myReq !== cnpjReqIdRef.current) return;
+        setOwnerCompanyName(data.razaoSocial || data.nomeFantasia || '');
+      } catch (err) {
+        if (myReq !== cnpjReqIdRef.current) return;
+        if (err instanceof CnpjLookupError && err.code === 'NOT_FOUND') {
+          setCnpjError('CNPJ não encontrado.');
+        } else if (err instanceof CnpjLookupError && err.code === 'NETWORK') {
+          setCnpjError('Não foi possível consultar o CNPJ agora. Tente novamente.');
+        } else {
+          setCnpjError('Erro ao consultar CNPJ.');
+        }
+      } finally {
+        if (myReq === cnpjReqIdRef.current) setCnpjLoading(false);
+      }
+    })();
+  }, [ownerCnpj]);
+
+  // ─── Handlers de e-mail ─────────────────────────────────────────────────
   const handleSendEmailCode = async () => {
-    setError(null);
+    setTopError(null);
     if (!emailInput || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(emailInput)) {
       setFieldErrors((p) => ({ ...p, email: 'Informe um e-mail válido.' }));
       return;
@@ -416,26 +587,33 @@ export default function MotoristaPerfilPage() {
   const handleEmailVerified = async (verifiedEmail: string) => {
     setShowEmailModal(false);
     setEmailVerifiedAtServer(verifiedEmail);
-    setSuccess('E-mail confirmado!');
-    setTimeout(() => setSuccess(null), 3000);
+    setSecaoFeedback('dadosPessoais', { type: 'success', msg: 'E-mail confirmado!' });
+    setTimeout(() => setSecaoFeedback('dadosPessoais', null), 3000);
     await refreshUser();
   };
 
+  // ─── Handlers de upload de documento ────────────────────────────────────
   const handleDocUpload = async (docType: string, file: File) => {
     if (!user) return;
 
     if (!validateDocumentType(docType)) {
-      setError(`Tipo de documento inválido: "${docType}".`);
+      setTopError(`Tipo de documento inválido: "${docType}".`);
+      return;
+    }
+
+    // Validação extra: contrato_arrendamento somente PDF
+    if (docType === 'contrato_arrendamento' && file.type !== 'application/pdf') {
+      setTopError('Apenas arquivos PDF são aceitos para o contrato de arrendamento.');
       return;
     }
 
     if (file.size > MAX_SIZE) {
-      setError('Arquivo muito grande. Máximo permitido: 5MB.');
+      setTopError('Arquivo muito grande. Máximo permitido: 5MB.');
       return;
     }
 
     setUploadingDoc(docType);
-    setError(null);
+    setTopError(null);
     try {
       const existing = documents[docType];
       if (existing && existing.status !== 'aprovado') {
@@ -461,8 +639,13 @@ export default function MotoristaPerfilPage() {
           url,
         },
       }));
+      // Marca dirty na seção correspondente
+      if (TIPOS_PESSOAIS.includes(docType)) markDirty('dadosPessoais');
+      else if (TIPOS_VEICULO.includes(docType)) markDirty('veiculo');
+      else if (TIPOS_PROPRIETARIO.includes(docType)) markDirty('proprietario');
+      else if (TIPOS_CONTRATO.includes(docType)) markDirty('contrato');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro no upload');
+      setTopError(err instanceof Error ? err.message : 'Erro no upload');
     } finally {
       setUploadingDoc(null);
     }
@@ -480,31 +663,129 @@ export default function MotoristaPerfilPage() {
         return n;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao deletar');
+      setTopError(err instanceof Error ? err.message : 'Erro ao deletar');
     }
   };
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+  // ─── Handlers de referências ────────────────────────────────────────────
+  const addReference = () => {
+    setReferences((prev) => [
+      ...prev,
+      { id: `tmp_${Date.now()}_${prev.length}`, companyName: '', phone: '', persisted: false },
+    ]);
+    markDirty('dadosPessoais');
+  };
+  const updateReference = (id: string, patch: Partial<ReferenciaLocal>) => {
+    setReferences((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    markDirty('dadosPessoais');
+  };
+  const removeReference = (id: string) => {
+    setReferences((prev) => prev.filter((r) => r.id !== id));
+    markDirty('dadosPessoais');
+  };
 
+  // ─── Handler "Sou eu o proprietário" ────────────────────────────────────
+  const handleSouEuProprietario = () => {
+    // Marca a flag e mantém os campos editáveis. Os dados de
+    // identidade pessoal (CPF/RG/PIS/endereço) já moram em "Dados
+    // Pessoais"; aqui apenas marcamos `owner_is_driver = true`
+    // para o admin saber que é o mesmo. Também limpamos o CNPJ
+    // (caso estivesse preenchido, deixa de fazer sentido).
+    setOwnerIsDriver(true);
+    setOwnerCnpj('');
+    setOwnerCompanyName('');
+    setOwnerPisNumber('');
+    markDirty('proprietario');
+  };
+
+  const countDocs = (types: string[]) => types.filter((t) => documents[t]).length;
+
+  // ─── Save Dados Pessoais ────────────────────────────────────────────────
+  const handleSaveDadosPessoais = async () => {
+    if (!user) return;
     const errs: Record<string, string> = {};
 
-    // Nome
     const trimmedName = name.trim();
     if (!trimmedName) errs.name = 'Informe seu nome completo';
+    if (emailDirty) errs.email = 'Verifique o novo e-mail antes de salvar';
+    if (pis && pis.length !== 11) errs.pis = 'PIS deve ter exatamente 11 dígitos';
+    if (addressUf && !/^[A-Z]{2}$/.test(addressUf)) errs.addressUf = 'UF deve ter 2 letras';
 
-    // Placa Mercosul (apenas se tiver algum valor)
+    // Validação cruzada de referências
+    references.forEach((r) => {
+      const nameFilled = r.companyName.trim() !== '';
+      const phoneDigits = sanitizePhone(r.phone);
+      const phoneFilled = phoneDigits.length > 0;
+      if (nameFilled && !isValidPhoneBR(r.phone)) {
+        errs[`ref_${r.id}_phone`] = 'Telefone inválido (use 10 ou 11 dígitos)';
+      }
+      if (phoneFilled && !nameFilled) {
+        errs[`ref_${r.id}_name`] = 'Informe o nome da empresa';
+      }
+    });
+
+    setFieldErrors((p) => ({ ...p, ...errs }));
+    if (Object.keys(errs).length > 0) {
+      setSecaoFeedback('dadosPessoais', {
+        type: 'error',
+        msg: 'Verifique os campos destacados.',
+      });
+      const first = document.querySelector<HTMLElement>('[data-error="true"]');
+      first?.focus();
+      return;
+    }
+
+    setSaving((p) => ({ ...p, dadosPessoais: true }));
+    try {
+      await updateMotoristaProfile(user.id, {
+        name: trimmedName,
+        cpf: cpf || undefined,
+        rgNumber: rgNumber || undefined,
+        addressCep: sanitizeCep(addressCep) || undefined,
+        addressStreet: addressStreet || undefined,
+        addressNumber: addressNumber || undefined,
+        addressComplement: addressComplement || undefined,
+        addressNeighborhood: addressNeighborhood || undefined,
+        addressCity: addressCity || undefined,
+        addressUf: addressUf || undefined,
+      });
+
+      if (pis && pis.length === 11) {
+        await supabase
+          .from('motorista_pis')
+          .upsert({ user_id: user.id, pis_number: pis }, { onConflict: 'user_id' });
+      }
+
+      // Replace-all de referências (filtra vazias dentro do service)
+      await replaceMotoristaReferences(
+        user.id,
+        references.map((r) => ({ companyName: r.companyName, phone: sanitizePhone(r.phone) }))
+      );
+
+      setDirty((p) => ({ ...p, dadosPessoais: false }));
+      setSecaoFeedback('dadosPessoais', { type: 'success', msg: 'Seção salva.' });
+      setTimeout(() => setSecaoFeedback('dadosPessoais', null), 3000);
+    } catch (err) {
+      setSecaoFeedback('dadosPessoais', {
+        type: 'error',
+        msg: err instanceof Error ? err.message : 'Erro ao salvar.',
+      });
+    } finally {
+      setSaving((p) => ({ ...p, dadosPessoais: false }));
+    }
+  };
+
+  // ─── Save Veículo ───────────────────────────────────────────────────────
+  const handleSaveVeiculo = async () => {
+    if (!user) return;
+    const errs: Record<string, string> = {};
+
     if (vehiclePlate && !isValidMercosulPlate(vehiclePlate)) {
       errs.plate = 'Placa inválida. Formato esperado: ABC1D23';
     }
-
-    // Modelo "Outro" exige texto
     if (vehicleModelSelect === 'Outro' && !vehicleModelOutro.trim()) {
       errs.model = 'Informe o modelo do caminhão';
     }
-
-    // Anos
     const yearFab = vehicleYearManufacture ? parseInt(vehicleYearManufacture) : undefined;
     const yearMod = vehicleYearModel ? parseInt(vehicleYearModel) : undefined;
     if (yearFab !== undefined && (yearFab < 1980 || yearFab > CURRENT_YEAR + 1)) {
@@ -516,8 +797,6 @@ export default function MotoristaPerfilPage() {
     if (yearFab !== undefined && yearMod !== undefined && yearMod < yearFab) {
       errs.yearModel = 'Ano modelo deve ser maior ou igual ao ano de fabricação';
     }
-
-    // Ranges operacionais
     if (kmPerLiter && (parseFloat(kmPerLiter) < 1 || parseFloat(kmPerLiter) > 10)) {
       errs.kmPerLiter = 'Valor fora do intervalo permitido (1,0 a 10,0)';
     }
@@ -534,35 +813,18 @@ export default function MotoristaPerfilPage() {
       errs.dieselPrice = 'Valor fora do intervalo permitido (R$ 1,00 a R$ 20,00)';
     }
 
-    // PIS — bloqueia se preenchido com tamanho diferente de 11
-    if (pis && pis.length !== 11) {
-      errs.pis = 'PIS deve ter exatamente 11 dígitos';
-    }
-
-    // E-mail dirty exige verificação antes de salvar
-    if (emailDirty) {
-      errs.email = 'Verifique o novo e-mail antes de salvar';
-    }
-
-    setFieldErrors(errs);
+    setFieldErrors((p) => ({ ...p, ...errs }));
     if (Object.keys(errs).length > 0) {
-      setError('Verifique os campos destacados em vermelho.');
-      // Foco no primeiro campo com erro
-      const first = document.querySelector<HTMLElement>('[data-error="true"]');
-      first?.focus();
+      setSecaoFeedback('veiculo', { type: 'error', msg: 'Verifique os campos destacados.' });
       return;
     }
 
-    setIsSaving(true);
-    setError(null);
-    setSuccess(null);
+    setSaving((p) => ({ ...p, veiculo: true }));
     try {
       const finalModel =
         vehicleModelSelect === 'Outro' ? vehicleModelOutro.trim() : vehicleModelSelect;
 
       await updateMotoristaProfile(user.id, {
-        name: trimmedName,
-        cpf: cpf || undefined,
         vehicleType: vehicleType || undefined,
         vehiclePlate: vehiclePlate || undefined,
         vehicleModel: finalModel || undefined,
@@ -575,25 +837,96 @@ export default function MotoristaPerfilPage() {
         isOwner: !isNotOwner,
       });
 
-      // PIS — salva apenas quando tem 11 dígitos exatos
-      if (pis && pis.length === 11) {
-        await supabase
-          .from('motorista_pis')
-          .upsert({ user_id: user.id, pis_number: pis }, { onConflict: 'user_id' });
-      }
-
-      setSuccess('Perfil salvo com sucesso!');
-      setTimeout(() => setSuccess(null), 3000);
+      setDirty((p) => ({ ...p, veiculo: false }));
+      setSecaoFeedback('veiculo', { type: 'success', msg: 'Seção salva.' });
+      setTimeout(() => setSecaoFeedback('veiculo', null), 3000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar');
+      setSecaoFeedback('veiculo', {
+        type: 'error',
+        msg: err instanceof Error ? err.message : 'Erro ao salvar.',
+      });
     } finally {
-      setIsSaving(false);
+      setSaving((p) => ({ ...p, veiculo: false }));
     }
   };
 
-  // ─── Computed ───────────────────────────────────────────────────────────────
+  // ─── Save Proprietário ──────────────────────────────────────────────────
+  const handleSaveProprietario = async () => {
+    if (!user) return;
+    const errs: Record<string, string> = {};
 
-  const countDocs = (types: string[]) => types.filter((t) => documents[t]).length;
+    if (ownerPisNumber && ownerPisNumber.length !== 11) {
+      errs.ownerPis = 'PIS deve ter exatamente 11 dígitos';
+    }
+
+    setFieldErrors((p) => ({ ...p, ...errs }));
+    if (Object.keys(errs).length > 0) {
+      setSecaoFeedback('proprietario', {
+        type: 'error',
+        msg: 'Verifique os campos destacados.',
+      });
+      return;
+    }
+
+    setSaving((p) => ({ ...p, proprietario: true }));
+    try {
+      await updateMotoristaProfile(user.id, {
+        ownerCnpj: sanitizeCnpj(ownerCnpj) || undefined,
+        ownerCompanyName: ownerCompanyName || undefined,
+        ownerPisNumber: ownerPisNumber || undefined,
+        ownerIsDriver: ownerIsDriver,
+      });
+      setDirty((p) => ({ ...p, proprietario: false }));
+      setSecaoFeedback('proprietario', { type: 'success', msg: 'Seção salva.' });
+      setTimeout(() => setSecaoFeedback('proprietario', null), 3000);
+    } catch (err) {
+      setSecaoFeedback('proprietario', {
+        type: 'error',
+        msg: err instanceof Error ? err.message : 'Erro ao salvar.',
+      });
+    } finally {
+      setSaving((p) => ({ ...p, proprietario: false }));
+    }
+  };
+
+  // ─── Save Contrato (apenas reseta dirty) ────────────────────────────────
+  const handleSaveContrato = () => {
+    setDirty((p) => ({ ...p, contrato: false }));
+    setSecaoFeedback('contrato', { type: 'success', msg: 'Seção salva.' });
+    setTimeout(() => setSecaoFeedback('contrato', null), 3000);
+  };
+
+  // ─── Helper de rodapé "Salvar" por seção ────────────────────────────────
+  const SectionFooter = ({ section, onSave }: { section: SecaoKey; onSave: () => void }) => {
+    const fb = sectionFeedback[section];
+    return (
+      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
+        {fb ? (
+          <span
+            className={`text-[11px] px-2 py-1 rounded ${
+              fb.type === 'success'
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}
+          >
+            {fb.msg}
+          </span>
+        ) : (
+          <span className="text-[11px] text-gray-400">
+            {dirty[section] ? 'Há alterações não salvas' : '—'}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={!dirty[section] || saving[section]}
+          className="min-h-[44px] px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving[section] ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
+    );
+  };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -620,25 +953,20 @@ export default function MotoristaPerfilPage() {
           </button>
         </div>
 
-        {error && (
+        {topError && (
           <div
             role="alert"
             className="mb-3 p-2.5 bg-red-50 border border-red-200 rounded-lg text-red-700 text-xs"
           >
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg text-green-700 text-xs">
-            {success}
+            {topError}
           </div>
         )}
 
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 1 — Dados Pessoais (Motorista)
               ────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white border border-gray-200 rounded-lg p-4">
+          <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-gray-800">Dados Pessoais</h2>
               <span className="text-[11px] text-gray-500">
@@ -652,11 +980,14 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="text"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    markDirty('dadosPessoais');
+                  }}
                   onBlur={(e) => setName(capitalizeName(e.target.value))}
                   required
                   data-error={fieldErrors.name ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.name ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -669,9 +1000,26 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="text"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
+                  onChange={(e) => {
+                    setCpf(e.target.value);
+                    markDirty('dadosPessoais');
+                  }}
                   placeholder="000.000.000-00"
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">RG</label>
+                <input
+                  type="text"
+                  value={rgNumber}
+                  onChange={(e) => {
+                    setRgNumber(e.target.value);
+                    markDirty('dadosPessoais');
+                  }}
+                  maxLength={20}
+                  placeholder="00.000.000-0"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div className="md:col-span-2">
@@ -692,11 +1040,12 @@ export default function MotoristaPerfilPage() {
                       value={emailInput}
                       onChange={(e) => {
                         setEmailInput(e.target.value);
+                        markDirty('dadosPessoais');
                         setFieldErrors((p) => ({ ...p, email: '' }));
                       }}
                       placeholder="seu@email.com"
                       data-error={fieldErrors.email ? 'true' : undefined}
-                      className={`flex-1 px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      className={`flex-1 px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         fieldErrors.email ? 'border-red-400' : 'border-gray-300'
                       }`}
                     />
@@ -708,7 +1057,7 @@ export default function MotoristaPerfilPage() {
                         !emailDirty ||
                         (emailRateLimitedUntil !== null && Date.now() < emailRateLimitedUntil)
                       }
-                      className="px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="min-h-[44px] px-3 py-2 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {sendingCode ? 'Enviando...' : 'Verificar e-mail'}
                     </button>
@@ -720,8 +1069,117 @@ export default function MotoristaPerfilPage() {
               </div>
             </div>
 
+            {/* Endereço */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <h3 className="text-xs font-semibold text-gray-700 mb-2">Endereço</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">CEP</label>
+                  <input
+                    type="text"
+                    value={formatCep(addressCep)}
+                    onChange={(e) => {
+                      setAddressCep(sanitizeCep(e.target.value));
+                      markDirty('dadosPessoais');
+                    }}
+                    placeholder="00000-000"
+                    maxLength={9}
+                    inputMode="numeric"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  {cepLoading && (
+                    <p className="mt-1 text-[11px] text-gray-500">Buscando endereço...</p>
+                  )}
+                  {cepError && <p className="mt-1 text-[11px] text-red-600">{cepError}</p>}
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Logradouro</label>
+                  <input
+                    type="text"
+                    value={addressStreet}
+                    onChange={(e) => {
+                      setAddressStreet(e.target.value);
+                      markDirty('dadosPessoais');
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Número</label>
+                  <input
+                    type="text"
+                    value={addressNumber}
+                    onChange={(e) => {
+                      setAddressNumber(e.target.value);
+                      markDirty('dadosPessoais');
+                    }}
+                    maxLength={10}
+                    placeholder="123 ou S/N"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Complemento</label>
+                  <input
+                    type="text"
+                    value={addressComplement}
+                    onChange={(e) => {
+                      setAddressComplement(e.target.value);
+                      markDirty('dadosPessoais');
+                    }}
+                    placeholder="Apto 101 (opcional)"
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Bairro</label>
+                  <input
+                    type="text"
+                    value={addressNeighborhood}
+                    onChange={(e) => {
+                      setAddressNeighborhood(e.target.value);
+                      markDirty('dadosPessoais');
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Cidade</label>
+                  <input
+                    type="text"
+                    value={addressCity}
+                    onChange={(e) => {
+                      setAddressCity(e.target.value);
+                      markDirty('dadosPessoais');
+                    }}
+                    className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">UF</label>
+                  <input
+                    type="text"
+                    value={addressUf}
+                    onChange={(e) => {
+                      setAddressUf(e.target.value.toUpperCase().slice(0, 2));
+                      markDirty('dadosPessoais');
+                    }}
+                    maxLength={2}
+                    placeholder="GO"
+                    data-error={fieldErrors.addressUf ? 'true' : undefined}
+                    className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      fieldErrors.addressUf ? 'border-red-400' : 'border-gray-300'
+                    }`}
+                  />
+                  {fieldErrors.addressUf && (
+                    <p className="mt-1 text-[11px] text-red-600">{fieldErrors.addressUf}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Documentos pessoais */}
-            <div className="mt-3 space-y-2">
+            <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
               <DocSlot
                 slot={{ type: 'cnh', label: 'CNH (frente e verso)', accept: PDF_IMG }}
                 doc={documents.cnh}
@@ -754,17 +1212,21 @@ export default function MotoristaPerfilPage() {
               />
             </div>
 
-            {/* PIS — último campo da seção, acima do Salvar */}
+            {/* PIS */}
             <div className="mt-3 pt-3 border-t border-gray-100">
               <label className="block text-xs text-gray-600 mb-1">PIS (11 dígitos)</label>
               <input
                 type="text"
                 value={pis}
-                onChange={(e) => setPis(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                onChange={(e) => {
+                  setPis(e.target.value.replace(/\D/g, '').slice(0, 11));
+                  markDirty('dadosPessoais');
+                }}
                 placeholder="00000000000"
                 maxLength={11}
+                inputMode="numeric"
                 data-error={fieldErrors.pis ? 'true' : undefined}
-                className={`w-48 px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-48 px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   fieldErrors.pis ? 'border-red-400' : 'border-gray-300'
                 }`}
               />
@@ -777,12 +1239,97 @@ export default function MotoristaPerfilPage() {
                 </p>
               )}
             </div>
+
+            {/* Referências profissionais */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <h3 className="text-xs font-semibold text-gray-700 mb-2">
+                Referências profissionais (opcional)
+              </h3>
+              {references.length === 0 ? (
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Nenhuma referência cadastrada ainda.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {references.map((r) => (
+                    <div
+                      key={r.id}
+                      className="relative flex flex-col sm:flex-row sm:items-end gap-2 p-3 sm:p-2.5 border border-gray-200 rounded-lg bg-gray-50"
+                    >
+                      <div className="flex-1">
+                        <label className="block text-[11px] text-gray-600 mb-1">
+                          Nome da empresa
+                        </label>
+                        <input
+                          type="text"
+                          value={r.companyName}
+                          onChange={(e) =>
+                            updateReference(r.id, { companyName: e.target.value.slice(0, 80) })
+                          }
+                          onBlur={(e) =>
+                            updateReference(r.id, { companyName: capitalizeName(e.target.value) })
+                          }
+                          maxLength={80}
+                          data-error={fieldErrors[`ref_${r.id}_name`] ? 'true' : undefined}
+                          className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            fieldErrors[`ref_${r.id}_name`] ? 'border-red-400' : 'border-gray-300'
+                          }`}
+                        />
+                        {fieldErrors[`ref_${r.id}_name`] && (
+                          <p className="mt-1 text-[11px] text-red-600">
+                            {fieldErrors[`ref_${r.id}_name`]}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[11px] text-gray-600 mb-1">Telefone</label>
+                        <input
+                          type="text"
+                          value={formatPhoneBR(r.phone)}
+                          onChange={(e) =>
+                            updateReference(r.id, { phone: sanitizePhone(e.target.value) })
+                          }
+                          inputMode="tel"
+                          placeholder="(00) 00000-0000"
+                          data-error={fieldErrors[`ref_${r.id}_phone`] ? 'true' : undefined}
+                          className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            fieldErrors[`ref_${r.id}_phone`] ? 'border-red-400' : 'border-gray-300'
+                          }`}
+                        />
+                        {fieldErrors[`ref_${r.id}_phone`] && (
+                          <p className="mt-1 text-[11px] text-red-600">
+                            {fieldErrors[`ref_${r.id}_phone`]}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeReference(r.id)}
+                        aria-label="Remover referência"
+                        className="absolute top-1 right-1 sm:static sm:self-end min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 p-1 text-red-500 hover:text-red-700"
+                      >
+                        🗑
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={addReference}
+                className="mt-2 min-h-[44px] px-3 py-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+              >
+                + Adicionar referência
+              </button>
+            </div>
+
+            <SectionFooter section="dadosPessoais" onSave={handleSaveDadosPessoais} />
           </section>
 
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 2 — Veículo
               ────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white border border-gray-200 rounded-lg p-4">
+          <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-gray-800">Veículo</h2>
               <span className="text-[11px] text-gray-500">
@@ -795,8 +1342,11 @@ export default function MotoristaPerfilPage() {
                 <label className="block text-xs text-gray-600 mb-1">Tipo</label>
                 <select
                   value={vehicleType}
-                  onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setVehicleType(e.target.value);
+                    markDirty('veiculo');
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Selecione...</option>
                   {VEHICLE_TYPES.map((v) => (
@@ -812,11 +1362,14 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="text"
                   value={vehiclePlate}
-                  onChange={(e) => setVehiclePlate(formatPlate(e.target.value))}
+                  onChange={(e) => {
+                    setVehiclePlate(formatPlate(e.target.value));
+                    markDirty('veiculo');
+                  }}
                   placeholder="ABC1D23"
                   maxLength={7}
                   data-error={fieldErrors.plate ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.plate ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -829,8 +1382,11 @@ export default function MotoristaPerfilPage() {
                 <label className="block text-xs text-gray-600 mb-1">Modelo</label>
                 <select
                   value={vehicleModelSelect}
-                  onChange={(e) => setVehicleModelSelect(e.target.value)}
-                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setVehicleModelSelect(e.target.value);
+                    markDirty('veiculo');
+                  }}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Selecione...</option>
                   {MODELOS_CAMINHAO.map((m) => (
@@ -847,10 +1403,13 @@ export default function MotoristaPerfilPage() {
                   <input
                     type="text"
                     value={vehicleModelOutro}
-                    onChange={(e) => setVehicleModelOutro(e.target.value)}
+                    onChange={(e) => {
+                      setVehicleModelOutro(e.target.value);
+                      markDirty('veiculo');
+                    }}
                     maxLength={60}
                     data-error={fieldErrors.model ? 'true' : undefined}
-                    className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       fieldErrors.model ? 'border-red-400' : 'border-gray-300'
                     }`}
                   />
@@ -865,12 +1424,15 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="number"
                   value={vehicleYearManufacture}
-                  onChange={(e) => setVehicleYearManufacture(e.target.value.slice(0, 4))}
+                  onChange={(e) => {
+                    setVehicleYearManufacture(e.target.value.slice(0, 4));
+                    markDirty('veiculo');
+                  }}
                   min={1980}
                   max={CURRENT_YEAR + 1}
                   placeholder="2020"
                   data-error={fieldErrors.yearManufacture ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.yearManufacture ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -884,12 +1446,15 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="number"
                   value={vehicleYearModel}
-                  onChange={(e) => setVehicleYearModel(e.target.value.slice(0, 4))}
+                  onChange={(e) => {
+                    setVehicleYearModel(e.target.value.slice(0, 4));
+                    markDirty('veiculo');
+                  }}
                   min={1980}
                   max={CURRENT_YEAR + 2}
                   placeholder="2021"
                   data-error={fieldErrors.yearModel ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.yearModel ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -904,12 +1469,15 @@ export default function MotoristaPerfilPage() {
                   type="number"
                   step="0.1"
                   value={kmPerLiter}
-                  onChange={(e) => setKmPerLiter(e.target.value)}
+                  onChange={(e) => {
+                    setKmPerLiter(e.target.value);
+                    markDirty('veiculo');
+                  }}
                   placeholder="2.5"
                   min={1}
                   max={10}
                   data-error={fieldErrors.kmPerLiter ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.kmPerLiter ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -923,12 +1491,15 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="number"
                   value={trailerAxles}
-                  onChange={(e) => setTrailerAxles(e.target.value)}
+                  onChange={(e) => {
+                    setTrailerAxles(e.target.value);
+                    markDirty('veiculo');
+                  }}
                   placeholder="6"
                   min={2}
                   max={9}
                   data-error={fieldErrors.trailerAxles ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.trailerAxles ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -943,12 +1514,15 @@ export default function MotoristaPerfilPage() {
                   type="number"
                   step="0.1"
                   value={cargoCapacityTon}
-                  onChange={(e) => setCargoCapacityTon(e.target.value)}
+                  onChange={(e) => {
+                    setCargoCapacityTon(e.target.value);
+                    markDirty('veiculo');
+                  }}
                   placeholder="30"
                   min={1}
                   max={80}
                   data-error={fieldErrors.cargoCapacityTon ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.cargoCapacityTon ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -965,12 +1539,15 @@ export default function MotoristaPerfilPage() {
                   type="number"
                   step="0.01"
                   value={dieselPrice}
-                  onChange={(e) => setDieselPrice(e.target.value)}
+                  onChange={(e) => {
+                    setDieselPrice(e.target.value);
+                    markDirty('veiculo');
+                  }}
                   placeholder="5.99"
                   min={1}
                   max={20}
                   data-error={fieldErrors.dieselPrice ? 'true' : undefined}
-                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.dieselPrice ? 'border-red-400' : 'border-gray-300'
                   }`}
                 />
@@ -1115,19 +1692,24 @@ export default function MotoristaPerfilPage() {
                 <input
                   type="checkbox"
                   checked={isNotOwner}
-                  onChange={(e) => setIsNotOwner(e.target.checked)}
+                  onChange={(e) => {
+                    setIsNotOwner(e.target.checked);
+                    markDirty('veiculo');
+                  }}
                   className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
                 />
                 <span>O caminhão NÃO é meu (é de outro proprietário)</span>
               </label>
             </div>
+
+            <SectionFooter section="veiculo" onSave={handleSaveVeiculo} />
           </section>
 
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 3 — Proprietário (renderiza apenas se isNotOwner)
               ────────────────────────────────────────────────────────────────── */}
           {isNotOwner && (
-            <section className="bg-white border border-gray-200 rounded-lg p-4">
+            <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold text-gray-800">Proprietário</h2>
                 <span className="text-[11px] text-gray-500">
@@ -1135,7 +1717,84 @@ export default function MotoristaPerfilPage() {
                 </span>
               </div>
 
-              <div className="space-y-2">
+              <button
+                type="button"
+                onClick={handleSouEuProprietario}
+                className="mb-3 min-h-[44px] px-3 py-2 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 border border-gray-200"
+              >
+                Sou eu o proprietário
+              </button>
+
+              {ownerIsDriver && (
+                <p className="mb-3 text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1">
+                  ✓ Você marcou que é o proprietário. Os dados pessoais serão usados como
+                  referência.
+                </p>
+              )}
+
+              {!ownerIsDriver && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">CNPJ do proprietário</label>
+                    <input
+                      type="text"
+                      value={formatCnpj(ownerCnpj)}
+                      onChange={(e) => {
+                        setOwnerCnpj(sanitizeCnpj(e.target.value));
+                        markDirty('proprietario');
+                      }}
+                      placeholder="00.000.000/0000-00"
+                      maxLength={18}
+                      inputMode="numeric"
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {cnpjLoading && (
+                      <p className="mt-1 text-[11px] text-gray-500">Buscando empresa...</p>
+                    )}
+                    {cnpjError && <p className="mt-1 text-[11px] text-red-600">{cnpjError}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Nome da empresa</label>
+                    <input
+                      type="text"
+                      value={ownerCompanyName}
+                      disabled
+                      placeholder="Preenchido automaticamente pela Receita"
+                      className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700 text-base sm:text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      PIS do proprietário (11 dígitos)
+                    </label>
+                    <input
+                      type="text"
+                      value={ownerPisNumber}
+                      onChange={(e) => {
+                        setOwnerPisNumber(e.target.value.replace(/\D/g, '').slice(0, 11));
+                        markDirty('proprietario');
+                      }}
+                      placeholder="00000000000"
+                      maxLength={11}
+                      inputMode="numeric"
+                      data-error={fieldErrors.ownerPis ? 'true' : undefined}
+                      className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        fieldErrors.ownerPis ? 'border-red-400' : 'border-gray-300'
+                      }`}
+                    />
+                    {fieldErrors.ownerPis && (
+                      <p className="mt-1 text-[11px] text-red-600">{fieldErrors.ownerPis}</p>
+                    )}
+                    {!ownerPisNumber && (
+                      <p className="mt-1 text-[11px] text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-2 py-1 inline-block">
+                        ⚠ PIS do proprietário não informado.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 pt-3 border-t border-gray-100 space-y-2">
                 <DocSlot
                   slot={{
                     type: 'documento_proprietario',
@@ -1159,24 +1818,48 @@ export default function MotoristaPerfilPage() {
                   onDelete={handleDocDelete}
                 />
               </div>
+
+              <SectionFooter section="proprietario" onSave={handleSaveProprietario} />
             </section>
           )}
 
-          {/* Botões de ação */}
+          {/* ──────────────────────────────────────────────────────────────────
+              SEÇÃO 4 — Contrato de Arrendamento (apenas se isNotOwner)
+              ────────────────────────────────────────────────────────────────── */}
+          {isNotOwner && (
+            <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-semibold text-gray-800">Contrato de Arrendamento</h2>
+                <span className="text-[11px] text-gray-500">
+                  {countDocs(TIPOS_CONTRATO)}/{TIPOS_CONTRATO.length} documento
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3">
+                Anexe o contrato de arrendamento em PDF (máximo 5MB).
+              </p>
+              <DocSlot
+                slot={{
+                  type: 'contrato_arrendamento',
+                  label: 'Contrato de arrendamento (PDF)',
+                  accept: PDF_ONLY,
+                }}
+                doc={documents.contrato_arrendamento}
+                uploading={uploadingDoc === 'contrato_arrendamento'}
+                onUpload={handleDocUpload}
+                onDelete={handleDocDelete}
+              />
+              <SectionFooter section="contrato" onSave={handleSaveContrato} />
+            </section>
+          )}
+
+          {/* Botão voltar */}
           <div className="flex items-center justify-between gap-3 pt-2">
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+              className="min-h-[44px] px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
             >
               ← Voltar
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {isSaving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
           </div>
         </form>

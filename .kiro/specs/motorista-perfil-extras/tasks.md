@@ -174,10 +174,10 @@ execução de MVP.
     - Em qualquer falha, lançar `Error` com mensagem do supabase.
     - _Refs: Requirement 3.11_
 
-- [ ] 6. Estender `src/pages/MotoristaPerfilPage.tsx`
+- [x] 6. Estender `src/pages/MotoristaPerfilPage.tsx`
   - _Refs: Requirements 1–9; Design Section 3_
 
-  - [ ] 6.1 Carregar dados estendidos no mount
+  - [x] 6.1 Carregar dados estendidos no mount
     - Estender o `loadAll` existente para também buscar
       `motorista_references` via `getMotoristaReferences(userId)`.
     - Hidratar estados novos a partir do `MotoristaProfile`
@@ -185,7 +185,7 @@ execução de MVP.
       owner_company_name, owner_pis, owner_is_driver.
     - _Refs: Requirements 2, 3.2, 4, 5, 6_
 
-  - [ ] 6.2 Estado dirty isolado por seção
+  - [x] 6.2 Estado dirty isolado por seção
     - Adicionar state:
       `const [dirty, setDirty] = useState({ dadosPessoais: false,
       veiculo: false, proprietario: false, contrato: false })`.
@@ -195,7 +195,7 @@ execução de MVP.
     - Estado paralelo `saving` e `sectionFeedback` por seção.
     - _Refs: Requirements 8.3, 8.4, 8.5, 8.6, 8.7_
 
-  - [ ] 6.3 Bloco "CEP + endereço" na seção "Dados Pessoais"
+  - [x] 6.3 Bloco "CEP + endereço" na seção "Dados Pessoais"
     - Adicionar campo "CEP" antes dos demais campos de endereço,
       com `formatCep` no display e `sanitizeCep` no estado interno
       (`addressCep` armazena dígitos).
@@ -216,12 +216,12 @@ execução de MVP.
       `onChange` aplica `.toUpperCase()` e `slice(0, 2)`.
     - _Refs: Requirements 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.9, 2.2, 2.3, 2.4_
 
-  - [ ] 6.4 Campo RG na seção "Dados Pessoais"
+  - [x] 6.4 Campo RG na seção "Dados Pessoais"
     - Texto livre, `maxLength={20}`, opcional. Renderizar acima do
       bloco de endereço.
     - _Refs: Requirement 2.1_
 
-  - [ ] 6.5 Bloco "Referências profissionais"
+  - [x] 6.5 Bloco "Referências profissionais"
     - Estado:
       `const [references, setReferences] = useState<MotoristaReferenceLocal[]>([])`.
     - Estado de erros por linha:
@@ -238,7 +238,7 @@ execução de MVP.
       a lista está vazia.
     - _Refs: Requirements 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7, 3.8, 3.13, 9.5, 12.1_
 
-  - [ ] 6.6 Validação cruzada das referências no save
+  - [x] 6.6 Validação cruzada das referências no save
     - Para cada `r` em `references`:
       - Vazia (nome E telefone vazios) → ignorar.
       - Nome preenchido + telefone com `[10,11].includes(digits.length) === false` → erro "Telefone inválido (use 10 ou 11 dígitos)".
@@ -248,7 +248,7 @@ execução de MVP.
       erro de referência.
     - _Refs: Requirements 3.9, 3.10_
 
-  - [ ] 6.7 Botão "Salvar" da seção "Dados Pessoais"
+  - [x] 6.7 Botão "Salvar" da seção "Dados Pessoais"
     - Substitui o submit único atual para essa seção. Renderizar
       no rodapé do cartão "Dados Pessoais".
     - Validar APENAS campos da seção: nome (não vazio), e-mail
@@ -263,7 +263,7 @@ execução de MVP.
     - `disabled` quando `!dirty.dadosPessoais` ou `saving.dadosPessoais`.
     - _Refs: Requirements 8.1, 8.2, 8.3, 8.4, 8.8, 8.9, 8.10_
 
-  - [ ] 6.8 Botão "Salvar" da seção "Veículo"
+  - [x] 6.8 Botão "Salvar" da seção "Veículo"
     - Renderizar no rodapé do cartão "Veículo".
     - Validar APENAS campos da seção: placa Mercosul, modelo "Outro"
       preenchido, ano fab/modelo cruzado, ranges (km/l, eixos,
@@ -274,7 +274,7 @@ execução de MVP.
     - `disabled` quando `!dirty.veiculo` ou `saving.veiculo`.
     - _Refs: Requirements 8.1, 8.2, 8.3, 8.5, 8.8, 8.9, 8.10_
 
-  - [ ] 6.9 Refator da seção "Proprietário": campos novos
+  - [x] 6.9 Refator da seção "Proprietário": campos novos
     - Adicionar acima dos slots de documento existentes:
       - "Nome do proprietário" (texto, `onBlur` capitalizeName).
       - "CPF do proprietário" (texto, opcional).
@@ -290,7 +290,7 @@ execução de MVP.
     - State: novas variáveis `owner*` espelhando os campos.
     - _Refs: Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 5.1, 5.2_
 
-  - [ ] 6.10 Lookup automático de CNPJ na seção Proprietário
+  - [x] 6.10 Lookup automático de CNPJ na seção Proprietário
     - `useEffect` que dispara `lookupCnpj` quando
       `sanitizeCnpj(ownerCnpj).length === 14` E difere do último
       consultado. Token monotônico anti-race.
@@ -301,7 +301,7 @@ execução de MVP.
     - Em `NETWORK`/`UNKNOWN`: mensagem genérica.
     - _Refs: Requirements 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-  - [ ] 6.11 Botão "Sou eu o proprietário"
+  - [x] 6.11 Botão "Sou eu o proprietário"
     - Renderizar no topo da seção "Proprietário", visível apenas se
       `isNotOwner === true`.
     - Handler copia campos do motorista para campos do proprietário
@@ -313,7 +313,7 @@ execução de MVP.
     - `min-h-[44px]`.
     - _Refs: Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 6.7, 9.3_
 
-  - [ ] 6.12 Botão "Salvar" da seção "Proprietário"
+  - [x] 6.12 Botão "Salvar" da seção "Proprietário"
     - Renderizar no rodapé do cartão.
     - Validar APENAS campos da seção: PIS proprietário (vazio ok,
       ≠11 bloqueia), CNPJ (qualquer combinação aceita).
@@ -324,7 +324,7 @@ execução de MVP.
     - `disabled` quando `!dirty.proprietario` ou `saving.proprietario`.
     - _Refs: Requirements 4.8, 4.9, 5.3, 5.4, 5.5, 6.6, 8.1, 8.2, 8.6, 8.8, 8.9_
 
-  - [ ] 6.13 Nova seção "Contrato de Arrendamento" (4ª seção)
+  - [x] 6.13 Nova seção "Contrato de Arrendamento" (4ª seção)
     - Renderizar abaixo da seção "Proprietário", apenas se
       `isNotOwner === true`.
     - Cartão padrão `bg-white border border-gray-200 rounded-lg p-4`.
@@ -336,7 +336,7 @@ execução de MVP.
       `accept: 'application/pdf'`.
     - _Refs: Requirements 7.1, 7.2, 7.3, 7.4_
 
-  - [ ] 6.14 Pequeno ajuste em `DocSlot` para slots PDF-only
+  - [x] 6.14 Pequeno ajuste em `DocSlot` para slots PDF-only
     - Quando `slot.accept === 'application/pdf'`, **não** renderizar
       o botão "📷 Câmera" (esconder o `cameraRef` input + button).
     - Não criar componente novo — só um if no JSX existente.
@@ -344,7 +344,7 @@ execução de MVP.
       continuam com câmera).
     - _Refs: Requirement 7.4_
 
-  - [ ] 6.15 Validação extra no upload de contrato
+  - [x] 6.15 Validação extra no upload de contrato
     - No handler `handleDocUpload`, antes do `uploadDocument`:
       - Se `docType === 'contrato_arrendamento'` E
         `file.type !== 'application/pdf'` → "Apenas arquivos PDF
@@ -352,14 +352,14 @@ execução de MVP.
     - O check existente de tamanho > 5 MB já cobre o size limit.
     - _Refs: Requirements 7.5, 7.6, 7.7_
 
-  - [ ] 6.16 Botão "Salvar" da seção "Contrato de Arrendamento"
+  - [x] 6.16 Botão "Salvar" da seção "Contrato de Arrendamento"
     - Renderizar no rodapé do cartão. Como o upload já persiste no
       momento, o botão apenas: reseta `dirty.contrato = false` e
       mostra feedback "Seção salva.".
     - `disabled` quando `!dirty.contrato`.
     - _Refs: Requirements 8.1, 8.2, 8.7_
 
-  - [ ] 6.17 Remover o botão "Salvar Alterações" único antigo
+  - [x] 6.17 Remover o botão "Salvar Alterações" único antigo
     - Remover o `<button type="submit">Salvar Alterações</button>`
       no fim do `<form>`.
     - Trocar `<form onSubmit={handleSave}>` por
@@ -369,7 +369,7 @@ execução de MVP.
       handlers por seção).
     - _Refs: Requirement 8.2_
 
-  - [ ] 6.18 Classes de responsividade mobile nos componentes novos
+  - [x] 6.18 Classes de responsividade mobile nos componentes novos
     - Inputs novos: `text-base sm:text-sm`.
     - Botões novos: `min-h-[44px]`.
     - Grid de endereço: `grid grid-cols-1 sm:grid-cols-2 gap-3`.
