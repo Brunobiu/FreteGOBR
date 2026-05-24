@@ -4,6 +4,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
+import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
 import FreteChatWidget from './components/FreteChatWidget';
 
@@ -13,7 +14,6 @@ const MotoristaPlanPage = lazy(() => import('./pages/MotoristaPlanPage'));
 const EmbarcadorPage = lazy(() => import('./pages/EmbarcadorPage'));
 const EmbarcadorPerfilPage = lazy(() => import('./pages/EmbarcadorPerfilPage'));
 const EmbarcadorPlanPage = lazy(() => import('./pages/EmbarcadorPlanPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
 const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
 const MensagensPage = lazy(() => import('./pages/MensagensPage'));
 const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
@@ -22,8 +22,8 @@ const AssistentePage = lazy(() => import('./pages/AssistantePage'));
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
 
-// Security dashboard - apenas para admins
-const SecurityDashboardPage = lazy(() => import('./pages/SecurityDashboardPage'));
+// Painel administrativo (admin-foundation)
+const AdminLayoutRoute = lazy(() => import('./components/admin/AdminLayoutRoute'));
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
   return (
@@ -99,23 +99,11 @@ function App() {
           }
         />
         <Route
-          path="/admin"
+          path="/admin/*"
           element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <AdminPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/security"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <SecurityDashboardPage />
-              </LazyRoute>
-            </ProtectedRoute>
+            <LazyRoute>
+              <AdminLayoutRoute />
+            </LazyRoute>
           }
         />
         <Route
@@ -184,6 +172,9 @@ function App() {
             </LazyRoute>
           }
         />
+
+        {/* Catch-all global: 404 padrao do app */}
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>
   );

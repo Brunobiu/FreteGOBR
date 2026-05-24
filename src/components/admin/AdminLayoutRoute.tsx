@@ -1,0 +1,39 @@
+/**
+ * AdminLayoutRoute
+ *
+ * Wrapper que monta o AdminProvider e roteia internamente entre
+ * paginas publicas (login, mfa-*) e privadas (atras do AdminGuard
+ * + AdminShell).
+ */
+
+import { Routes, Route } from 'react-router-dom';
+import { AdminProvider } from './AdminProvider';
+import AdminGuard from './AdminGuard';
+import AdminShell from './AdminShell';
+import Stealth404 from './Stealth404';
+import AdminLoginPage from '../../pages/admin/AdminLoginPage';
+import AdminMfaSetupPage from '../../pages/admin/AdminMfaSetupPage';
+import AdminMfaVerifyPage from '../../pages/admin/AdminMfaVerifyPage';
+import AdminDashboardPage from '../../pages/admin/AdminDashboardPage';
+import AdminAuditPage from '../../pages/admin/AdminAuditPage';
+import AdminProfilePage from '../../pages/admin/AdminProfilePage';
+
+export default function AdminLayoutRoute() {
+  return (
+    <AdminProvider>
+      <Routes>
+        <Route path="login" element={<AdminLoginPage />} />
+        <Route path="mfa-setup" element={<AdminMfaSetupPage />} />
+        <Route path="mfa-verify" element={<AdminMfaVerifyPage />} />
+        <Route element={<AdminGuard />}>
+          <Route element={<AdminShell />}>
+            <Route index element={<AdminDashboardPage />} />
+            <Route path="audit" element={<AdminAuditPage />} />
+            <Route path="perfil" element={<AdminProfilePage />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Stealth404 />} />
+      </Routes>
+    </AdminProvider>
+  );
+}

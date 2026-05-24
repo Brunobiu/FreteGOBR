@@ -1,11 +1,11 @@
 /**
  * PaymentPlaceholder - Estrutura preparada para futura integração de pagamentos
- * 
+ *
  * IMPORTANTE: Este arquivo contém código comentado e estruturas preparadas
  * para quando o sistema de pagamentos for implementado.
- * 
+ *
  * NÃO IMPLEMENTAR FUNCIONALIDADE REAL ATÉ QUE O SISTEMA DE PAGAMENTOS SEJA APROVADO.
- * 
+ *
  * Requisitos de Segurança para Pagamentos (quando implementar):
  * 1. Validação de assinatura de webhooks (Stripe, PagSeguro, etc)
  * 2. Transações atômicas no banco de dados
@@ -68,10 +68,10 @@ export interface WebhookEvent {
 
 /**
  * Valida a assinatura de um webhook do Stripe
- * 
+ *
  * IMPORTANTE: Nunca aceite webhooks sem validar a assinatura!
  * Um atacante pode simular webhooks para liberar acesso gratuito.
- * 
+ *
  * @example
  * ```typescript
  * // Quando implementar:
@@ -80,7 +80,7 @@ export interface WebhookEvent {
  *   request.headers['stripe-signature'],
  *   process.env.STRIPE_WEBHOOK_SECRET
  * );
- * 
+ *
  * if (!isValid) {
  *   throw new Error('Invalid webhook signature');
  * }
@@ -93,7 +93,7 @@ export interface WebhookEvent {
 // ): Promise<boolean> {
 //   // import Stripe from 'stripe';
 //   // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-//   // 
+//   //
 //   // try {
 //   //   const event = stripe.webhooks.constructEvent(payload, signature, secret);
 //   //   return true;
@@ -110,17 +110,17 @@ export interface WebhookEvent {
 
 /**
  * Processa uma assinatura de forma atômica
- * 
+ *
  * IMPORTANTE: Use transações para garantir consistência!
  * Se duas requisições chegarem ao mesmo tempo, apenas uma deve ser processada.
- * 
+ *
  * Requisitos:
  * 1. Verificar se usuário já tem assinatura ativa
  * 2. Criar registro de pagamento
  * 3. Criar/atualizar assinatura
  * 4. Atualizar limites do usuário
  * 5. Tudo em uma única transação
- * 
+ *
  * @example
  * ```typescript
  * // Quando implementar:
@@ -133,18 +133,18 @@ export interface WebhookEvent {
 //   paymentIntentId: string
 // ): Promise<Subscription> {
 //   // import { supabase } from './supabase';
-//   // 
+//   //
 //   // // Usar RPC para transação atômica no PostgreSQL
 //   // const { data, error } = await supabase.rpc('process_subscription', {
 //   //   p_user_id: userId,
 //   //   p_plan_id: planId,
 //   //   p_payment_intent_id: paymentIntentId,
 //   // });
-//   // 
+//   //
 //   // if (error) {
 //   //   throw new Error(`Failed to process subscription: ${error.message}`);
 //   // }
-//   // 
+//   //
 //   // return data;
 //   throw new Error('Not implemented');
 // }
@@ -155,7 +155,7 @@ export interface WebhookEvent {
 
 /**
  * Período de carência para reembolso (em dias)
- * 
+ *
  * IMPORTANTE: Não permita saque de comissões antes deste período!
  * Isso previne fraudes onde alguém paga, usa o serviço e pede reembolso.
  */
@@ -163,12 +163,12 @@ export interface WebhookEvent {
 
 /**
  * Verifica se um pagamento pode ser reembolsado
- * 
+ *
  * Regras:
  * 1. Pagamento deve estar dentro do período de carência
  * 2. Usuário não pode ter usado recursos premium
  * 3. Não pode ter reembolsos anteriores no mesmo mês
- * 
+ *
  * @example
  * ```typescript
  * // Quando implementar:
@@ -195,36 +195,36 @@ export interface WebhookEvent {
 
 /**
  * REQUISITOS DE ISOLAMENTO MULTI-TENANT PARA PAGAMENTOS
- * 
+ *
  * Quando implementar pagamentos, SEMPRE garantir:
- * 
+ *
  * 1. TODAS as queries devem filtrar por user_id/tenant_id
  *    - Nunca confiar em IDs enviados pelo frontend
  *    - Sempre usar o ID do usuário autenticado
- * 
+ *
  * 2. RLS (Row-Level Security) deve estar ativo em:
  *    - subscriptions
  *    - payments
  *    - invoices
  *    - payment_methods
- * 
+ *
  * 3. Webhooks devem validar que o user_id no payload
  *    corresponde ao user_id na assinatura
- * 
+ *
  * 4. Logs de auditoria devem registrar:
  *    - Quem fez a operação
  *    - Qual recurso foi afetado
  *    - IP de origem
  *    - Timestamp
- * 
+ *
  * Exemplo de query segura:
  * ```sql
  * -- CORRETO: Filtra por user_id do token JWT
- * SELECT * FROM subscriptions 
+ * SELECT * FROM subscriptions
  * WHERE user_id = auth.uid();
- * 
+ *
  * -- ERRADO: Aceita user_id do frontend
- * SELECT * FROM subscriptions 
+ * SELECT * FROM subscriptions
  * WHERE user_id = $1; -- $1 vem do frontend!
  * ```
  */
@@ -258,7 +258,7 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
       {
         id: 'pro',
         name: 'Profissional',
-        price: 29.90,
+        price: 29.9,
         currency: 'BRL',
         interval: 'month',
         features: [
@@ -274,7 +274,7 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
       {
         id: 'premium',
         name: 'Premium',
-        price: 49.90,
+        price: 49.9,
         currency: 'BRL',
         interval: 'month',
         features: [
@@ -309,7 +309,7 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
     {
       id: 'business',
       name: 'Empresarial',
-      price: 99.90,
+      price: 99.9,
       currency: 'BRL',
       interval: 'month',
       features: [
@@ -324,7 +324,7 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
     {
       id: 'enterprise',
       name: 'Corporativo',
-      price: 299.90,
+      price: 299.9,
       currency: 'BRL',
       interval: 'month',
       features: [
@@ -344,7 +344,8 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
  * Retorna a assinatura atual do usuário (placeholder)
  * Sempre retorna plano gratuito até que pagamentos sejam implementados
  */
-export async function getCurrentSubscription(userId: string): Promise<Subscription | null> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function getCurrentSubscription(_userId: string): Promise<Subscription | null> {
   // Placeholder: sempre retorna null (plano gratuito)
   // Quando implementar, buscar do banco de dados
   return null;
@@ -355,8 +356,10 @@ export async function getCurrentSubscription(userId: string): Promise<Subscripti
  * Sempre retorna false até que pagamentos sejam implementados
  */
 export async function hasFeatureAccess(
-  userId: string,
-  feature: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _feature: string
 ): Promise<boolean> {
   // Placeholder: sempre retorna false
   // Quando implementar, verificar assinatura e features do plano
@@ -368,8 +371,10 @@ export async function hasFeatureAccess(
  * Sempre retorna false até que pagamentos sejam implementados
  */
 export async function checkPlanLimit(
-  userId: string,
-  limitType: 'fretesPerMonth' | 'contactsPerDay'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userId: string,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _limitType: 'fretesPerMonth' | 'contactsPerDay'
 ): Promise<{ exceeded: boolean; current: number; limit: number }> {
   // Placeholder: sempre retorna não excedido
   // Quando implementar, verificar uso atual vs limite do plano

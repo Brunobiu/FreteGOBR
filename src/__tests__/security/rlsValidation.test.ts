@@ -1,11 +1,11 @@
 /**
  * Testes de Validação de RLS (Row-Level Security)
- * 
+ *
  * Valida que as políticas RLS do Supabase estão funcionando corretamente:
  * - Usuários só podem ver/editar seus próprios dados
  * - Isolamento entre tenants
  * - Proteção de dados sensíveis
- * 
+ *
  * Nota: Estes testes simulam o comportamento esperado do RLS.
  * Em produção, o RLS é aplicado pelo PostgreSQL no Supabase.
  */
@@ -47,11 +47,7 @@ describe('RLS Validation - Tabela users', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('users')
-      .select('*')
-      .eq('id', currentUserId)
-      .single();
+    const result = await mockSupabase.from('users').select('*').eq('id', currentUserId).single();
 
     expect(result.data).toBeDefined();
     expect(result.data.id).toBe(currentUserId);
@@ -69,11 +65,7 @@ describe('RLS Validation - Tabela users', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('users')
-      .select('*')
-      .eq('id', otherUserId)
-      .single();
+    const result = await mockSupabase.from('users').select('*').eq('id', otherUserId).single();
 
     expect(result.data).toBeNull();
   });
@@ -151,9 +143,7 @@ describe('RLS Validation - Tabela motoristas', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('motoristas')
-      .select('id, nome, avaliacao_media');
+    const result = await mockSupabase.from('motoristas').select('id, nome, avaliacao_media');
 
     // Embarcadores podem ver lista de motoristas (campos públicos)
     expect(result.data).toBeDefined();
@@ -200,10 +190,7 @@ describe('RLS Validation - Tabela fretes', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('fretes')
-      .select('*')
-      .eq('embarcador_id', embarcadorId);
+    const result = await mockSupabase.from('fretes').select('*').eq('embarcador_id', embarcadorId);
 
     expect(result.data).toBeDefined();
     expect(result.data.length).toBeGreaterThan(0);
@@ -219,10 +206,7 @@ describe('RLS Validation - Tabela fretes', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('fretes')
-      .select('*')
-      .eq('status', 'disponivel');
+    const result = await mockSupabase.from('fretes').select('*').eq('status', 'disponivel');
 
     expect(result.data).toBeDefined();
   });
@@ -272,10 +256,7 @@ describe('RLS Validation - Tabela documents', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('documents')
-      .select('*')
-      .eq('user_id', userId);
+    const result = await mockSupabase.from('documents').select('*').eq('user_id', userId);
 
     expect(result.data).toBeDefined();
     result.data.forEach((doc: { user_id: string }) => {
@@ -293,10 +274,7 @@ describe('RLS Validation - Tabela documents', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('documents')
-      .select('*')
-      .eq('user_id', otherUserId);
+    const result = await mockSupabase.from('documents').select('*').eq('user_id', otherUserId);
 
     expect(result.data).toEqual([]);
   });
@@ -304,8 +282,6 @@ describe('RLS Validation - Tabela documents', () => {
 
 describe('RLS Validation - Tabela chat_messages', () => {
   const conversationId = 'conv-id';
-  const participantId = 'participant-id';
-  const nonParticipantId = 'non-participant-id';
 
   it('participante pode ver mensagens da conversa', async () => {
     mockSupabase.from.mockReturnValue({
@@ -359,10 +335,7 @@ describe('RLS Validation - Tabela notifications', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', userId);
+    const result = await mockSupabase.from('notifications').select('*').eq('user_id', userId);
 
     expect(result.data).toBeDefined();
     result.data.forEach((notif: { user_id: string }) => {
@@ -401,9 +374,7 @@ describe('RLS Validation - Tabela audit_logs', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('audit_logs')
-      .select('*');
+    const result = await mockSupabase.from('audit_logs').select('*');
 
     expect(result.error).toBeDefined();
   });
@@ -421,9 +392,7 @@ describe('RLS Validation - Tabela audit_logs', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('audit_logs')
-      .select('*');
+    const result = await mockSupabase.from('audit_logs').select('*');
 
     expect(result.data).toBeDefined();
   });
@@ -484,7 +453,6 @@ describe('RLS Validation - Tabela avaliacoes', () => {
 
 describe('RLS Validation - Tabela frete_clicks', () => {
   const freteId = 'frete-id';
-  const embarcadorId = 'embarcador-id';
 
   it('embarcador pode ver cliques em seus fretes', async () => {
     mockSupabase.from.mockReturnValue({
@@ -496,10 +464,7 @@ describe('RLS Validation - Tabela frete_clicks', () => {
       }),
     });
 
-    const result = await mockSupabase
-      .from('frete_clicks')
-      .select('*')
-      .eq('frete_id', freteId);
+    const result = await mockSupabase.from('frete_clicks').select('*').eq('frete_id', freteId);
 
     expect(result.data).toBeDefined();
   });

@@ -22,9 +22,6 @@ export interface FileValidationResult {
 // Tamanho máximo de arquivo (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-// Tamanho máximo descomprimido (50MB)
-const MAX_UNCOMPRESSED_SIZE = 50 * 1024 * 1024;
-
 // Ratio máximo de compressão (proteção contra zip bombs)
 const MAX_COMPRESSION_RATIO = 100;
 
@@ -36,42 +33,42 @@ class FileValidatorAdvanced {
       signature: [0x25, 0x50, 0x44, 0x46], // %PDF
       mimeType: 'application/pdf',
       extensions: ['pdf'],
-      description: 'PDF Document'
+      description: 'PDF Document',
     },
     // JPEG
     {
-      signature: [0xFF, 0xD8, 0xFF],
+      signature: [0xff, 0xd8, 0xff],
       mimeType: 'image/jpeg',
       extensions: ['jpg', 'jpeg'],
-      description: 'JPEG Image'
+      description: 'JPEG Image',
     },
     // PNG
     {
-      signature: [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],
+      signature: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
       mimeType: 'image/png',
       extensions: ['png'],
-      description: 'PNG Image'
+      description: 'PNG Image',
     },
     // GIF87a
     {
       signature: [0x47, 0x49, 0x46, 0x38, 0x37, 0x61], // GIF87a
       mimeType: 'image/gif',
       extensions: ['gif'],
-      description: 'GIF Image (87a)'
+      description: 'GIF Image (87a)',
     },
     // GIF89a
     {
       signature: [0x47, 0x49, 0x46, 0x38, 0x39, 0x61], // GIF89a
       mimeType: 'image/gif',
       extensions: ['gif'],
-      description: 'GIF Image (89a)'
+      description: 'GIF Image (89a)',
     },
     // WebP
     {
       signature: [0x52, 0x49, 0x46, 0x46], // RIFF (WebP starts with RIFF)
       mimeType: 'image/webp',
       extensions: ['webp'],
-      description: 'WebP Image'
+      description: 'WebP Image',
     },
   ];
 
@@ -79,24 +76,24 @@ class FileValidatorAdvanced {
   private static DANGEROUS_SIGNATURES: MagicByteSignature[] = [
     // Windows Executable
     {
-      signature: [0x4D, 0x5A], // MZ
+      signature: [0x4d, 0x5a], // MZ
       mimeType: 'application/x-msdownload',
       extensions: ['exe', 'dll', 'com'],
-      description: 'Windows Executable'
+      description: 'Windows Executable',
     },
     // ELF (Linux executable)
     {
-      signature: [0x7F, 0x45, 0x4C, 0x46], // .ELF
+      signature: [0x7f, 0x45, 0x4c, 0x46], // .ELF
       mimeType: 'application/x-executable',
       extensions: ['elf', 'so'],
-      description: 'Linux Executable'
+      description: 'Linux Executable',
     },
     // Shell script
     {
       signature: [0x23, 0x21], // #!
       mimeType: 'application/x-sh',
       extensions: ['sh', 'bash'],
-      description: 'Shell Script'
+      description: 'Shell Script',
     },
   ];
 
@@ -110,7 +107,7 @@ class FileValidatorAdvanced {
     if (!file) {
       return {
         isValid: false,
-        errors: ['Arquivo não fornecido']
+        errors: ['Arquivo não fornecido'],
       };
     }
 
@@ -153,15 +150,15 @@ class FileValidatorAdvanced {
     // 6. Validate MIME type matches magic bytes
     if (file.type && file.type !== detectedType.mimeType) {
       // Allow some flexibility for JPEG variations
-      const isJpegVariation = 
+      const isJpegVariation =
         (file.type === 'image/jpeg' || file.type === 'image/jpg') &&
         detectedType.mimeType === 'image/jpeg';
-      
+
       if (!isJpegVariation) {
         errors.push('Tipo de arquivo não corresponde ao conteúdo');
         await this.logSecurityEvent('mime_type_mismatch', file.name, {
           declared: file.type,
-          detected: detectedType.mimeType
+          detected: detectedType.mimeType,
         });
       }
     }
@@ -176,7 +173,9 @@ class FileValidatorAdvanced {
     const compressionRatio = await this.estimateCompressionRatio(file);
     if (compressionRatio > MAX_COMPRESSION_RATIO) {
       errors.push('Arquivo suspeito detectado (possível compression bomb)');
-      await this.logSecurityEvent('compression_bomb_attempt', file.name, { ratio: compressionRatio });
+      await this.logSecurityEvent('compression_bomb_attempt', file.name, {
+        ratio: compressionRatio,
+      });
     }
 
     return {
@@ -184,17 +183,14 @@ class FileValidatorAdvanced {
       errors,
       detectedType: detectedType.description,
       detectedMimeType: detectedType.mimeType,
-      compressionRatio
+      compressionRatio,
     };
   }
 
   /**
    * Reads the first bytes of a file (magic bytes)
    */
-  static async readMagicBytes(
-    file: File,
-    bytesToRead: number = 16
-  ): Promise<number[]> {
+  static async readMagicBytes(file: File, bytesToRead: number = 16): Promise<number[]> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       const blob = file.slice(0, bytesToRead);
@@ -262,21 +258,21 @@ class FileValidatorAdvanced {
   private static async estimateCompressionRatio(file: File): Promise<number> {
     // For images and PDFs, we can't easily determine compression ratio
     // This is a simplified check - in production, use proper decompression
-    
+
     // Check if file is suspiciously small for its type
     const extension = this.getFileExtension(file.name);
-    
+
     // Minimum expected sizes for different file types
     const minSizes: Record<string, number> = {
-      'pdf': 1024,      // 1KB minimum for PDF
-      'jpg': 512,       // 512B minimum for JPEG
-      'jpeg': 512,
-      'png': 256,       // 256B minimum for PNG
-      'gif': 128,       // 128B minimum for GIF
+      pdf: 1024, // 1KB minimum for PDF
+      jpg: 512, // 512B minimum for JPEG
+      jpeg: 512,
+      png: 256, // 256B minimum for PNG
+      gif: 128, // 128B minimum for GIF
     };
 
     const minSize = minSizes[extension] || 100;
-    
+
     // If file is smaller than minimum, it might be suspicious
     if (file.size < minSize) {
       return MAX_COMPRESSION_RATIO + 1; // Flag as suspicious
@@ -290,7 +286,7 @@ class FileValidatorAdvanced {
    */
   static async validateImage(file: File): Promise<FileValidationResult> {
     const result = await this.validateFile(file);
-    
+
     if (result.isValid) {
       const allowedImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedImageTypes.includes(result.detectedMimeType || '')) {
@@ -298,7 +294,7 @@ class FileValidatorAdvanced {
           isValid: false,
           errors: ['Apenas imagens são permitidas (JPEG, PNG, GIF, WebP)'],
           detectedType: result.detectedType,
-          detectedMimeType: result.detectedMimeType
+          detectedMimeType: result.detectedMimeType,
         };
       }
     }
@@ -318,7 +314,7 @@ class FileValidatorAdvanced {
           isValid: false,
           errors: ['Apenas arquivos PDF são permitidos'],
           detectedType: result.detectedType,
-          detectedMimeType: result.detectedMimeType
+          detectedMimeType: result.detectedMimeType,
         };
       }
     }
@@ -333,18 +329,14 @@ class FileValidatorAdvanced {
     const result = await this.validateFile(file);
 
     if (result.isValid) {
-      const allowedTypes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png'
-      ];
-      
+      const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+
       if (!allowedTypes.includes(result.detectedMimeType || '')) {
         return {
           isValid: false,
           errors: ['Apenas PDF, JPEG ou PNG são permitidos'],
           detectedType: result.detectedType,
-          detectedMimeType: result.detectedMimeType
+          detectedMimeType: result.detectedMimeType,
         };
       }
     }

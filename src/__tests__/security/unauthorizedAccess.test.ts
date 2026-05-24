@@ -1,6 +1,6 @@
 /**
  * Testes de Acesso Não Autorizado
- * 
+ *
  * Valida que o sistema impede acessos não autorizados:
  * - User A não pode acessar dados de User B
  * - Usuários não autenticados não acessam recursos protegidos
@@ -28,7 +28,6 @@ describe('Unauthorized Access Tests', () => {
 
   describe('Cross-User Data Access', () => {
     it('User A não pode ler documentos de User B', async () => {
-      const userAId = 'user-a-id';
       const userBId = 'user-b-id';
 
       // Simular RLS bloqueando acesso
@@ -87,10 +86,7 @@ describe('Unauthorized Access Tests', () => {
         }),
       });
 
-      const result = await mockSupabase
-        .from('fretes')
-        .delete()
-        .eq('id', userBFreteId);
+      const result = await mockSupabase.from('fretes').delete().eq('id', userBFreteId);
 
       expect(result.error).toBeDefined();
     });
@@ -131,7 +127,9 @@ describe('Unauthorized Access Tests', () => {
         }),
       });
 
-      const { data: { user } } = await mockSupabase.auth.getUser();
+      const {
+        data: { user },
+      } = await mockSupabase.auth.getUser();
       expect(user).toBeNull();
 
       const result = await mockSupabase.from('fretes').select('*');
@@ -230,9 +228,7 @@ describe('Unauthorized Access Tests', () => {
       });
 
       // Tentar acessar dados administrativos
-      const result = await mockSupabase
-        .from('audit_logs')
-        .select('*');
+      const result = await mockSupabase.from('audit_logs').select('*');
 
       expect(result.error).toBeDefined();
     });
@@ -245,9 +241,7 @@ describe('Unauthorized Access Tests', () => {
         }),
       });
 
-      const result = await mockSupabase
-        .from('users')
-        .select('*');
+      const result = await mockSupabase.from('users').select('*');
 
       // Deve retornar apenas o próprio usuário ou vazio
       expect(result.data?.length).toBeLessThanOrEqual(1);
@@ -267,10 +261,7 @@ describe('Unauthorized Access Tests', () => {
         }),
       });
 
-      const result = await mockSupabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', userId);
+      const result = await mockSupabase.from('notifications').select('*').eq('user_id', userId);
 
       // Todas as notificações devem pertencer ao usuário
       result.data?.forEach((notification: { user_id: string }) => {
@@ -290,10 +281,7 @@ describe('Unauthorized Access Tests', () => {
         }),
       });
 
-      const result = await mockSupabase
-        .from('frete_clicks')
-        .select('*')
-        .eq('frete_id', freteId);
+      const result = await mockSupabase.from('frete_clicks').select('*').eq('frete_id', freteId);
 
       // Todos os cliques devem ser do frete especificado
       result.data?.forEach((click: { frete_id: string }) => {
