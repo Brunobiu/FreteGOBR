@@ -56,9 +56,16 @@ export default function NotificationBell() {
       setNotifications((prev) => [notif, ...prev].slice(0, 3));
       setUnreadCount((c) => c + 1);
     };
+    const refresh = () => {
+      refreshUnread();
+    };
     window.addEventListener(NEW_NOTIFICATION_EVENT, handler);
-    return () => window.removeEventListener(NEW_NOTIFICATION_EVENT, handler);
-  }, [isAuthenticated]);
+    window.addEventListener('fretego-notifications-refresh', refresh);
+    return () => {
+      window.removeEventListener(NEW_NOTIFICATION_EVENT, handler);
+      window.removeEventListener('fretego-notifications-refresh', refresh);
+    };
+  }, [isAuthenticated, refreshUnread]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

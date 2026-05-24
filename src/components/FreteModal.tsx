@@ -8,7 +8,6 @@ import { getOrCreateFreteConversation } from '../services/chatFrete';
 import type { MotoristaCalcContext } from '../services/motorista';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
 import { googleMapsUrl } from '../utils/coordParser';
-import LikeButton from './LikeButton';
 
 const REQUIRED_DOCS = [
   'cpf',
@@ -25,12 +24,6 @@ interface FreteModalProps {
   onClose: () => void;
   embarcadorWhatsApp?: string;
   motoristaCalc?: MotoristaCalcContext;
-  /** Mostra o coração ao lado do botão de fechar (apenas motorista). */
-  showLikeButton?: boolean;
-  /** Estado inicial do coração. */
-  initialLiked?: boolean;
-  /** Callback chamado quando o motorista alterna o coração. */
-  onLikeToggle?: (freteId: string, liked: boolean) => void;
 }
 
 const FREIGHT_TYPE_LABELS: Record<string, string> = {
@@ -46,9 +39,6 @@ export default function FreteModal({
   onClose,
   embarcadorWhatsApp,
   motoristaCalc,
-  showLikeButton,
-  initialLiked,
-  onLikeToggle,
 }: FreteModalProps) {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -195,17 +185,6 @@ export default function FreteModal({
               />
             </svg>
           </button>
-
-          {showLikeButton && frete && (
-            <div className="absolute top-2 right-10 z-10">
-              <LikeButton
-                freteId={frete.id}
-                initialLiked={initialLiked}
-                size="md"
-                onToggled={(liked) => onLikeToggle?.(frete.id, liked)}
-              />
-            </div>
-          )}
 
           <div className="p-3 sm:p-4">
             <h2 className="text-sm sm:text-base font-bold text-gray-800 mb-2 pr-7">

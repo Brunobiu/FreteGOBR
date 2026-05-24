@@ -261,3 +261,7 @@ mesmo Supabase atende sem mudança. Só o frontend muda — o
 
 Quando você quiser, eu te ajudo a fazer o primeiro deploy passo a
 passo — basta avisar. ✅
+
+
+
+Sobre o pagamento falta

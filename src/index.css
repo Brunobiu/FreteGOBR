@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+html {
+  scroll-behavior: smooth;
+}
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -72,3 +76,127 @@ body {
 .typing-dot {
   animation: typing-blink 1.2s infinite ease-in-out;
 }
+
+
+/* ── Botão "Pergunte à IA" (IA) ──────────────────────────────────────────
+ * Pílula branca com borda gradiente animada (turquesa → azul → roxo).
+ * O gradiente fica num ::before atrás do conteúdo, com background
+ * transparente no botão pra ver o "miolo branco".
+ */
+.trip-suggest-btn {
+  position: relative;
+  background: white;
+  color: #0f172a;
+  border-radius: 9999px;
+  isolation: isolate;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.18);
+}
+.trip-suggest-btn:hover {
+  filter: brightness(1.02);
+  transform: translateY(-1px);
+}
+.trip-suggest-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 3px;
+  border-radius: 9999px;
+  background: linear-gradient(
+    120deg,
+    #14b8a6 0%,
+    #06b6d4 25%,
+    #2563eb 50%,
+    #7c3aed 75%,
+    #14b8a6 100%
+  );
+  background-size: 220% 220%;
+  animation: trip-shimmer 9s ease infinite;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  z-index: -1;
+  pointer-events: none;
+}
+.trip-suggest-header {
+  background: linear-gradient(120deg, #6d28d9 0%, #9333ea 50%, #db2777 100%);
+}
+@keyframes trip-shimmer {
+  0%   { background-position:   0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position:   0% 50%; }
+}
+@keyframes trip-glow {
+  0%   { background-position: -120% 0; }
+  100% { background-position:  220% 0; }
+}
+
+/* Orbit de loading da análise */
+.trip-suggest-orbit {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  border-top-color: #a855f7;
+  border-right-color: #ec4899;
+  animation: trip-orbit 1s linear infinite;
+}
+@keyframes trip-orbit {
+  to { transform: rotate(360deg); }
+}
+
+
+/* Mascote bouncing */
+@keyframes mascote-bounce {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%      { transform: translateY(-3px) rotate(1deg); }
+}
+.mascote-bounce {
+  animation: mascote-bounce 2.4s ease-in-out infinite;
+  transform-origin: center bottom;
+}
+
+
+/* Drawer lateral esquerdo */
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+.animate-slide-in-left {
+  animation: slide-in-left 0.22s ease-out;
+}
+
+
+/* Skeleton shimmer (loading bonito da home) */
+@keyframes welcome-shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.welcome-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 0.6) 0%,
+    rgba(243, 244, 246, 1) 50%,
+    rgba(229, 231, 235, 0.6) 100%
+  );
+  background-size: 200% 100%;
+  animation: welcome-shimmer 1.6s ease-in-out infinite;
+}
+
+/* Bolinhas pulsantes do "Carregando fretes..." */
+@keyframes welcome-pulse {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+  40%           { transform: scale(1.2); opacity: 1;   }
+}
+.welcome-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: welcome-pulse 1.2s ease-in-out infinite;
+}
+.welcome-dot-1 { animation-delay: 0s;    }
+.welcome-dot-2 { animation-delay: 0.15s; }
+.welcome-dot-3 { animation-delay: 0.3s;  }

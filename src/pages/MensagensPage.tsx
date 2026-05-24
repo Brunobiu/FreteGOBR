@@ -12,6 +12,7 @@ import {
   getConversationPeer,
   markFreteMessagesAsRead,
   subscribeToFreteMessages,
+  getTotalUnreadCount,
   type FreteConversation,
   type FreteMessage,
   type ConversationPeer,
@@ -194,10 +195,34 @@ export default function MensagensPage() {
           }
         }
 
+        // Marca mensagens como lidas + atualiza badge global do header
         await markFreteMessagesAsRead(activeId, user.id);
         setConversations((prev) =>
           prev.map((c) => (c.id === activeId ? { ...c, unreadCount: 0 } : c))
         );
+        try {
+          const total = await getTotalUnreadCount(user.id);
+          window.dispatchEvent(
+            new CustomEvent<number>('fretego-chat-unread-count', { detail: total })
+          );
+        } catch {
+          /* ignore */
+        }
+
+        // Marca como lidas as notificações tipo `new_message` desta conversa
+        // (vem do trigger SQL com link `/mensagens?conversation=<id>`).
+        try {
+          await supabase
+            .from('notifications')
+            .update({ read_at: new Date().toISOString() })
+            .eq('user_id', user.id)
+            .eq('type', 'new_message')
+            .eq('link', `/mensagens?conversation=${activeId}`)
+            .is('read_at', null);
+          window.dispatchEvent(new Event('fretego-notifications-refresh'));
+        } catch {
+          /* ignore */
+        }
       } catch (err) {
         console.error('Erro ao carregar mensagens', err);
       } finally {
@@ -224,9 +249,21 @@ export default function MensagensPage() {
         return [...prev, enriched];
       });
       if (msg.senderId !== user.id) {
-        // Some o "digitando..." quando ele de fato enviou.
         setPeerTyping(false);
         markFreteMessagesAsRead(activeId, user.id).catch(() => {});
+        // Marca notificação `new_message` desta conversa como lida
+        // (estamos com a janela aberta, então não faz sentido alertar).
+        supabase
+          .from('notifications')
+          .update({ read_at: new Date().toISOString() })
+          .eq('user_id', user.id)
+          .eq('type', 'new_message')
+          .eq('link', `/mensagens?conversation=${activeId}`)
+          .is('read_at', null)
+          .then(() => {
+            // Atualiza o badge do sino
+            window.dispatchEvent(new Event('fretego-notifications-refresh'));
+          });
       }
     });
     return unsub;

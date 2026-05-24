@@ -22,6 +22,8 @@ import { useAuth } from '../hooks/useAuth';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
 import { getLikedFreteIds } from '../services/likes';
+import TripSuggestion from '../components/TripSuggestion';
+import WelcomeLoading from '../components/WelcomeLoading';
 import {
   RADIUS_DEFAULT_KM,
   RADIUS_STORAGE_KEY,
@@ -49,6 +51,22 @@ export default function HomePage() {
   const [selectedFrete, setSelectedFrete] = useState<Frete | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const listTopRef = useRef<HTMLDivElement>(null);
+
+  const goToPage = useCallback((page: number) => {
+    setCurrentPage(page);
+    // Espera o DOM aplicar a mudança de página antes de calcular a posição.
+    // Dois rAFs garantem que o paint depois do re-render já aconteceu.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const el = listTopRef.current;
+        if (!el) return;
+        const headerOffset = window.innerWidth >= 640 ? 112 : 96;
+        const top = el.getBoundingClientRect().top + window.scrollY - headerOffset;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      });
+    });
+  }, []);
   const [showMap, setShowMap] = useState(false);
   const currentFiltersRef = useRef<FreteFilters>({});
   const itemsPerPage = 9;
@@ -198,6 +216,19 @@ export default function HomePage() {
     };
   }, [loadFretes]);
 
+  // Abre modal de um frete específico se o assistente IA tiver pedido.
+  useEffect(() => {
+    if (fretes.length === 0) return;
+    const id = localStorage.getItem('fretego-open-frete');
+    if (!id) return;
+    localStorage.removeItem('fretego-open-frete');
+    const target = fretes.find((f) => f.id === id);
+    if (target) {
+      setSelectedFrete(target);
+      setIsModalOpen(true);
+    }
+  }, [fretes]);
+
   const handleFilterChange = useCallback(
     (filters: FreteFilters) => {
       currentFiltersRef.current = filters;
@@ -308,10 +339,27 @@ export default function HomePage() {
           </div>
         )}
 
-        <FreteFiltersComponent
-          onFilterChange={handleFilterChange}
-          totalResults={visibleFretes.length}
-        />
+        {isMotorista ? (
+          <div className="sticky top-12 sm:top-14 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 mb-3 bg-gray-100/90 backdrop-blur-sm">
+            <div className="grid grid-cols-[auto_1fr] gap-2 sm:gap-3 items-stretch">
+              <div className="w-12 sm:w-14">
+                <FreteFiltersComponent
+                  onFilterChange={handleFilterChange}
+                  totalResults={visibleFretes.length}
+                  compact
+                />
+              </div>
+              <div>
+                <TripSuggestion />
+              </div>
+            </div>
+          </div>
+        ) : (
+          <FreteFiltersComponent
+            onFilterChange={handleFilterChange}
+            totalResults={visibleFretes.length}
+          />
+        )}
 
         {showMap && !isMotorista && (
           <div className="mb-6">
@@ -320,9 +368,7 @@ export default function HomePage() {
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-20">
-            <div className="text-gray-500">Carregando fretes...</div>
-          </div>
+          <WelcomeLoading isMotorista={isMotorista} userName={user?.name} />
         ) : error ? (
           <div className="flex justify-center py-20">
             <div className="text-red-400">{error}</div>
@@ -340,7 +386,10 @@ export default function HomePage() {
           <FreteTable fretes={visibleFretes} onFreteClick={handleFreteClick} showActions={false} />
         ) : (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+            <div
+              ref={listTopRef}
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6 scroll-mt-24 sm:scroll-mt-28"
+            >
               {currentFretes.map((frete) => (
                 <FreteCard
                   key={frete.id}
@@ -356,7 +405,7 @@ export default function HomePage() {
             {totalPages > 1 && (
               <div className="flex justify-center items-center space-x-2">
                 <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  onClick={() => goToPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
                   className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -366,7 +415,7 @@ export default function HomePage() {
                   Página {currentPage} de {totalPages}
                 </span>
                 <button
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => goToPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
                   className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 disabled:opacity-50"
                 >
@@ -386,9 +435,6 @@ export default function HomePage() {
           setSelectedFrete(null);
         }}
         motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
-        showLikeButton={isMotorista}
-        initialLiked={selectedFrete ? likedFreteIds.has(selectedFrete.id) : false}
-        onLikeToggle={handleLikeToggle}
       />
     </div>
   );

@@ -17,6 +17,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'));
 const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
 const MensagensPage = lazy(() => import('./pages/MensagensPage'));
 const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
+const AssistentePage = lazy(() => import('./pages/AssistantePage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
@@ -143,6 +144,16 @@ function App() {
             <ProtectedRoute>
               <LazyRoute>
                 <NotificacoesPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/assistente"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <AssistentePage />
               </LazyRoute>
             </ProtectedRoute>
           }

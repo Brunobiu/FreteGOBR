@@ -202,11 +202,9 @@ export default function MapaFretes({
           style={{ height: '100%', width: '100%' }}
           className="z-0"
           zoomControl={false}
+          attributionControl={false}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
           <MapAutoCenter point={motoristaPoint} radiusKm={radiusKm} />
 
           {validFretes.map((f) => (
