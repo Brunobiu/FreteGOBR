@@ -31,6 +31,25 @@ export async function getNotifications(userId: string, limit = 20): Promise<Noti
 }
 
 /**
+ * Buscar apenas notificações não lidas (mais recentes primeiro).
+ */
+export async function getUnreadNotifications(
+  userId: string,
+  limit = 3
+): Promise<Notification[]> {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .eq('user_id', userId)
+    .is('read_at', null)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(`Erro ao buscar notificações: ${error.message}`);
+  return data.map(mapNotification);
+}
+
+/**
  * Contar não lidas
  */
 export async function getUnreadNotificationCount(userId: string): Promise<number> {

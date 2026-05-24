@@ -46,6 +46,16 @@ export interface Frete {
   advancePercentage?: number;
   // Distância calculada (Migration 015)
   distanceKm?: number;
+  // Detalhes de carregamento e entrega (Migration 019) — texto livre
+  // exibido apenas no modal de detalhes (não no card resumido).
+  originDetail?: string;
+  destinationDetail?: string;
+  // Coordenadas exatas opcionais (Migration 020) — pin GPS para abrir
+  // num app de mapa.
+  originPinnedLat?: number;
+  originPinnedLng?: number;
+  destinationPinnedLat?: number;
+  destinationPinnedLng?: number;
 }
 
 export interface CreateFreteData {
@@ -79,6 +89,12 @@ export interface CreateFreteData {
   paymentMethods?: string;
   advancePercentage?: number;
   distanceKm?: number;
+  originDetail?: string;
+  destinationDetail?: string;
+  originPinnedLat?: number;
+  originPinnedLng?: number;
+  destinationPinnedLat?: number;
+  destinationPinnedLng?: number;
 }
 
 export interface UpdateFreteData {
@@ -111,6 +127,13 @@ export interface UpdateFreteData {
   priceCalculation?: string;
   paymentMethods?: string;
   advancePercentage?: number;
+  distanceKm?: number;
+  originDetail?: string;
+  destinationDetail?: string;
+  originPinnedLat?: number;
+  originPinnedLng?: number;
+  destinationPinnedLat?: number;
+  destinationPinnedLng?: number;
 }
 
 export interface FreteFilters {
@@ -170,6 +193,12 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
       payment_methods: data.paymentMethods ?? null,
       advance_percentage: data.advancePercentage ?? null,
       distance_km: data.distanceKm ?? null,
+      origin_detail: data.originDetail ?? null,
+      destination_detail: data.destinationDetail ?? null,
+      origin_pinned_lat: data.originPinnedLat ?? null,
+      origin_pinned_lng: data.originPinnedLng ?? null,
+      destination_pinned_lat: data.destinationPinnedLat ?? null,
+      destination_pinned_lng: data.destinationPinnedLng ?? null,
     })
     .select()
     .single();
@@ -221,6 +250,17 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
   if (data.paymentMethods !== undefined) updateData.payment_methods = data.paymentMethods;
   if (data.advancePercentage !== undefined) updateData.advance_percentage = data.advancePercentage;
   if (data.distanceKm !== undefined) updateData.distance_km = data.distanceKm;
+  if (data.originDetail !== undefined) updateData.origin_detail = data.originDetail;
+  if (data.destinationDetail !== undefined)
+    updateData.destination_detail = data.destinationDetail;
+  if (data.originPinnedLat !== undefined)
+    updateData.origin_pinned_lat = data.originPinnedLat;
+  if (data.originPinnedLng !== undefined)
+    updateData.origin_pinned_lng = data.originPinnedLng;
+  if (data.destinationPinnedLat !== undefined)
+    updateData.destination_pinned_lat = data.destinationPinnedLat;
+  if (data.destinationPinnedLng !== undefined)
+    updateData.destination_pinned_lng = data.destinationPinnedLng;
 
   const { error } = await supabase.from('fretes').update(updateData).eq('id', freteId);
 
@@ -421,6 +461,12 @@ function mapFreteFromDb(
     payment_methods?: string | null;
     advance_percentage?: number | null;
     distance_km?: number | null;
+    origin_detail?: string | null;
+    destination_detail?: string | null;
+    origin_pinned_lat?: number | null;
+    origin_pinned_lng?: number | null;
+    destination_pinned_lat?: number | null;
+    destination_pinned_lng?: number | null;
   };
   // Parse PostGIS POINT format: "POINT(longitude latitude)" or WKB hex
   const parsePoint = (pointStr: string): GeographicPoint => {
@@ -521,6 +567,12 @@ function mapFreteFromDb(
     paymentMethods: extra.payment_methods ?? undefined,
     advancePercentage: extra.advance_percentage ?? undefined,
     distanceKm: extra.distance_km ?? undefined,
+    originDetail: extra.origin_detail ?? undefined,
+    destinationDetail: extra.destination_detail ?? undefined,
+    originPinnedLat: extra.origin_pinned_lat ?? undefined,
+    originPinnedLng: extra.origin_pinned_lng ?? undefined,
+    destinationPinnedLat: extra.destination_pinned_lat ?? undefined,
+    destinationPinnedLng: extra.destination_pinned_lng ?? undefined,
   };
 }
 

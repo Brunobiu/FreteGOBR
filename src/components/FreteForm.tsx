@@ -1,7 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { getEstados, getCidades, type Estado, type Cidade } from '../services/ibge';
-import { geocodeAddress, calculateRouteDistance } from '../services/geolocation';
+import {
+  geocodeAddress,
+  calculateRouteDistance,
+  calculateDistance,
+} from '../services/geolocation';
 import type { CreateFreteData } from '../services/fretes';
+import { parseCoordInput } from '../utils/coordParser';
+import PublishingOverlay from './PublishingOverlay';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -191,6 +197,18 @@ export default function FreteForm({
   const [destinoCidade, setDestinoCidade] = useState('');
   const [destinoCidadeFilter, setDestinoCidadeFilter] = useState('');
 
+  // Detalhes de carregamento e entrega — texto livre exibido apenas no
+  // modal do motorista (não no card resumido). Migration 019.
+  const [originDetail, setOriginDetail] = useState('');
+  const [destinationDetail, setDestinationDetail] = useState('');
+  // Coordenadas opcionais (Migration 020). O usuário pode colar uma URL
+  // do Google Maps ou um par "lat, lng" — usamos `parseCoordInput` para
+  // normalizar.
+  const [originCoordInput, setOriginCoordInput] = useState('');
+  const [destinationCoordInput, setDestinationCoordInput] = useState('');
+  const [originCoordError, setOriginCoordError] = useState<string | null>(null);
+  const [destinationCoordError, setDestinationCoordError] = useState<string | null>(null);
+
   // Distância calculada (km) — preenchida automaticamente após escolher
   // origem e destino. null = ainda não calculada; 0+ = valor real.
   const [distanceKm, setDistanceKm] = useState<number | null>(null);
@@ -202,14 +220,18 @@ export default function FreteForm({
 
   // Dados da Carga
   const [cargoType, setCargoType] = useState('');
+  const [cargoTypeOpen, setCargoTypeOpen] = useState(false);
   const [onuNumber, setOnuNumber] = useState('');
   const [temperature, setTemperature] = useState('');
   const [species, setSpecies] = useState('');
+  const [speciesOpen, setSpeciesOpen] = useState(false);
   const [product, setProduct] = useState('');
 
   // Peso e Volume
   const [weightUnit, setWeightUnit] = useState<'toneladas' | 'quilos'>('toneladas');
-  const [freightType, setFreightType] = useState<'completa' | 'complemento'>('completa');
+  const [freightType, setFreightType] = useState<
+    'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio'
+  >('completa');
   const [occupancyPct, setOccupancyPct] = useState('');
   // Campos removidos da UI mas mantidos no submit como placeholders.
   const totalWeight = '';
@@ -262,6 +284,18 @@ export default function FreteForm({
     setDestinoUFFilter(destination.uf);
     setDestinoCidade(destination.city);
     setDestinoCidadeFilter(destination.city);
+    setOriginDetail(f.originDetail ?? '');
+    setDestinationDetail(f.destinationDetail ?? '');
+    setOriginCoordInput(
+      f.originPinnedLat !== undefined && f.originPinnedLng !== undefined
+        ? `${f.originPinnedLat}, ${f.originPinnedLng}`
+        : ''
+    );
+    setDestinationCoordInput(
+      f.destinationPinnedLat !== undefined && f.destinationPinnedLng !== undefined
+        ? `${f.destinationPinnedLat}, ${f.destinationPinnedLng}`
+        : ''
+    );
 
     setCargoType(f.cargoType ?? '');
     setProduct(f.product ?? '');
@@ -287,7 +321,10 @@ export default function FreteForm({
     }
 
     setWeightUnit((f.weightUnit as 'toneladas' | 'quilos') ?? 'toneladas');
-    setFreightType((f.freightType as 'completa' | 'complemento') ?? 'completa');
+    setFreightType(
+      (f.freightType as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio') ??
+        'completa'
+    );
     setOccupancyPct(f.occupancyPercentage !== undefined ? String(f.occupancyPercentage) : '');
 
     setRequiresLona(f.requiresLona ? 'sim' : 'nao');
@@ -323,8 +360,8 @@ export default function FreteForm({
   const origemCidadeRef = useRef<HTMLInputElement | null>(null);
   const destinoUFRef = useRef<HTMLInputElement | null>(null);
   const destinoCidadeRef = useRef<HTMLInputElement | null>(null);
-  const cargoTypeRef = useRef<HTMLSelectElement | null>(null);
-  const speciesRef = useRef<HTMLSelectElement | null>(null);
+  const cargoTypeRef = useRef<HTMLButtonElement | null>(null);
+  const speciesRef = useRef<HTMLButtonElement | null>(null);
   const productRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -350,7 +387,8 @@ export default function FreteForm({
     }
   }, [destinoUF]);
 
-  // Calcula a distância da rota assim que origem e destino estão preenchidos.
+  // Calcula a distância da rota cidade→cidade (sempre, baseado no centro
+  // geográfico de cada cidade).
   useEffect(() => {
     if (!origemCidade || !destinoCidade || !origemUF || !destinoUF) {
       setDistanceKm(null);
@@ -374,7 +412,12 @@ export default function FreteForm({
           return;
         }
         const km = await calculateRouteDistance(o, d);
-        if (!cancelled) setDistanceKm(km);
+        if (cancelled) return;
+        if (km !== null) {
+          setDistanceKm(km);
+        } else {
+          setDistanceKm(Math.round(calculateDistance(o, d)));
+        }
       } catch {
         if (!cancelled) setDistanceKm(null);
       } finally {
@@ -531,6 +574,29 @@ export default function FreteForm({
       return;
     }
 
+    // Parse das coordenadas opcionais (Migration 020). Se inválidas,
+    // bloqueia o submit e foca o erro inline.
+    const originPinned = originCoordInput.trim()
+      ? parseCoordInput(originCoordInput)
+      : null;
+    const destinationPinned = destinationCoordInput.trim()
+      ? parseCoordInput(destinationCoordInput)
+      : null;
+    if (originCoordInput.trim() && !originPinned) {
+      setOriginCoordError('Link inválido. Cole um link do Google Maps.');
+      setError('Verifique o link de origem.');
+      return;
+    } else {
+      setOriginCoordError(null);
+    }
+    if (destinationCoordInput.trim() && !destinationPinned) {
+      setDestinationCoordError('Link inválido. Cole um link do Google Maps.');
+      setError('Verifique o link de destino.');
+      return;
+    } else {
+      setDestinationCoordError(null);
+    }
+
     setIsSubmitting(true);
     try {
       const originStr = `${origemCidade}, ${origemUF}`;
@@ -588,6 +654,12 @@ export default function FreteForm({
         paymentMethods: paymentMethods.length > 0 ? paymentMethods.join(', ') : undefined,
         advancePercentage: advancePct ? parseInt(advancePct) : undefined,
         distanceKm: distanceKm ?? undefined,
+        originDetail: originDetail.trim() || undefined,
+        destinationDetail: destinationDetail.trim() || undefined,
+        originPinnedLat: originPinned?.latitude,
+        originPinnedLng: originPinned?.longitude,
+        destinationPinnedLat: destinationPinned?.latitude,
+        destinationPinnedLng: destinationPinned?.longitude,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar frete');
@@ -599,301 +671,413 @@ export default function FreteForm({
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <>
+      <PublishingOverlay
+        open={isSubmitting}
+        message={isEditing ? 'Atualizando frete...' : 'Publicando frete...'}
+      />
+      <form onSubmit={handleSubmit} className="space-y-5">
       {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      {/* ── Origem ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Origem</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Estado *</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={origemUFFilter}
-                onChange={(e) => {
-                  setOrigemUFFilter(e.target.value);
-                  setOrigemUF('');
-                  setOrigemCidade('');
-                  setOrigemCidadeFilter('');
-                }}
-                placeholder="Digite o estado..."
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
-              />
-              {origemUFFilter && !origemUF && filteredOrigemEstados.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-30">
-                  {filteredOrigemEstados.slice(0, 30).map((e) => (
-                    <button
-                      key={e.sigla}
-                      type="button"
-                      onClick={() => {
-                        setOrigemUF(e.sigla);
-                        setOrigemUFFilter(`${e.sigla} - ${e.nome}`);
-                        // Avança foco para a cidade de origem
-                        setTimeout(() => origemCidadeRef.current?.focus(), 0);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {e.sigla} - {e.nome}
-                    </button>
-                  ))}
-                </div>
+      {/* ── Origem + Destino (compactado, com detalhes) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        {/* Origem */}
+        <div className="bg-white border border-blue-200 rounded-lg p-3 space-y-2 relative">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-blue-600"></span> Origem
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={origemUFFilter}
+                  onChange={(e) => {
+                    setOrigemUFFilter(e.target.value);
+                    setOrigemUF('');
+                    setOrigemCidade('');
+                    setOrigemCidadeFilter('');
+                  }}
+                  placeholder="UF"
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                {origemUFFilter && !origemUF && filteredOrigemEstados.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                    {filteredOrigemEstados.slice(0, 30).map((e) => (
+                      <button
+                        key={e.sigla}
+                        type="button"
+                        onClick={() => {
+                          setOrigemUF(e.sigla);
+                          setOrigemUFFilter(`${e.sigla} - ${e.nome}`);
+                          setTimeout(() => origemCidadeRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
+                      >
+                        {e.sigla} - {e.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {fieldErrors.origemUF && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemUF}</p>
               )}
             </div>
-            {fieldErrors.origemUF && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.origemUF}</p>
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
+              <div className="relative">
+                <input
+                  ref={origemCidadeRef}
+                  type="text"
+                  value={origemCidadeFilter}
+                  onChange={(e) => {
+                    setOrigemCidadeFilter(e.target.value);
+                    setOrigemCidade('');
+                  }}
+                  placeholder={origemUF ? 'Cidade' : 'Selecione UF'}
+                  disabled={!origemUF}
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                />
+                {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                    {filteredOrigemCidades.slice(0, 50).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setOrigemCidade(c.nome);
+                          setOrigemCidadeFilter(c.nome);
+                          setTimeout(() => destinoUFRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
+                      >
+                        {c.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {origemCidade && (
+                <p className="mt-0.5 text-[10px] text-green-600">
+                  ✓ {origemCidade}, {origemUF}
+                </p>
+              )}
+              {!origemCidade && fieldErrors.origemCidade && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemCidade}</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">
+                Local de carregamento
+              </label>
+              <input
+                type="text"
+                value={originDetail}
+                onChange={(e) => setOriginDetail(e.target.value.slice(0, 200))}
+                placeholder="Ex: Fazenda São João"
+                maxLength={200}
+                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">
+                Link do Maps <span className="text-gray-400">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={originCoordInput}
+                onChange={(e) => {
+                  setOriginCoordInput(e.target.value);
+                  setOriginCoordError(null);
+                }}
+                placeholder="https://maps.google.com/..."
+                className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  originCoordError ? 'border-red-400' : 'border-gray-300'
+                }`}
+              />
+              {originCoordError && (
+                <p className="mt-0.5 text-[10px] text-red-600">{originCoordError}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Destino */}
+        <div className="bg-white border border-orange-200 rounded-lg p-3 space-y-2 relative">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-orange-500"></span> Destino
+            </h3>
+            {origemCidade && destinoCidade && (
+              <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-700 font-semibold inline-flex items-center gap-1">
+                {calculatingDistance ? (
+                  <>
+                    <svg
+                      className="animate-spin w-3 h-3 text-blue-600"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        opacity="0.25"
+                      />
+                      <path
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>calculando</span>
+                  </>
+                ) : distanceKm !== null ? (
+                  `${distanceKm.toLocaleString('pt-BR')} km`
+                ) : (
+                  '— km'
+                )}
+              </span>
             )}
           </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Cidade *</label>
-            <div className="relative">
-              <input
-                ref={origemCidadeRef}
-                type="text"
-                value={origemCidadeFilter}
-                onChange={(e) => {
-                  setOrigemCidadeFilter(e.target.value);
-                  setOrigemCidade('');
-                }}
-                placeholder={origemUF ? 'Digite a cidade...' : 'Selecione o estado'}
-                disabled={!origemUF}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 disabled:opacity-50"
-              />
-              {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-20">
-                  {filteredOrigemCidades.slice(0, 50).map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setOrigemCidade(c.nome);
-                        setOrigemCidadeFilter(c.nome);
-                        // Avança foco para o estado de destino
-                        setTimeout(() => destinoUFRef.current?.focus(), 0);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {c.nome}
-                    </button>
-                  ))}
-                </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
+              <div className="relative">
+                <input
+                  ref={destinoUFRef}
+                  type="text"
+                  value={destinoUFFilter}
+                  onChange={(e) => {
+                    setDestinoUFFilter(e.target.value);
+                    setDestinoUF('');
+                    setDestinoCidade('');
+                    setDestinoCidadeFilter('');
+                  }}
+                  placeholder="UF"
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+                {destinoUFFilter && !destinoUF && filteredDestinoEstados.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                    {filteredDestinoEstados.slice(0, 30).map((e) => (
+                      <button
+                        key={e.sigla}
+                        type="button"
+                        onClick={() => {
+                          setDestinoUF(e.sigla);
+                          setDestinoUFFilter(`${e.sigla} - ${e.nome}`);
+                          setTimeout(() => destinoCidadeRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
+                      >
+                        {e.sigla} - {e.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {fieldErrors.destinoUF && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoUF}</p>
               )}
             </div>
-            {origemCidade && (
-              <p className="mt-1 text-xs text-green-600">
-                ✓ {origemCidade}, {origemUF}
-              </p>
-            )}
-            {!origemCidade && fieldErrors.origemCidade && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.origemCidade}</p>
-            )}
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
+              <div className="relative">
+                <input
+                  ref={destinoCidadeRef}
+                  type="text"
+                  value={destinoCidadeFilter}
+                  onChange={(e) => {
+                    setDestinoCidadeFilter(e.target.value);
+                    setDestinoCidade('');
+                  }}
+                  placeholder={destinoUF ? 'Cidade' : 'Selecione UF'}
+                  disabled={!destinoUF}
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                />
+                {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                    {filteredDestinoCidades.slice(0, 50).map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setDestinoCidade(c.nome);
+                          setDestinoCidadeFilter(c.nome);
+                          setTimeout(() => cargoTypeRef.current?.focus(), 0);
+                        }}
+                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
+                      >
+                        {c.nome}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {!destinoCidade && fieldErrors.destinoCidade && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoCidade}</p>
+              )}
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Local de entrega</label>
+              <input
+                type="text"
+                value={destinationDetail}
+                onChange={(e) => setDestinationDetail(e.target.value.slice(0, 200))}
+                placeholder="Ex: Depósito Central"
+                maxLength={200}
+                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">
+                Link do Maps <span className="text-gray-400">(opcional)</span>
+              </label>
+              <input
+                type="text"
+                value={destinationCoordInput}
+                onChange={(e) => {
+                  setDestinationCoordInput(e.target.value);
+                  setDestinationCoordError(null);
+                }}
+                placeholder="https://maps.google.com/..."
+                className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500 ${
+                  destinationCoordError ? 'border-red-400' : 'border-gray-300'
+                }`}
+              />
+              {destinationCoordError && (
+                <p className="mt-0.5 text-[10px] text-red-600">{destinationCoordError}</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
-
-      {/* ── Destino ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Destino</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Estado *</label>
-            <div className="relative">
-              <input
-                ref={destinoUFRef}
-                type="text"
-                value={destinoUFFilter}
-                onChange={(e) => {
-                  setDestinoUFFilter(e.target.value);
-                  setDestinoUF('');
-                  setDestinoCidade('');
-                  setDestinoCidadeFilter('');
-                }}
-                placeholder="Digite o estado..."
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
-              />
-              {destinoUFFilter && !destinoUF && filteredDestinoEstados.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-30">
-                  {filteredDestinoEstados.slice(0, 30).map((e) => (
-                    <button
-                      key={e.sigla}
-                      type="button"
-                      onClick={() => {
-                        setDestinoUF(e.sigla);
-                        setDestinoUFFilter(`${e.sigla} - ${e.nome}`);
-                        // Avança foco para a cidade de destino
-                        setTimeout(() => destinoCidadeRef.current?.focus(), 0);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {e.sigla} - {e.nome}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {fieldErrors.destinoUF && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.destinoUF}</p>
-            )}
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Cidade *</label>
-            <div className="relative">
-              <input
-                ref={destinoCidadeRef}
-                type="text"
-                value={destinoCidadeFilter}
-                onChange={(e) => {
-                  setDestinoCidadeFilter(e.target.value);
-                  setDestinoCidade('');
-                }}
-                placeholder={destinoUF ? 'Digite a cidade...' : 'Selecione o estado'}
-                disabled={!destinoUF}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400 disabled:opacity-50"
-              />
-              {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-lg z-20">
-                  {filteredDestinoCidades.slice(0, 50).map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        setDestinoCidade(c.nome);
-                        setDestinoCidadeFilter(c.nome);
-                        // Avança foco para tipo de carga
-                        setTimeout(() => cargoTypeRef.current?.focus(), 0);
-                      }}
-                      className="w-full text-left px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {c.nome}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {destinoCidade && (
-              <p className="mt-1 text-xs text-green-600">
-                ✓ {destinoCidade}, {destinoUF}
-              </p>
-            )}
-            {!destinoCidade && fieldErrors.destinoCidade && (
-              <p className="mt-1 text-xs text-red-600">{fieldErrors.destinoCidade}</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Distância ── */}
-      {origemCidade && destinoCidade && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-center gap-2">
-          <svg
-            className="w-5 h-5 text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-            />
-          </svg>
-          {calculatingDistance ? (
-            <span className="text-sm text-blue-700">Calculando distância...</span>
-          ) : distanceKm !== null ? (
-            <span className="text-sm font-medium text-blue-700">
-              Distância aproximada: {distanceKm.toLocaleString('pt-BR')} km
-            </span>
-          ) : (
-            <span className="text-sm text-gray-500">Não foi possível calcular a distância</span>
-          )}
-        </div>
-      )}
 
       {/* ── Dados da Carga ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Dados da Carga</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+          Dados da Carga
+        </h3>
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Tipo de carga *</label>
-          <select
-            ref={cargoTypeRef}
-            value={cargoType}
-            onChange={(e) => {
-              setCargoType(e.target.value);
-              if (e.target.value) {
-                setTimeout(() => speciesRef.current?.focus(), 0);
-              }
-            }}
-            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
-          >
-            <option value="">Selecione</option>
-            {CARGO_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.cargoType && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.cargoType}</p>
-          )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-[11px] text-gray-600 mb-0.5">Tipo de carga *</label>
+            <div className="relative">
+              <button
+                ref={cargoTypeRef}
+                type="button"
+                onClick={() => setCargoTypeOpen((v) => !v)}
+                className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  fieldErrors.cargoType ? 'border-red-400' : 'border-gray-300'
+                } ${cargoType ? 'text-gray-800' : 'text-gray-400'}`}
+              >
+                <span>{cargoType || 'Selecione'}</span>
+                <span className="text-gray-400 text-[10px]">{cargoTypeOpen ? '▴' : '▾'}</span>
+              </button>
+              {cargoTypeOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                  {CARGO_TYPES.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => {
+                        setCargoType(t);
+                        setCargoTypeOpen(false);
+                        setTimeout(() => speciesRef.current?.focus(), 0);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
+                        cargoType === t ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {fieldErrors.cargoType && (
+              <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.cargoType}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-[11px] text-gray-600 mb-0.5">Espécie *</label>
+            <div className="relative">
+              <button
+                ref={speciesRef}
+                type="button"
+                onClick={() => setSpeciesOpen((v) => !v)}
+                className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  fieldErrors.species ? 'border-red-400' : 'border-gray-300'
+                } ${species ? 'text-gray-800' : 'text-gray-400'}`}
+              >
+                <span>{species || 'Selecione'}</span>
+                <span className="text-gray-400 text-[10px]">{speciesOpen ? '▴' : '▾'}</span>
+              </button>
+              {speciesOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                  {SPECIES.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => {
+                        setSpecies(s);
+                        setSpeciesOpen(false);
+                        setTimeout(() => productRef.current?.focus(), 0);
+                      }}
+                      className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
+                        species === s ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {fieldErrors.species && (
+              <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.species}</p>
+            )}
+          </div>
         </div>
 
         {cargoType === 'Perigosa' && (
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Número ONU</label>
+            <label className="block text-[11px] text-gray-600 mb-0.5">Número ONU</label>
             <input
               type="text"
               value={onuNumber}
               onChange={(e) => setOnuNumber(e.target.value)}
               placeholder="Ex: UN1203"
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         )}
 
         {cargoType === 'Frigorificada ou Aquecida' && (
           <div>
-            <label className="block text-xs text-gray-600 mb-1">Temperatura (°C)</label>
+            <label className="block text-[11px] text-gray-600 mb-0.5">Temperatura (°C)</label>
             <input
               type="number"
               value={temperature}
               onChange={(e) => setTemperature(e.target.value)}
               placeholder="Ex: -18"
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
           </div>
         )}
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Espécie *</label>
-          <select
-            ref={speciesRef}
-            value={species}
-            onChange={(e) => {
-              setSpecies(e.target.value);
-              if (e.target.value) {
-                setTimeout(() => productRef.current?.focus(), 0);
-              }
-            }}
-            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
-          >
-            <option value="">Selecione</option>
-            {SPECIES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          {fieldErrors.species && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.species}</p>
-          )}
-        </div>
 
         <div>
           <label className="block text-xs text-gray-600 mb-1">Produto *</label>
@@ -912,8 +1096,8 @@ export default function FreteForm({
       </div>
 
       {/* ── Peso e Volume ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Peso e Volume</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Peso e Volume</h3>
 
         <div>
           <label className="block text-xs text-gray-600 mb-1">Unidade de medida</label>
@@ -933,11 +1117,15 @@ export default function FreteForm({
           <RadioGroup
             name="freightType"
             options={[
-              { label: 'Completa', value: 'completa' },
+              { label: 'Carga completa', value: 'completa' },
               { label: 'Complemento', value: 'complemento' },
+              { label: 'Peso de balança', value: 'peso_balanca' },
+              { label: 'Caixote cheio', value: 'caixote_cheio' },
             ]}
             value={freightType}
-            onChange={(v) => setFreightType(v as 'completa' | 'complemento')}
+            onChange={(v) =>
+              setFreightType(v as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio')
+            }
           />
         </div>
 
@@ -958,8 +1146,8 @@ export default function FreteForm({
       </div>
 
       {/* ── Veículos ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Tipos de Veículo Aceitos *</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Tipos de Veículo Aceitos *</h3>
         {VEHICLE_CATEGORIES.map((cat) => {
           const allSelected = cat.vehicles.every((v) => selectedVehicles.includes(v.value));
           return (
@@ -1005,8 +1193,8 @@ export default function FreteForm({
       </div>
 
       {/* ── Carrocerias ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Carrocerias</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Carrocerias</h3>
         {BODY_CATEGORIES.map((cat) => {
           const allSelected = cat.bodies.every((b) => selectedBodies.includes(b));
           return (
@@ -1049,8 +1237,8 @@ export default function FreteForm({
       </div>
 
       {/* ── Opções Adicionais ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Opções Adicionais</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Opções Adicionais</h3>
 
         <div>
           <label className="block text-xs text-gray-600 mb-1">Precisa de lona?</label>
@@ -1093,8 +1281,8 @@ export default function FreteForm({
       </div>
 
       {/* ── Dados de Pagamento ── */}
-      <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-800">Dados de Pagamento</h3>
+      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Dados de Pagamento</h3>
 
         <div>
           <label className="block text-xs text-gray-600 mb-1">Informações de valor</label>
@@ -1237,5 +1425,6 @@ export default function FreteForm({
         </button>
       </div>
     </form>
+    </>
   );
 }

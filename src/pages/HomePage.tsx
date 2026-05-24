@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getActiveFretes,
@@ -19,7 +19,26 @@ import { useViewPreference } from '../hooks/useViewPreference';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
+import { useGeolocation } from '../hooks/useGeolocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
+import { getLikedFreteIds } from '../services/likes';
+import {
+  RADIUS_DEFAULT_KM,
+  RADIUS_STORAGE_KEY,
+  filterFretesByRadius,
+  readStoredRadius,
+  writeStoredRadius,
+  type RadiusOption,
+} from '../utils/geoDistance';
+
+// Lazy import: leaflet + react-leaflet só caem no chunk dos motoristas.
+const MapaFretes = lazy(() => import('../components/MapaFretes'));
+
+function MapaSkeleton() {
+  return (
+    <div className="w-full h-[90px] md:h-[110px] rounded-md bg-gray-100 animate-pulse mb-3" />
+  );
+}
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -35,7 +54,8 @@ export default function HomePage() {
   const itemsPerPage = 9;
   const [viewMode, setViewMode] = useViewPreference('fretego-view-home', 'cards');
   const isMobile = useIsMobile();
-  const effectiveView = isMobile ? 'cards' : viewMode;
+  // Motorista sempre vê cards. Apenas embarcador/visitante alternam entre cards/tabela no desktop.
+  const effectiveView = isMobile || (user?.userType === 'motorista') ? 'cards' : viewMode;
 
   // Contexto de cálculo financeiro do motorista (km/l + diesel).
   // Carregado apenas no ramo motorista; nulo até carregar.
@@ -43,7 +63,31 @@ export default function HomePage() {
   const [calcLoaded, setCalcLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  // Conjunto de fretes que o motorista já curtiu — hidrata os corações.
+  const [likedFreteIds, setLikedFreteIds] = useState<Set<string>>(new Set());
+
   const isMotorista = user?.userType === 'motorista';
+
+  // Geolocalização (apenas usada no ramo motorista, mas chamamos
+  // sempre — useGeolocation começa em 'idle' até requestLocation()).
+  const geo = useGeolocation();
+
+  // Dispara request de localização uma vez quando o usuário é motorista.
+  useEffect(() => {
+    if (!isMotorista) return;
+    geo.requestLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMotorista]);
+
+  // Estado de raio com hidratação de localStorage
+  const [radiusKm, setRadiusKm] = useState<RadiusOption>(() => {
+    if (typeof window === 'undefined') return RADIUS_DEFAULT_KM;
+    return readStoredRadius(window.localStorage.getItem(RADIUS_STORAGE_KEY));
+  });
+  const handleRadiusChange = useCallback((next: RadiusOption) => {
+    setRadiusKm(next);
+    writeStoredRadius(next);
+  }, []);
 
   useEffect(() => {
     if (!isMotorista || !user) {
@@ -61,7 +105,7 @@ export default function HomePage() {
         }
       } catch {
         if (!cancelled) {
-          setMotoristaCalc({ kmPerLiter: null, dieselPrice: null });
+          setMotoristaCalc({ kmPerLiter: null, dieselPrice: null, cargoCapacityTon: null });
           setCalcLoaded(true);
         }
       }
@@ -70,6 +114,30 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [isMotorista, user]);
+
+  // Hidrata os IDs dos fretes que o motorista já curtiu.
+  useEffect(() => {
+    if (!isMotorista || !user) {
+      setLikedFreteIds(new Set());
+      return;
+    }
+    let cancelled = false;
+    getLikedFreteIds(user.id).then((set) => {
+      if (!cancelled) setLikedFreteIds(set);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [isMotorista, user]);
+
+  const handleLikeToggle = useCallback((freteId: string, liked: boolean) => {
+    setLikedFreteIds((prev) => {
+      const next = new Set(prev);
+      if (liked) next.add(freteId);
+      else next.delete(freteId);
+      return next;
+    });
+  }, []);
 
   const showCalcBanner =
     isMotorista &&
@@ -105,7 +173,21 @@ export default function HomePage() {
       .channel('fretes-realtime')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'fretes', filter: 'status=eq.ativo' },
+        { event: 'INSERT', schema: 'public', table: 'fretes' },
+        () => {
+          loadFretes(currentFiltersRef.current);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'fretes' },
+        () => {
+          loadFretes(currentFiltersRef.current);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'fretes' },
         () => {
           loadFretes(currentFiltersRef.current);
         }
@@ -137,30 +219,43 @@ export default function HomePage() {
     }
   };
 
-  const totalPages = Math.ceil(fretes.length / itemsPerPage);
-  const currentFretes = fretes.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  // Ponto do motorista (apenas quando geolocalização sucesso)
+  const motoristaPoint = geo.status === 'success' && geo.point ? geo.point : null;
+
+  // Lista filtrada por raio para o ramo motorista; intacta caso contrário.
+  const visibleFretes = useMemo(
+    () =>
+      isMotorista ? filterFretesByRadius(fretes, motoristaPoint, radiusKm) : fretes,
+    [isMotorista, fretes, motoristaPoint, radiusKm]
+  );
+
+  const totalPages = Math.ceil(visibleFretes.length / itemsPerPage);
+  const currentFretes = visibleFretes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
   return (
     <div className="min-h-screen bg-gray-100">
       <AppHeader />
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-6 gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-800">Fretes Disponíveis</h1>
-            <p className="text-sm text-gray-500">
-              {fretes.length} frete{fretes.length !== 1 ? 's' : ''}
-            </p>
-          </div>
-          {isMotorista && user && calcLoaded && (
-            <div className="flex-1 flex justify-center min-w-[180px]">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+        {/* Header inline: título + contagem + ações */}
+        <div className="flex items-center mb-3 gap-2 flex-wrap">
+          <h1 className="text-base sm:text-lg font-semibold text-gray-800">
+            Fretes Disponíveis
+          </h1>
+          <span className="text-xs text-gray-500">({visibleFretes.length})</span>
+          <div className="flex items-center gap-2 ml-auto">
+            {isMotorista && user && calcLoaded && (
               <DieselDashboardInput
                 userId={user.id}
                 initialValue={motoristaCalc?.dieselPrice ?? null}
                 onSaved={(p) =>
                   setMotoristaCalc((prev) =>
-                    prev ? { ...prev, dieselPrice: p } : { kmPerLiter: null, dieselPrice: p }
+                    prev
+                      ? { ...prev, dieselPrice: p }
+                      : { kmPerLiter: null, dieselPrice: p, cargoCapacityTon: null }
                   )
                 }
                 onError={(msg) => {
@@ -168,18 +263,35 @@ export default function HomePage() {
                   setTimeout(() => setToast(null), 3000);
                 }}
               />
-            </div>
-          )}
-          <div className="flex items-center space-x-2">
-            {!isMobile && <ViewToggle currentView={viewMode} onViewChange={setViewMode} />}
-            <button
-              onClick={() => setShowMap((v) => !v)}
-              className="flex items-center px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm"
-            >
-              {showMap ? 'Ver lista' : 'Ver mapa'}
-            </button>
+            )}
+            {!isMotorista && !isMobile && (
+              <ViewToggle currentView={viewMode} onViewChange={setViewMode} />
+            )}
+            {!isMotorista && (
+              <button
+                onClick={() => setShowMap((v) => !v)}
+                className="px-2 py-1 bg-white border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-100"
+              >
+                {showMap ? 'Ver lista' : 'Ver mapa'}
+              </button>
+            )}
           </div>
         </div>
+
+        {/* Mapa fixo para motorista (lazy) */}
+        {isMotorista && (
+          <Suspense fallback={<MapaSkeleton />}>
+            <MapaFretes
+              fretes={visibleFretes}
+              motoristaPoint={motoristaPoint}
+              radiusKm={radiusKm}
+              onRadiusChange={handleRadiusChange}
+              onFreteClick={handleFreteClick}
+              geolocationStatus={geo.status}
+              onRequestLocation={geo.requestLocation}
+            />
+          </Suspense>
+        )}
 
         {showCalcBanner && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
@@ -196,9 +308,12 @@ export default function HomePage() {
           </div>
         )}
 
-        <FreteFiltersComponent onFilterChange={handleFilterChange} totalResults={fretes.length} />
+        <FreteFiltersComponent
+          onFilterChange={handleFilterChange}
+          totalResults={visibleFretes.length}
+        />
 
-        {showMap && (
+        {showMap && !isMotorista && (
           <div className="mb-6">
             <InteractiveMap fretes={fretes} onFreteClick={handleFreteClick} height="400px" />
           </div>
@@ -212,13 +327,17 @@ export default function HomePage() {
           <div className="flex justify-center py-20">
             <div className="text-red-400">{error}</div>
           </div>
-        ) : fretes.length === 0 ? (
+        ) : visibleFretes.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-12 text-center shadow-sm">
             <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum frete disponível</h3>
-            <p className="text-gray-500">Novos fretes aparecerão aqui quando forem publicados.</p>
+            <p className="text-gray-500">
+              {isMotorista && motoristaPoint
+                ? 'Nenhum frete encontrado nesse raio. Tente aumentar para 200 ou 500 km.'
+                : 'Novos fretes aparecerão aqui quando forem publicados.'}
+            </p>
           </div>
         ) : effectiveView === 'table' ? (
-          <FreteTable fretes={fretes} onFreteClick={handleFreteClick} showActions={false} />
+          <FreteTable fretes={visibleFretes} onFreteClick={handleFreteClick} showActions={false} />
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
@@ -228,6 +347,9 @@ export default function HomePage() {
                   frete={frete}
                   onClick={() => handleFreteClick(frete)}
                   motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
+                  showLikeButton={isMotorista}
+                  initialLiked={likedFreteIds.has(frete.id)}
+                  onLikeToggle={handleLikeToggle}
                 />
               ))}
             </div>
@@ -263,6 +385,10 @@ export default function HomePage() {
           setIsModalOpen(false);
           setSelectedFrete(null);
         }}
+        motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
+        showLikeButton={isMotorista}
+        initialLiked={selectedFrete ? likedFreteIds.has(selectedFrete.id) : false}
+        onLikeToggle={handleLikeToggle}
       />
     </div>
   );

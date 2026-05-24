@@ -15,7 +15,7 @@ export interface FreteConversation {
   createdAt: Date;
   // Joined data
   frete?: { origin: string; destination: string };
-  otherUser?: { name: string };
+  otherUser?: { id: string; name: string; photo: string | null; userType: 'motorista' | 'embarcador' };
   lastMessage?: string;
   unreadCount?: number;
 }
@@ -29,6 +29,27 @@ export interface FreteMessage {
   createdAt: Date;
   // Joined
   senderName?: string;
+  // Anexo (Migration 025)
+  attachmentPath?: string | null;
+  attachmentType?: 'image' | 'audio' | 'file' | null;
+  attachmentName?: string | null;
+  attachmentSize?: number | null;
+  attachmentMime?: string | null;
+  /** Signed URL resolvida no client (não persistida). */
+  attachmentUrl?: string | null;
+}
+
+export interface ConversationPeer {
+  userId: string;
+  name: string;
+  userType: 'motorista' | 'embarcador' | 'admin';
+  profilePhoto: string | null;
+  companyName: string | null;
+  companyLogo: string | null;
+  vehicleModel: string | null;
+  vehiclePlate: string | null;
+  trailerAxles: number | null;
+  cargoCapacity: number | null;
 }
 
 /**
@@ -70,8 +91,8 @@ export async function getUserConversations(userId: string): Promise<FreteConvers
       `
       *,
       frete:fretes(origin, destination),
-      motorista:users!conversations_motorista_id_fkey(name),
-      embarcador:users!conversations_embarcador_id_fkey(name)
+      motorista:users!conversations_motorista_id_fkey(id, name, profile_photo_url),
+      embarcador:users!conversations_embarcador_id_fkey(id, name, profile_photo_url)
     `
     )
     .or(`motorista_id.eq.${userId},embarcador_id.eq.${userId}`)
@@ -79,18 +100,57 @@ export async function getUserConversations(userId: string): Promise<FreteConvers
 
   if (error) throw mapSupabaseError(error);
 
+  // Coleta IDs de embarcadores únicos pra buscar logo/nome da empresa em batch.
+  const embarcadorIds = Array.from(
+    new Set(
+      (data ?? [])
+        .map((row) => row.embarcador_id as string)
+        .filter((id): id is string => !!id && id !== userId)
+    )
+  );
+
+  let embarcadorMeta: Record<string, { logo: string | null; name: string | null }> = {};
+  if (embarcadorIds.length > 0) {
+    const { data: emps } = await supabase
+      .from('embarcadores')
+      .select('id, company_logo_url, company_name')
+      .in('id', embarcadorIds);
+    embarcadorMeta = Object.fromEntries(
+      (emps ?? []).map((e) => [
+        e.id as string,
+        {
+          logo: (e.company_logo_url as string) ?? null,
+          name: (e.company_name as string) ?? null,
+        },
+      ])
+    );
+  }
+
   // Para cada conversa, busca última mensagem e contagem de não lidas
   const conversations = await Promise.all(
     (data || []).map(async (row) => {
       const conv = mapConversation(row);
 
-      // Determina o outro usuário
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const r = row as any;
       if (row.motorista_id === userId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        conv.otherUser = { name: (row.embarcador as any)?.name || 'Embarcador' };
+        const meta = embarcadorMeta[row.embarcador_id] ?? { logo: null, name: null };
+        const photo = meta.logo ?? r.embarcador?.profile_photo_url ?? null;
+        const displayName = meta.name ?? r.embarcador?.name ?? 'Embarcador';
+        conv.otherUser = {
+          id: r.embarcador?.id ?? row.embarcador_id,
+          name: displayName,
+          photo,
+          userType: 'embarcador',
+        };
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        conv.otherUser = { name: (row.motorista as any)?.name || 'Motorista' };
+        const photo = r.motorista?.profile_photo_url ?? null;
+        conv.otherUser = {
+          id: r.motorista?.id ?? row.motorista_id,
+          name: r.motorista?.name ?? 'Motorista',
+          photo,
+          userType: 'motorista',
+        };
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,13 +159,23 @@ export async function getUserConversations(userId: string): Promise<FreteConvers
       // Última mensagem
       const { data: lastMsg } = await supabase
         .from('messages')
-        .select('content')
+        .select('content, attachment_type')
         .eq('conversation_id', conv.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (lastMsg) conv.lastMessage = lastMsg.content;
+      if (lastMsg) {
+        if (lastMsg.content && lastMsg.content.trim() !== '') {
+          conv.lastMessage = lastMsg.content;
+        } else if (lastMsg.attachment_type === 'image') {
+          conv.lastMessage = '🖼 Imagem';
+        } else if (lastMsg.attachment_type === 'audio') {
+          conv.lastMessage = '🎤 Áudio';
+        } else if (lastMsg.attachment_type === 'file') {
+          conv.lastMessage = '📎 Arquivo';
+        }
+      }
 
       // Não lidas
       const { data: unread } = await supabase
@@ -249,9 +319,105 @@ function mapMessage(data: any): FreteMessage {
     id: data.id,
     conversationId: data.conversation_id,
     senderId: data.sender_id,
-    content: data.content,
+    content: data.content ?? '',
     readAt: data.read_at ? new Date(data.read_at) : null,
     createdAt: new Date(data.created_at),
     senderName: data.sender?.name,
+    attachmentPath: data.attachment_path ?? null,
+    attachmentType: data.attachment_type ?? null,
+    attachmentName: data.attachment_name ?? null,
+    attachmentSize: data.attachment_size ?? null,
+    attachmentMime: data.attachment_mime ?? null,
+  };
+}
+
+/**
+ * Faz upload de um arquivo pro bucket `chat-attachments` e cria a mensagem.
+ * O path segue o formato `<conversation_id>/<sender_id>/<timestamp>_<file>`
+ * exigido pela RLS do bucket.
+ */
+export async function sendFreteAttachment(
+  conversationId: string,
+  senderId: string,
+  file: File,
+  attachmentType: 'image' | 'audio' | 'file',
+  contentText: string = ''
+): Promise<FreteMessage> {
+  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-80);
+  const path = `${conversationId}/${senderId}/${Date.now()}_${safeName}`;
+
+  const { error: uploadErr } = await supabase.storage
+    .from('chat-attachments')
+    .upload(path, file, { contentType: file.type, upsert: false });
+
+  if (uploadErr) throw new Error(`Erro no upload: ${uploadErr.message}`);
+
+  const { data, error } = await supabase
+    .from('messages')
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content: contentText,
+      attachment_path: path,
+      attachment_type: attachmentType,
+      attachment_name: file.name,
+      attachment_size: file.size,
+      attachment_mime: file.type,
+    })
+    .select(`*, sender:users!messages_sender_id_fkey(name)`)
+    .single();
+
+  if (error) {
+    // Rollback do upload em caso de falha de insert
+    await supabase.storage.from('chat-attachments').remove([path]);
+    throw mapSupabaseError(error);
+  }
+
+  await supabase
+    .from('conversations')
+    .update({ updated_at: new Date().toISOString() })
+    .eq('id', conversationId);
+
+  return mapMessage(data);
+}
+
+/**
+ * Resolve uma signed URL pra um anexo do bucket privado.
+ */
+export async function resolveAttachmentUrl(path: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from('chat-attachments')
+    .createSignedUrl(path, 3600);
+  if (error) return null;
+  return data?.signedUrl ?? null;
+}
+
+/**
+ * Busca dados ricos do "outro lado" da conversa pra exibir avatar +
+ * empresa (embarcador) ou caminhão (motorista).
+ */
+export async function getConversationPeer(
+  conversationId: string
+): Promise<ConversationPeer | null> {
+  const { data, error } = await supabase.rpc('get_conversation_peer', {
+    p_conversation_id: conversationId,
+  });
+  if (error) {
+    console.warn('Erro ao buscar peer da conversa', error);
+    return null;
+  }
+  const r = (data as Record<string, unknown>[] | null)?.[0];
+  if (!r) return null;
+  return {
+    userId: r.user_id as string,
+    name: (r.name as string) ?? '',
+    userType: (r.user_type as 'motorista' | 'embarcador' | 'admin') ?? 'motorista',
+    profilePhoto: (r.profile_photo as string) ?? null,
+    companyName: (r.company_name as string) ?? null,
+    companyLogo: (r.company_logo as string) ?? null,
+    vehicleModel: (r.vehicle_model as string) ?? null,
+    vehiclePlate: (r.vehicle_plate as string) ?? null,
+    trailerAxles: r.trailer_axles !== null ? (r.trailer_axles as number) : null,
+    cargoCapacity: r.cargo_capacity !== null ? Number(r.cargo_capacity) : null,
   };
 }

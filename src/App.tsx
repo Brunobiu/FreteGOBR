@@ -4,6 +4,8 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import HomePage from './pages/HomePage';
+import NotificationToast from './components/NotificationToast';
+import FreteChatWidget from './components/FreteChatWidget';
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -14,6 +16,7 @@ const EmbarcadorPlanPage = lazy(() => import('./pages/EmbarcadorPlanPage'));
 const AdminPage = lazy(() => import('./pages/AdminPage'));
 const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
 const MensagensPage = lazy(() => import('./pages/MensagensPage'));
+const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
@@ -38,6 +41,8 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <NotificationToast />
+      <FreteChatWidget />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -128,6 +133,16 @@ function App() {
             <ProtectedRoute>
               <LazyRoute>
                 <MensagensPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notificacoes"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <NotificacoesPage />
               </LazyRoute>
             </ProtectedRoute>
           }

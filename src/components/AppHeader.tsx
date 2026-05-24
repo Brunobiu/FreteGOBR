@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useState, useRef, useEffect } from 'react';
 import FreteCalculator from './FreteCalculator';
@@ -7,6 +7,7 @@ import BadgeEmpresa from './BadgeEmpresa';
 import { getEmbarcadorProfile } from '../services/embarcador';
 import { resolveProfilePhotoUrl } from '../services/documents';
 import { capitalizeName } from '../utils/textCase';
+import { getTotalUnreadCount } from '../services/chatFrete';
 
 export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -109,20 +110,7 @@ export default function AppHeader() {
                   <NotificationBell />
 
                   {/* Mensagens */}
-                  <Link
-                    to="/mensagens"
-                    title="Mensagens"
-                    className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                  </Link>
+                  <ChatHeaderButton />
 
                   {/* Calculadora - só motorista */}
                   {user.userType === 'motorista' && (
@@ -305,5 +293,65 @@ export default function AppHeader() {
       </header>
       <FreteCalculator isOpen={calcOpen} onClose={() => setCalcOpen(false)} />
     </>
+  );
+}
+
+
+/**
+ * Botão de mensagens no header. No celular ou na página /mensagens,
+ * navega para a página completa. No desktop fora dela, abre o widget
+ * flutuante via evento `fretego-toggle-chat`. Mostra badge de não-lidas
+ * sincronizado com o widget.
+ */
+function ChatHeaderButton() {
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    getTotalUnreadCount(user.id)
+      .then(setUnread)
+      .catch(() => {});
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<number>;
+      setUnread(ce.detail ?? 0);
+    };
+    window.addEventListener('fretego-chat-unread-count', handler);
+    return () => window.removeEventListener('fretego-chat-unread-count', handler);
+  }, [isAuthenticated, user]);
+
+  const handleClick = () => {
+    const isMobile = window.innerWidth < 768;
+    const onMensagens = location.pathname === '/mensagens';
+    if (isMobile || onMensagens) {
+      navigate('/mensagens');
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('fretego-toggle-chat'));
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      title="Mensagens"
+      aria-label="Mensagens"
+      className="p-2 text-gray-500 hover:text-gray-800 transition-colors relative"
+    >
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+        />
+      </svg>
+      {unread > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+          {unread > 9 ? '9+' : unread}
+        </span>
+      )}
+    </button>
   );
 }

@@ -45,7 +45,7 @@ export default function NotificationWidget() {
     setIsOpen(next);
     if (next) {
       try {
-        const data = await getNotifications(user.id);
+        const data = await getNotifications(user.id, 3);
         setNotifications(data);
       } catch {
         /* ignore */
@@ -112,33 +112,44 @@ export default function NotificationWidget() {
           {notifications.length === 0 ? (
             <p className="px-4 py-8 text-sm text-gray-500 text-center">Nenhuma notificação</p>
           ) : (
-            notifications.map((notif) => (
-              <button
-                key={notif.id}
-                onClick={() => handleClick(notif)}
-                className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                  !notif.readAt ? 'bg-blue-50' : ''
-                }`}
-              >
-                <div className="flex items-start gap-2">
-                  {!notif.readAt && (
-                    <span className="mt-1.5 w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{notif.title}</p>
-                    <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{notif.message}</p>
-                    <p className="text-[10px] text-gray-400 mt-1">
-                      {new Date(notif.createdAt).toLocaleDateString('pt-BR', {
-                        day: '2-digit',
-                        month: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+            <>
+              {notifications.map((notif) => (
+                <button
+                  key={notif.id}
+                  onClick={() => handleClick(notif)}
+                  className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    !notif.readAt ? 'bg-blue-50' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {!notif.readAt && (
+                      <span className="mt-1.5 w-2 h-2 bg-blue-500 rounded-full shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{notif.title}</p>
+                      <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{notif.message}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">
+                        {new Date(notif.createdAt).toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
                   </div>
-                </div>
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  navigate('/notificacoes');
+                }}
+                className="w-full px-4 py-2.5 text-center text-xs font-semibold text-blue-600 hover:bg-blue-50 transition-colors border-t border-gray-200"
+              >
+                Ver mais notificações →
               </button>
-            ))
+            </>
           )}
         </div>
       )}

@@ -89,12 +89,19 @@ function toRad(deg: number): number {
  * Calcula a distância de rota real (por estrada) entre dois pontos usando
  * OSRM (Open Source Routing Machine) — gratuito, sem API key.
  *
+ * Tem timeout de 8 segundos. Em caso de falha (timeout, rede, OSRM
+ * indisponível), retorna `null` — quem chama deve fazer fallback
+ * (ex.: Haversine).
+ *
  * @returns distância em km, arredondada, ou null em caso de falha.
  */
 export async function calculateRouteDistance(
   origin: GeographicPoint,
   destination: GeographicPoint
 ): Promise<number | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
   try {
     const url =
       `https://router.project-osrm.org/route/v1/driving/` +
@@ -102,7 +109,8 @@ export async function calculateRouteDistance(
       `${destination.longitude},${destination.latitude}` +
       `?overview=false`;
 
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
     if (!res.ok) return null;
 
     const data = await res.json();
@@ -111,6 +119,79 @@ export async function calculateRouteDistance(
 
     return Math.round(meters / 1000);
   } catch {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+/**
+ * Busca a geometria da rota (lista de pontos lat/lng) entre dois locais
+ * usando OSRM público (router.project-osrm.org). Retorna `null` em caso
+ * de falha ou rota não encontrada.
+ *
+ * Usado pelo `MapaFretes` para desenhar uma polilinha pela estrada
+ * (em vez de uma reta entre origem e destino).
+ *
+ * `overview=full` devolve a geometria completa; `geometries=geojson`
+ * devolve coordenadas em [lng, lat] (padrão GeoJSON).
+ */
+export async function getRouteGeometry(
+  origin: GeographicPoint,
+  destination: GeographicPoint
+): Promise<GeographicPoint[] | null> {
+  // Validação de coordenadas
+  if (
+    !Number.isFinite(origin.latitude) ||
+    !Number.isFinite(origin.longitude) ||
+    !Number.isFinite(destination.latitude) ||
+    !Number.isFinite(destination.longitude)
+  ) {
+    return null;
+  }
+
+  const coords =
+    `${origin.longitude},${origin.latitude};` +
+    `${destination.longitude},${destination.latitude}`;
+  // overview=simplified: bem mais rápido que `full`. Suficiente para
+  // exibir uma rota seguindo as estradas no mapa.
+  const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=simplified&geometries=geojson`;
+
+  // Timeout de 8s para não deixar o usuário pendurado se o OSRM travar.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      console.warn('[getRouteGeometry] OSRM HTTP', res.status);
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (data?.code && data.code !== 'Ok') {
+      console.warn('[getRouteGeometry] OSRM code', data.code, data.message);
+      return null;
+    }
+
+    const geomCoords = data?.routes?.[0]?.geometry?.coordinates as
+      | [number, number][]
+      | undefined;
+
+    if (!Array.isArray(geomCoords) || geomCoords.length === 0) {
+      console.warn('[getRouteGeometry] OSRM sem geometria');
+      return null;
+    }
+
+    return geomCoords.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+  } catch (err) {
+    clearTimeout(timer);
+    console.warn('[getRouteGeometry] erro de rede ou timeout', err);
     return null;
   }
 }

@@ -29,3 +29,46 @@ body {
 #root {
   width: 100%;
 }
+
+
+/* Slide-in pra toast de notificações realtime */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+
+/* Fundo temático do chat (mensagens) — estilo WhatsApp suave com motivo de
+   caminhão pra ficar relacionado a frete. */
+.chat-bg {
+  background-color: #eef2f7;
+  background-image:
+    radial-gradient(circle at 20% 10%, rgba(59,130,246,0.08), transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(34,197,94,0.07), transparent 55%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='none' stroke='%2394a3b8' stroke-width='1' stroke-opacity='0.18'><path d='M10 80h70v-18h12l8 12h12v6H10z'/><circle cx='30' cy='86' r='5'/><circle cx='90' cy='86' r='5'/></g></svg>");
+  background-size: auto, auto, 120px 120px;
+  background-repeat: no-repeat, no-repeat, repeat;
+}
+
+/* Fundo da tela vazia (nenhuma conversa aberta) */
+.chat-empty-bg {
+  background-color: #f8fafc;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(59,130,246,0.10), transparent 60%),
+    radial-gradient(circle at 70% 80%, rgba(99,102,241,0.08), transparent 55%);
+}
+
+/* Animação dos pontinhos do "digitando..." */
+@keyframes typing-blink {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+.typing-dot {
+  animation: typing-blink 1.2s infinite ease-in-out;
+}

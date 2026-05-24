@@ -25,6 +25,7 @@ import { lookupCep, formatCep, sanitizeCep, CepLookupError } from '../services/c
 import { capitalizeName } from '../utils/textCase';
 import { formatPlate, isValidMercosulPlate } from '../utils/plateValidation';
 import { sanitizePhone, formatPhoneBR, isValidPhoneBR } from '../utils/phoneFormat';
+import { maskDecimal, maskedToNumber, numberToMasked } from '../utils/numberMask';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
 import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
@@ -316,6 +317,9 @@ export default function MotoristaPerfilPage() {
   const [ownerCompanyName, setOwnerCompanyName] = useState('');
   const [ownerPisNumber, setOwnerPisNumber] = useState('');
   const [ownerIsDriver, setOwnerIsDriver] = useState(false);
+
+  // === Tipo de RNTRC (Migration 022) ========================================
+  const [rntrcType, setRntrcType] = useState<'fisica' | 'juridica' | ''>('');
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
   const lastCnpjRef = useRef<string>('');
@@ -402,10 +406,10 @@ export default function MotoristaPerfilPage() {
           profile.vehicleYearManufacture?.toString() ?? profile.vehicleYear?.toString() ?? ''
         );
         setVehicleYearModel(profile.vehicleYearModel?.toString() ?? '');
-        setKmPerLiter(profile.kmPerLiter?.toString() ?? '');
+        setKmPerLiter(numberToMasked(profile.kmPerLiter ?? null, 1));
         setTrailerAxles(profile.trailerAxles?.toString() ?? '');
-        setCargoCapacityTon(profile.cargoCapacityTon?.toString() ?? '');
-        setDieselPrice(profile.dieselPrice?.toFixed(2) ?? '');
+        setCargoCapacityTon(numberToMasked(profile.cargoCapacityTon ?? null, 3));
+        setDieselPrice(numberToMasked(profile.dieselPrice ?? null, 2));
         setIsNotOwner(profile.isOwner === false);
 
         // Migration 018: endereço, RG, owner_*
@@ -423,6 +427,7 @@ export default function MotoristaPerfilPage() {
         setOwnerCompanyName(profile.ownerCompanyName ?? '');
         setOwnerPisNumber(profile.ownerPisNumber ?? '');
         setOwnerIsDriver(profile.ownerIsDriver ?? false);
+        setRntrcType((profile.rntrcType as 'fisica' | 'juridica') ?? '');
       }
 
       setReferences(
@@ -797,20 +802,26 @@ export default function MotoristaPerfilPage() {
     if (yearFab !== undefined && yearMod !== undefined && yearMod < yearFab) {
       errs.yearModel = 'Ano modelo deve ser maior ou igual ao ano de fabricação';
     }
-    if (kmPerLiter && (parseFloat(kmPerLiter) < 1 || parseFloat(kmPerLiter) > 10)) {
-      errs.kmPerLiter = 'Valor fora do intervalo permitido (1,0 a 10,0)';
+    if (kmPerLiter) {
+      const v = maskedToNumber(kmPerLiter, 1);
+      if (Number.isNaN(v) || v < 1 || v > 10) {
+        errs.kmPerLiter = 'Valor fora do intervalo permitido (1,0 a 10,0)';
+      }
     }
     if (trailerAxles && (parseInt(trailerAxles) < 2 || parseInt(trailerAxles) > 9)) {
       errs.trailerAxles = 'Valor fora do intervalo permitido (2 a 9)';
     }
-    if (
-      cargoCapacityTon &&
-      (parseFloat(cargoCapacityTon) < 1 || parseFloat(cargoCapacityTon) > 80)
-    ) {
-      errs.cargoCapacityTon = 'Valor fora do intervalo permitido (1,0 a 80,0)';
+    if (cargoCapacityTon) {
+      const v = maskedToNumber(cargoCapacityTon, 3);
+      if (Number.isNaN(v) || v < 1 || v > 80) {
+        errs.cargoCapacityTon = 'Valor fora do intervalo permitido (1,000 a 80,000)';
+      }
     }
-    if (dieselPrice && (parseFloat(dieselPrice) < 1 || parseFloat(dieselPrice) > 20)) {
-      errs.dieselPrice = 'Valor fora do intervalo permitido (R$ 1,00 a R$ 20,00)';
+    if (dieselPrice) {
+      const v = maskedToNumber(dieselPrice, 2);
+      if (Number.isNaN(v) || v < 1 || v > 20) {
+        errs.dieselPrice = 'Valor fora do intervalo permitido (R$ 1,00 a R$ 20,00)';
+      }
     }
 
     setFieldErrors((p) => ({ ...p, ...errs }));
@@ -830,11 +841,12 @@ export default function MotoristaPerfilPage() {
         vehicleModel: finalModel || undefined,
         vehicleYearManufacture: yearFab,
         vehicleYearModel: yearMod,
-        kmPerLiter: kmPerLiter ? parseFloat(kmPerLiter) : undefined,
+        kmPerLiter: kmPerLiter ? maskedToNumber(kmPerLiter, 1) : undefined,
         trailerAxles: trailerAxles ? parseInt(trailerAxles) : undefined,
-        cargoCapacityTon: cargoCapacityTon ? parseFloat(cargoCapacityTon) : undefined,
-        dieselPrice: dieselPrice ? parseFloat(dieselPrice) : undefined,
+        cargoCapacityTon: cargoCapacityTon ? maskedToNumber(cargoCapacityTon, 3) : undefined,
+        dieselPrice: dieselPrice ? maskedToNumber(dieselPrice, 2) : undefined,
         isOwner: !isNotOwner,
+        rntrcType: rntrcType || undefined,
       });
 
       setDirty((p) => ({ ...p, veiculo: false }));
@@ -1468,16 +1480,14 @@ export default function MotoristaPerfilPage() {
                   Consumo (km por litro do cavalo)
                 </label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="numeric"
                   value={kmPerLiter}
                   onChange={(e) => {
-                    setKmPerLiter(e.target.value);
+                    setKmPerLiter(maskDecimal(e.target.value, 1));
                     markDirty('veiculo');
                   }}
-                  placeholder="2.5"
-                  min={1}
-                  max={10}
+                  placeholder="2,5"
                   data-error={fieldErrors.kmPerLiter ? 'true' : undefined}
                   className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.kmPerLiter ? 'border-red-400' : 'border-gray-300'
@@ -1494,15 +1504,17 @@ export default function MotoristaPerfilPage() {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Eixos da carreta</label>
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={trailerAxles}
                   onChange={(e) => {
-                    setTrailerAxles(e.target.value);
+                    // Só dígitos, máximo 2 (range 2..9, mas evita 99 errado também)
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 2);
+                    setTrailerAxles(digits);
                     markDirty('veiculo');
                   }}
                   placeholder="6"
-                  min={2}
-                  max={9}
+                  maxLength={2}
                   data-error={fieldErrors.trailerAxles ? 'true' : undefined}
                   className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.trailerAxles ? 'border-red-400' : 'border-gray-300'
@@ -1514,18 +1526,20 @@ export default function MotoristaPerfilPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Capacidade (toneladas)</label>
+                <label className="block text-xs text-gray-600 mb-1">
+                  Capacidade (toneladas)
+                </label>
                 <input
-                  type="number"
-                  step="0.1"
+                  type="text"
+                  inputMode="numeric"
                   value={cargoCapacityTon}
                   onChange={(e) => {
-                    setCargoCapacityTon(e.target.value);
+                    // Máx 5 dígitos crus (ex: "47000" → "47,000")
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 5);
+                    setCargoCapacityTon(maskDecimal(digits, 3));
                     markDirty('veiculo');
                   }}
-                  placeholder="30"
-                  min={1}
-                  max={80}
+                  placeholder="30,000"
                   data-error={fieldErrors.cargoCapacityTon ? 'true' : undefined}
                   className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.cargoCapacityTon ? 'border-red-400' : 'border-gray-300'
@@ -1541,16 +1555,14 @@ export default function MotoristaPerfilPage() {
                   Valor do diesel (R$/litro)
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="numeric"
                   value={dieselPrice}
                   onChange={(e) => {
-                    setDieselPrice(e.target.value);
+                    setDieselPrice(maskDecimal(e.target.value, 2));
                     markDirty('veiculo');
                   }}
-                  placeholder="5.99"
-                  min={1}
-                  max={20}
+                  placeholder="5,99"
                   data-error={fieldErrors.dieselPrice ? 'true' : undefined}
                   className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     fieldErrors.dieselPrice ? 'border-red-400' : 'border-gray-300'
@@ -1584,6 +1596,44 @@ export default function MotoristaPerfilPage() {
                 onUpload={handleDocUpload}
                 onDelete={handleDocDelete}
               />
+
+              {/* Tipo de RNTRC (ANTT) — Pessoa Física ou Jurídica */}
+              <div className="col-span-1 md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs font-semibold text-blue-800 mb-1.5">
+                  Tipo da sua RNTRC (ANTT)
+                </p>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                    <input
+                      type="radio"
+                      name="rntrc_type"
+                      value="fisica"
+                      checked={rntrcType === 'fisica'}
+                      onChange={() => {
+                        setRntrcType('fisica');
+                        markDirty('veiculo');
+                      }}
+                      className="accent-blue-600"
+                    />
+                    Pessoa Física
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer text-sm text-gray-700">
+                    <input
+                      type="radio"
+                      name="rntrc_type"
+                      value="juridica"
+                      checked={rntrcType === 'juridica'}
+                      onChange={() => {
+                        setRntrcType('juridica');
+                        markDirty('veiculo');
+                      }}
+                      className="accent-blue-600"
+                    />
+                    Pessoa Jurídica
+                  </label>
+                </div>
+              </div>
+
               <DocSlot
                 slot={{ type: 'rntrc_cavalo', label: 'RNTRC do cavalo', accept: PDF_IMG }}
                 doc={documents.rntrc_cavalo}

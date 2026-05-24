@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { updateDieselPrice } from '../services/motorista';
+import { maskDecimal, maskedToNumber, numberToMasked } from '../utils/numberMask';
 
 interface DieselDashboardInputProps {
   userId: string;
@@ -8,45 +9,10 @@ interface DieselDashboardInputProps {
   onError?: (msg: string) => void;
 }
 
-const DEBOUNCE_MS = 600;
-
-/**
- * Hook utilitário interno: chama `fn` apenas após `delay` ms de
- * inatividade. Cancela a chamada anterior se uma nova for agendada.
- * Limpa o timer no unmount para não disparar request órfão.
- */
-function useDebouncedCallback<TArgs extends unknown[]>(
-  fn: (...args: TArgs) => void,
-  delay: number
-) {
-  const timer = useRef<number | null>(null);
-  const fnRef = useRef(fn);
-
-  useEffect(() => {
-    fnRef.current = fn;
-  }, [fn]);
-
-  useEffect(
-    () => () => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-    },
-    []
-  );
-
-  return useCallback(
-    (...args: TArgs) => {
-      if (timer.current !== null) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => {
-        fnRef.current(...args);
-      }, delay);
-    },
-    [delay]
-  );
-}
-
 /**
  * Input do valor do diesel exibido em destaque no centro do header
- * do dashboard do motorista. Persistência é debounced em 600 ms.
+ * do dashboard do motorista. Persistência manual via botão "OK"
+ * ou tecla Enter — sem auto-save por debounce.
  *
  * Em caso de erro de rede, reverte para o último valor confirmado
  * e dispara `onError` para a UI mostrar um toast.
@@ -57,7 +23,8 @@ export default function DieselDashboardInput({
   onSaved,
   onError,
 }: DieselDashboardInputProps) {
-  const [value, setValue] = useState<string>(initialValue !== null ? initialValue.toFixed(2) : '');
+  const [value, setValue] = useState<string>(numberToMasked(initialValue, 2));
+  const [isSaving, setIsSaving] = useState(false);
 
   // Token monotônico para descartar respostas de requests antigos
   // que retornaram depois de um request mais recente (anti-race).
@@ -67,80 +34,88 @@ export default function DieselDashboardInput({
   // input em caso de erro.
   const lastSavedRef = useRef<number | null>(initialValue);
 
-  // Sincroniza quando initialValue muda externamente (ex: outra
-  // página atualizou o diesel e o pai propaga o novo valor).
+  // Sincroniza quando initialValue muda externamente.
   useEffect(() => {
-    setValue(initialValue !== null ? initialValue.toFixed(2) : '');
+    setValue(numberToMasked(initialValue, 2));
     lastSavedRef.current = initialValue;
   }, [initialValue]);
 
-  const persist = useCallback(
-    async (priceStr: string) => {
-      // Permite limpar o campo sem disparar erro. O valor vazio
-      // representa "ainda não preenchido" — não é um erro.
-      if (priceStr.trim() === '') {
-        return;
-      }
+  const persist = useCallback(async () => {
+    if (value.trim() === '') {
+      onError?.('Informe o valor do diesel.');
+      return;
+    }
 
-      const num = parseFloat(priceStr);
-      if (Number.isNaN(num) || num < 1.0 || num > 20.0) {
-        // Range inválido: reverte e avisa.
-        if (lastSavedRef.current !== null) {
-          setValue(lastSavedRef.current.toFixed(2));
-        } else {
-          setValue('');
-        }
-        onError?.('Valor do diesel deve estar entre R$ 1,00 e R$ 20,00');
-        return;
-      }
+    const num = maskedToNumber(value, 2);
+    if (Number.isNaN(num) || num < 1.0 || num > 20.0) {
+      onError?.('Valor do diesel deve estar entre R$ 1,00 e R$ 20,00');
+      return;
+    }
 
-      const myReq = ++lastReqRef.current;
-      try {
-        await updateDieselPrice(userId, num);
-        // Descarta resposta velha sobreposta por uma mais recente.
-        if (myReq !== lastReqRef.current) return;
-        lastSavedRef.current = num;
-        onSaved(num);
-      } catch (err) {
-        if (myReq !== lastReqRef.current) return;
-        // Reverte o display para o último valor válido.
-        if (lastSavedRef.current !== null) {
-          setValue(lastSavedRef.current.toFixed(2));
-        } else {
-          setValue('');
-        }
-        const msg =
-          err instanceof Error ? err.message : 'Não foi possível salvar o valor do diesel';
-        onError?.(msg);
-      }
-    },
-    [userId, onSaved, onError]
-  );
+    // Já está no valor salvo? Não dispara request.
+    if (lastSavedRef.current !== null && Math.abs(num - lastSavedRef.current) < 0.005) {
+      return;
+    }
 
-  const debouncedPersist = useDebouncedCallback(persist, DEBOUNCE_MS);
+    const myReq = ++lastReqRef.current;
+    setIsSaving(true);
+    try {
+      await updateDieselPrice(userId, num);
+      if (myReq !== lastReqRef.current) return;
+      lastSavedRef.current = num;
+      setValue(numberToMasked(num, 2));
+      onSaved(num);
+    } catch (err) {
+      if (myReq !== lastReqRef.current) return;
+      setValue(numberToMasked(lastSavedRef.current, 2));
+      const msg = err instanceof Error ? err.message : 'Não foi possível salvar o valor do diesel';
+      onError?.(msg);
+    } finally {
+      if (myReq === lastReqRef.current) setIsSaving(false);
+    }
+  }, [value, userId, onSaved, onError]);
 
   const handleChange = (raw: string) => {
-    // Aceita apenas dígitos e ponto (separador decimal de input HTML).
-    // Vírgula é permitida e convertida para ponto (UX brasileira).
-    const cleaned = raw.replace(/[^0-9.,]/g, '').replace(',', '.');
-    setValue(cleaned);
-    debouncedPersist(cleaned);
+    setValue(maskDecimal(raw, 2));
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      persist();
+    }
+  };
+
+  // Indica se há mudança não-salva
+  const currentNum = maskedToNumber(value, 2);
+  const isDirty =
+    value.trim() !== '' &&
+    !Number.isNaN(currentNum) &&
+    (lastSavedRef.current === null || Math.abs(currentNum - lastSavedRef.current) >= 0.005);
+
   return (
-    <div className="inline-flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow-sm">
-      <span className="text-xs text-gray-500 font-medium">Diesel hoje</span>
-      <span className="text-xs text-gray-400">R$</span>
+    <div className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 shadow-sm">
+      <span className="text-[10px] text-gray-500 font-medium">Diesel</span>
+      <span className="text-[10px] text-gray-400">R$</span>
       <input
         type="text"
-        inputMode="decimal"
+        inputMode="numeric"
         value={value}
         onChange={(e) => handleChange(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="0,00"
         aria-label="Valor do diesel por litro na sua região"
-        className="w-16 text-sm font-semibold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-0 text-center"
+        className="w-12 text-xs font-semibold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-0 text-center"
       />
-      <span className="text-xs text-gray-400">/L</span>
+      <span className="text-[10px] text-gray-400">/L</span>
+      <button
+        type="button"
+        onClick={persist}
+        disabled={isSaving || !isDirty}
+        className="ml-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-semibold rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        {isSaving ? '...' : 'OK'}
+      </button>
     </div>
   );
 }

@@ -44,6 +44,8 @@ export interface MotoristaProfile {
   ownerCompanyName?: string;
   ownerPisNumber?: string;
   ownerIsDriver?: boolean;
+  /** Tipo de RNTRC do motorista (Migration 022). */
+  rntrcType?: 'fisica' | 'juridica';
   // =============================================================================
   createdAt: Date;
   updatedAt: Date;
@@ -78,6 +80,7 @@ export interface UpdateMotoristaProfileData {
   ownerCompanyName?: string;
   ownerPisNumber?: string;
   ownerIsDriver?: boolean;
+  rntrcType?: 'fisica' | 'juridica';
 }
 
 /**
@@ -99,6 +102,8 @@ export interface MotoristaReference {
 export interface MotoristaCalcContext {
   kmPerLiter: number | null;
   dieselPrice: number | null;
+  /** Capacidade de carga em toneladas — usado quando o frete é cobrado por tonelada. */
+  cargoCapacityTon: number | null;
 }
 
 /**
@@ -155,6 +160,7 @@ export async function getMotoristaProfile(userId: string): Promise<MotoristaProf
     ownerCompanyName: data.owner_company_name ?? undefined,
     ownerPisNumber: data.owner_pis_number ?? undefined,
     ownerIsDriver: data.owner_is_driver ?? undefined,
+    rntrcType: data.rntrc_type ?? undefined,
     // =========================================================================
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
@@ -216,6 +222,7 @@ export async function updateMotoristaProfile(
     motoristaUpdate.owner_company_name = data.ownerCompanyName;
   if (data.ownerPisNumber !== undefined) motoristaUpdate.owner_pis_number = data.ownerPisNumber;
   if (data.ownerIsDriver !== undefined) motoristaUpdate.owner_is_driver = data.ownerIsDriver;
+  if (data.rntrcType !== undefined) motoristaUpdate.rntrc_type = data.rntrcType;
   // ===========================================================================
 
   if (Object.keys(motoristaUpdate).length > 0) {
@@ -250,15 +257,15 @@ export async function updateDieselPrice(userId: string, price: number): Promise<
 export async function getMotoristaCalcContext(userId: string): Promise<MotoristaCalcContext> {
   const { data, error } = await supabase
     .from('motoristas')
-    .select('km_per_liter, diesel_price')
+    .select('km_per_liter, diesel_price, cargo_capacity_ton')
     .eq('id', userId)
     .maybeSingle();
 
   if (error) {
-    return { kmPerLiter: null, dieselPrice: null };
+    return { kmPerLiter: null, dieselPrice: null, cargoCapacityTon: null };
   }
   if (!data) {
-    return { kmPerLiter: null, dieselPrice: null };
+    return { kmPerLiter: null, dieselPrice: null, cargoCapacityTon: null };
   }
 
   return {
@@ -269,6 +276,10 @@ export async function getMotoristaCalcContext(userId: string): Promise<Motorista
     dieselPrice:
       data.diesel_price !== null && data.diesel_price !== undefined
         ? Number(data.diesel_price)
+        : null,
+    cargoCapacityTon:
+      data.cargo_capacity_ton !== null && data.cargo_capacity_ton !== undefined
+        ? Number(data.cargo_capacity_ton)
         : null,
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
   getFretesByEmbarcador,
@@ -13,6 +13,7 @@ import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
 import FreteForm from '../components/FreteForm';
 import FreteTable from '../components/FreteTable';
+import MotoristaInteressadoModal from '../components/MotoristaInteressadoModal';
 import { useIsMobile } from '../hooks/useIsMobile';
 import {
   getEmbarcadorProfile,
@@ -34,6 +35,19 @@ export default function EmbarcadorPage() {
   const [whatsapp, setWhatsapp] = useState('');
   const [progress, setProgress] = useState<EmbarcadorOnboardingProgress | null>(null);
   const isMobile = useIsMobile();
+
+  // Modal "Motorista interessado" (vem de notificação ?frete=X&motorista=Y)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const interesseFreteId = searchParams.get('frete');
+  const interesseMotoristaId = searchParams.get('motorista');
+  const interesseAberto = !!interesseFreteId;
+
+  const closeInteresseModal = () => {
+    const next = new URLSearchParams(searchParams);
+    next.delete('frete');
+    next.delete('motorista');
+    setSearchParams(next, { replace: true });
+  };
 
   const canPostFrete = !!progress && progress.percent >= 100;
 
@@ -361,6 +375,14 @@ export default function EmbarcadorPage() {
           setSelectedFrete(null);
         }}
         embarcadorWhatsApp={whatsapp}
+      />
+
+      {/* Modal: Motorista interessado (clicado via notificação) */}
+      <MotoristaInteressadoModal
+        freteId={interesseFreteId}
+        motoristaId={interesseMotoristaId}
+        isOpen={interesseAberto}
+        onClose={closeInteresseModal}
       />
 
       {/* Modal: Postar/Editar frete */}

@@ -3,6 +3,7 @@ import type { MotoristaCalcContext } from '../services/motorista';
 import { useAuth } from '../hooks/useAuth';
 import { Link } from 'react-router-dom';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
+import LikeButton from './LikeButton';
 
 interface FreteCardProps {
   frete: Frete;
@@ -16,9 +17,22 @@ interface FreteCardProps {
    * e embarcadores).
    */
   motoristaCalc?: MotoristaCalcContext;
+  /** Mostra o coração no canto superior direito (apenas motorista). */
+  showLikeButton?: boolean;
+  /** Estado inicial do coração — vem do hidrato global. */
+  initialLiked?: boolean;
+  /** Callback chamado quando o motorista alterna o coração. */
+  onLikeToggle?: (freteId: string, liked: boolean) => void;
 }
 
-export default function FreteCard({ frete, onClick, motoristaCalc }: FreteCardProps) {
+export default function FreteCard({
+  frete,
+  onClick,
+  motoristaCalc,
+  showLikeButton,
+  initialLiked,
+  onLikeToggle,
+}: FreteCardProps) {
   const { isAuthenticated } = useAuth();
 
   const formatCurrency = (value: number) =>
@@ -48,13 +62,23 @@ export default function FreteCard({ frete, onClick, motoristaCalc }: FreteCardPr
         <h3 className="text-sm font-semibold text-gray-800 truncate flex-1">
           {frete.origin} → {frete.destination}
         </h3>
-        <span
-          className={`shrink-0 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-            statusStyles[frete.status] || 'bg-gray-100 text-gray-600'
-          }`}
-        >
-          {statusLabels[frete.status] || frete.status}
-        </span>
+        <div className="flex items-center gap-1 shrink-0">
+          <span
+            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+              statusStyles[frete.status] || 'bg-gray-100 text-gray-600'
+            }`}
+          >
+            {statusLabels[frete.status] || frete.status}
+          </span>
+          {showLikeButton && (
+            <LikeButton
+              freteId={frete.id}
+              initialLiked={initialLiked}
+              size="sm"
+              onToggled={(liked) => onLikeToggle?.(frete.id, liked)}
+            />
+          )}
+        </div>
       </div>
 
       {/* Produto + Veículo (compacto, em uma linha cada) */}
@@ -129,17 +153,35 @@ export default function FreteCard({ frete, onClick, motoristaCalc }: FreteCardPr
             );
           }
 
+          // Detecta modo de pagamento do frete:
+          //   - 'toneladas' / 'quilos' → bruto = valor × capacidade.
+          //   - 'total' ou ausente → bruto = valor (frete fechado).
+          const isPerTon =
+            frete.priceCalculation === 'toneladas' || frete.priceCalculation === 'quilos';
+          const cap = motoristaCalc.cargoCapacityTon ?? null;
+          // Se o motorista não cadastrou capacidade, não dá pra estimar
+          // por tonelada; cai pra modo fechado pra não esconder o card.
+          const effectivePerTon = isPerTon && cap !== null && cap > 0;
+
           const calc = calculateFreteFinanceiro({
             distanceKm: frete.distanceKm,
             kmPerLiter: motoristaCalc.kmPerLiter as number,
             dieselPrice: motoristaCalc.dieselPrice as number,
             freteValue: frete.value,
+            cargoCapacityTon: effectivePerTon ? (cap as number) : 1,
+            pricingMode: effectivePerTon ? 'per_ton' : 'closed',
           });
 
           const lucroColor = calc.lucroLiquido >= 0 ? 'text-green-700' : 'text-red-600';
 
           return (
             <div className="mt-2 p-2 bg-blue-50/60 border border-blue-100 rounded space-y-0.5">
+              <div className="flex justify-between text-[11px]">
+                <span className="text-gray-600">Consumo</span>
+                <span className="font-medium text-gray-800">
+                  {motoristaCalc.kmPerLiter} km/L
+                </span>
+              </div>
               <div className="flex justify-between text-[11px]">
                 <span className="text-gray-600">Litros estimados</span>
                 <span className="font-medium text-gray-800">
@@ -152,14 +194,27 @@ export default function FreteCard({ frete, onClick, motoristaCalc }: FreteCardPr
                   {formatCurrencyBRL(calc.custoDiesel)}
                 </span>
               </div>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-gray-600">Pedágio (em breve)</span>
-                <span className="font-medium text-gray-400">—</span>
-              </div>
+              {effectivePerTon ? (
+                <>
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-600">
+                      Frete (R$/ton × {cap}t)
+                    </span>
+                    <span className="font-medium text-gray-800">
+                      {formatCurrencyBRL(calc.brutoRecebido)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-600">Valor do frete</span>
+                  <span className="font-medium text-gray-800">
+                    {formatCurrencyBRL(calc.brutoRecebido)}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between text-[11px] pt-1 border-t border-blue-100">
-                <span className="text-gray-700 font-semibold">
-                  Lucro líquido <span className="text-gray-400 font-normal">(sem pedágio)</span>
-                </span>
+                <span className="text-gray-700 font-semibold">Lucro líquido</span>
                 <span className={`font-bold ${lucroColor}`}>
                   {formatCurrencyBRL(calc.lucroLiquido)}
                 </span>
