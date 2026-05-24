@@ -17,6 +17,9 @@ import AdminMfaVerifyPage from '../../pages/admin/AdminMfaVerifyPage';
 import AdminDashboardPage from '../../pages/admin/AdminDashboardPage';
 import AdminAuditPage from '../../pages/admin/AdminAuditPage';
 import AdminProfilePage from '../../pages/admin/AdminProfilePage';
+import UsersListPage from '../../pages/admin/users/UsersListPage';
+import AdminsListPage from '../../pages/admin/users/AdminsListPage';
+import UserDetailPage from '../../pages/admin/users/UserDetailPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -28,6 +31,9 @@ export default function AdminLayoutRoute() {
         <Route element={<AdminGuard />}>
           <Route element={<AdminShell />}>
             <Route index element={<AdminDashboardPage />} />
+            <Route path="users" element={<UsersListPage />} />
+            <Route path="users/admins" element={<AdminsListPage />} />
+            <Route path="users/:id" element={<UserDetailPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="perfil" element={<AdminProfilePage />} />
           </Route>
