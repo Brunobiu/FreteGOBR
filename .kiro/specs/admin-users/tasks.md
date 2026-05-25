@@ -331,7 +331,7 @@ Convenções:
     - Sequência: aplicar migration 031 → login admin → `/admin/users` (filtros, busca, sort, paginação, export CSV) → `/admin/users/:id` (6 blocos, ações destrutivas, edição com STALE_VERSION simulado) → `/admin/users/admins` (grant/revoke, Last_Super_Admin protegido, Master imutável) → bulk action com Master/self na seleção.
     - Casos negativos: SUPORTE acessando `/admin/users/admins` ⇒ Stealth 404; SUPORTE tentando DELETE via cliente Supabase ⇒ 0 linhas afetadas.
 
-  - [~] 10.2 Aplicar migration `031_admin_users.sql` em Supabase de desenvolvimento
+  - [ ] 10.2 Aplicar migration `031_admin_users.sql` em Supabase de desenvolvimento
     - Executar via psql ou Supabase Studio.
     - Rodar bloco `-- VERIFY` e validar todos os SELECTs retornando esperado (3 colunas, 4 triggers, 3 RPCs, 12 policies).
     - _Requirements: 19.1, 19.2, 19.3, 19.5, 19.7_

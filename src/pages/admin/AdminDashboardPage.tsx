@@ -1,42 +1,285 @@
 /**
- * AdminDashboardPage - placeholder
+ * AdminDashboardPage - /admin (rota indice)
  *
- * Conteudo completo de metricas/graficos sera entregue na spec admin-dashboard.
- * Por ora, exibe cards basicos de seguranca e atalhos.
+ * Dashboard analitico do painel admin. Substitui o placeholder.
+ * Gated por DASHBOARD_VIEW (renderiza Stealth_404 quando ausente).
+ *
+ * Cada bloco isola seu erro proprio (degradacao parcial — CP-2).
  */
 
-import { Link } from 'react-router-dom';
-import { useAdminContext } from '../../components/admin/AdminProvider';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import {
+  downloadCsvBlob,
+  exportCSV,
+  formatBRL,
+  getMetrics,
+  parseFiltersFromQuery,
+  serializeFiltersToQuery,
+  type DashboardFilters,
+  type DashboardMetricsBundle,
+  type DashboardServiceError,
+} from '../../services/admin/dashboard';
+import { useAdminPermission } from '../../hooks/useAdminPermission';
+import Stealth404 from '../../components/admin/Stealth404';
+import DashboardTopBar from '../../components/admin/dashboard/DashboardTopBar';
+import DashboardKpiGrid from '../../components/admin/dashboard/DashboardKpiGrid';
+import DashboardTrendChart from '../../components/admin/dashboard/DashboardTrendChart';
+import DashboardGeoMap from '../../components/admin/dashboard/DashboardGeoMap';
+import DashboardSecurityAlerts from '../../components/admin/dashboard/DashboardSecurityAlerts';
+import DashboardTopList from '../../components/admin/dashboard/DashboardTopList';
+import DashboardBlockSkeleton from '../../components/admin/dashboard/DashboardBlockSkeleton';
+import DashboardBlockError from '../../components/admin/dashboard/DashboardBlockError';
+
+interface PageState {
+  status: 'loading' | 'ready' | 'error';
+  bundle?: DashboardMetricsBundle;
+  error?: DashboardServiceError;
+}
 
 export default function AdminDashboardPage() {
-  const { roles } = useAdminContext();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialFilters = useMemo(() => parseFiltersFromQuery(searchParams), [searchParams]);
+  const [filters, setFilters] = useState<DashboardFilters>(initialFilters);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [state, setState] = useState<PageState>({ status: 'loading' });
+  const [exporting, setExporting] = useState(false);
+
+  const { allowed: canView } = useAdminPermission('DASHBOARD_VIEW');
+  const { allowed: hasFinanceiro } = useAdminPermission('FINANCEIRO_VIEW');
+  const { allowed: hasAudit } = useAdminPermission('AUDIT_VIEW');
+
+  // Sincroniza URL <- filters
+  useEffect(() => {
+    setSearchParams(serializeFiltersToQuery(filters), { replace: true });
+  }, [filters, setSearchParams]);
+
+  // Carrega bundle quando filtros ou refreshKey mudam
+  useEffect(() => {
+    if (!canView) return;
+    let cancelled = false;
+    setState({ status: 'loading' });
+    getMetrics(filters)
+      .then((b) => {
+        if (cancelled) return;
+        setState({ status: 'ready', bundle: b });
+      })
+      .catch((e: DashboardServiceError) => {
+        if (cancelled) return;
+        setState({ status: 'error', error: e });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canView, filters, refreshKey]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  const onExport = useCallback(async () => {
+    if (state.status !== 'ready') return;
+    setExporting(true);
+    try {
+      const result = await exportCSV(filters, { hasFinanceiro, hasAudit });
+      downloadCsvBlob(result.csv, result.filename);
+      if (result.truncated) {
+        // eslint-disable-next-line no-alert
+        alert('Export limitado a 10000 linhas. Refine os filtros para exportar mais.');
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-alert
+      alert((err as Error).message ?? 'Falha ao exportar CSV.');
+    } finally {
+      setExporting(false);
+    }
+  }, [filters, hasFinanceiro, hasAudit, state.status]);
+
+  if (!canView) return <Stealth404 />;
+
+  const bundle = state.bundle;
+  const loading = state.status === 'loading';
+  const globalError =
+    state.status === 'error' ? (state.error?.message ?? 'Erro desconhecido') : undefined;
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-            Papéis ativos
+    <div className="space-y-3">
+      <DashboardTopBar
+        filters={filters}
+        onChangeFilters={setFilters}
+        onRefresh={onRefresh}
+        onExport={() => void onExport()}
+        canExport={state.status === 'ready'}
+        exporting={exporting}
+      />
+
+      {/* KPIs */}
+      <DashboardKpiGrid
+        bundle={bundle}
+        loading={loading}
+        error={globalError}
+        onRetry={onRefresh}
+        filters={filters}
+      />
+
+      {/* Graficos de tendencia */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {loading ? (
+          <DashboardBlockSkeleton className="h-64" />
+        ) : globalError || bundle?.errors.cadastros ? (
+          <div data-block="cadastros">
+            <DashboardBlockError
+              message={globalError ?? bundle?.errors.cadastros}
+              onRetry={onRefresh}
+            />
           </div>
-          <div className="text-sm font-semibold text-gray-100">
-            {roles.length === 0 ? 'Nenhum' : roles.join(', ')}
+        ) : bundle ? (
+          <div data-block="cadastros">
+            <DashboardTrendChart
+              title="Cadastros novos por dia"
+              ariaLabel="Cadastros novos por dia: motoristas e embarcadores"
+              series={[
+                ...(filters.userType !== 'embarcador'
+                  ? [
+                      {
+                        name: 'Motoristas',
+                        color: '#3b82f6',
+                        points: bundle.series.cadastrosMotoristas,
+                      },
+                    ]
+                  : []),
+                ...(filters.userType !== 'motorista'
+                  ? [
+                      {
+                        name: 'Embarcadores',
+                        color: '#f97316',
+                        points: bundle.series.cadastrosEmbarcadores,
+                      },
+                    ]
+                  : []),
+              ]}
+            />
           </div>
+        ) : null}
+
+        {loading ? (
+          <DashboardBlockSkeleton className="h-64" />
+        ) : globalError || bundle?.errors.fretes ? (
+          <div data-block="fretes">
+            <DashboardBlockError
+              message={globalError ?? bundle?.errors.fretes}
+              onRetry={onRefresh}
+            />
+          </div>
+        ) : bundle ? (
+          <div data-block="fretes">
+            <DashboardTrendChart
+              title="Fretes postados vs encerrados"
+              ariaLabel="Fretes postados vs encerrados por dia"
+              series={[
+                {
+                  name: 'Postados',
+                  color: '#22c55e',
+                  points: bundle.series.fretesPostados,
+                },
+                {
+                  name: 'Encerrados',
+                  color: '#9ca3af',
+                  points: bundle.series.fretesEncerrados,
+                },
+              ]}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {/* Volume diario (gated FINANCEIRO_VIEW) */}
+      {hasFinanceiro && bundle?.series.volumeDiario && (
+        <div data-block="volume">
+          <DashboardTrendChart
+            title="Volume transacionado por dia"
+            ariaLabel="Volume transacionado por dia em reais"
+            series={[
+              {
+                name: 'Volume',
+                color: '#0891b2',
+                points: bundle.series.volumeDiario,
+              },
+            ]}
+            formatter={(n) => formatBRL(n)}
+          />
         </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">
-            Eventos de segurança (24h)
-          </div>
-          <div className="text-sm font-semibold text-gray-100">Nenhum incidente recente</div>
+      )}
+
+      {/* Mapa geografico */}
+      {loading ? (
+        <DashboardBlockSkeleton className="h-80" />
+      ) : globalError || bundle?.errors.geo ? (
+        <div data-block="geo">
+          <DashboardBlockError message={globalError ?? bundle?.errors.geo} onRetry={onRefresh} />
         </div>
-        <div className="rounded-lg border border-gray-800 bg-gray-900 p-3">
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Atalhos</div>
-          <div className="flex flex-col gap-1 mt-1 text-xs">
-            <Link to="/admin/audit" className="text-cyan-400 hover:underline">
-              Ver auditoria
-            </Link>
+      ) : bundle ? (
+        <div data-block="geo">
+          <DashboardGeoMap
+            fretesAtivos={bundle.geo.fretesAtivos}
+            usuariosAtivos={bundle.geo.usuariosAtivos}
+          />
+        </div>
+      ) : null}
+
+      {/* Alertas + tops */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {hasAudit && (
+          <div className="space-y-3">
+            {loading ? (
+              <DashboardBlockSkeleton className="h-48" />
+            ) : (
+              <DashboardSecurityAlerts
+                alerts={bundle?.securityAlerts?.items ?? null}
+                error={globalError}
+                onRetry={onRefresh}
+              />
+            )}
           </div>
+        )}
+
+        <div className="space-y-3">
+          {loading ? (
+            <DashboardBlockSkeleton className="h-48" />
+          ) : (
+            <>
+              {hasFinanceiro && bundle?.topEmbarcadores && (
+                <div data-block="top_embarcadores">
+                  <DashboardTopList
+                    title="Top embarcadores"
+                    items={bundle.topEmbarcadores.items}
+                    error={globalError ?? bundle.errors.top_embarcadores}
+                    onRetry={onRefresh}
+                  />
+                </div>
+              )}
+              <div data-block="top_motoristas">
+                <DashboardTopList
+                  title="Top motoristas"
+                  items={bundle?.topMotoristas.items ?? null}
+                  error={globalError ?? bundle?.errors.top_motoristas}
+                  onRetry={onRefresh}
+                />
+              </div>
+              <div data-block="top_rotas">
+                <DashboardTopList
+                  title="Top rotas"
+                  items={bundle?.topRotas.items ?? null}
+                  error={globalError ?? bundle?.errors.top_rotas}
+                  onRetry={onRefresh}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
     </div>
   );
 }

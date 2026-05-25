@@ -39,6 +39,7 @@ export const ADMIN_ACTIONS = [
   'AUDIT_VIEW',
   'ADMIN_ROLE_GRANT',
   'ADMIN_ROLE_REVOKE',
+  'DASHBOARD_VIEW',
 ] as const;
 
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
@@ -51,6 +52,7 @@ const FINANCEIRO_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
   'FINANCEIRO_VIEW',
   'FINANCEIRO_EDIT',
   'AUDIT_VIEW',
+  'DASHBOARD_VIEW',
 ]);
 
 const SUPORTE_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
@@ -61,6 +63,7 @@ const SUPORTE_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
   'SUPORTE_REPLY',
   'CRM_VIEW',
   'BLACKLIST_VIEW',
+  'DASHBOARD_VIEW',
 ]);
 
 const MODERADOR_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([

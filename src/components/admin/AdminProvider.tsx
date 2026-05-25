@@ -47,6 +47,22 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [now, setNow] = useState(Date.now());
   const navigate = useNavigate();
 
+  // Mantem roles em sincronia com session.roles (ressync quando session muda)
+  useEffect(() => {
+    setRoles(session?.roles ?? []);
+  }, [session?.roles]);
+
+  // No mount: revalida roles via RPC para garantir snapshot fresco do banco
+  // (cobre casos onde a sessao local ficou com roles vazios apos reload)
+  useEffect(() => {
+    if (!session) return;
+    void (async () => {
+      const result = await validateAdminSession();
+      if (result.isValid) setRoles(result.roles);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.userId]);
+
   // Tick de 1s pro countdown
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);

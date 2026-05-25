@@ -392,7 +392,7 @@ Convenções:
     - Sequência: aplicar migration 032 → login admin → `/admin/fretes` (filtros, busca, sort, paginação, alertas, export CSV) → `/admin/fretes/:id` (7 blocos, ações destrutivas, edição com STALE_VERSION simulado, moderar conteúdo, sinalizar/remover sinalização) → bulk encerrar/cancelar com fretes de status mistos.
     - Casos negativos: SUPORTE tentando UPDATE direto via cliente Supabase ⇒ 0 linhas afetadas; MODERADOR tentando editar `cargo_type` ⇒ botão `Editar` ausente; reativar frete de embarcador banido ⇒ toast `EMBARCADOR_INACTIVE`; encerrar frete cancelado ⇒ toast `INVALID_STATUS_TRANSITION`.
 
-  - [~] 10.2 Aplicar migration `032_admin_fretes.sql` em Supabase de desenvolvimento
+  - [ ] 10.2 Aplicar migration `032_admin_fretes.sql` em Supabase de desenvolvimento
     - Executar via psql ou Supabase Studio.
     - Rodar bloco `-- VERIFY` e validar todos os SELECTs retornando esperado (5 colunas, 4 constraints, 4 índices, 1 RPC, 5 policies, FK com `confdeltype='c'`).
     - _Requirements: 17.1, 17.2, 17.3, 17.5, 17.7_
