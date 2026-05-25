@@ -45,15 +45,25 @@ export default class ErrorBoundary extends Component<Props, State> {
             <p className="text-sm text-gray-400 mb-4">
               {this.state.error?.message || 'Ocorreu um erro inesperado.'}
             </p>
-            <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.href = '/';
-              }}
-              className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-            >
-              Voltar ao início
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => {
+                  // Recupera tentando re-renderizar a árvore atual sem hard reload.
+                  // Hard reload faz o AuthProvider rodar getCurrentUser() de novo
+                  // e, em conexão ruim, pode falhar e deslogar o usuário.
+                  this.setState({ hasError: false, error: null });
+                }}
+                className="px-5 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
+              >
+                Tentar novamente
+              </button>
+              <a
+                href="/"
+                className="px-5 py-2 bg-gray-800 text-gray-300 text-sm rounded-lg hover:bg-gray-700 text-center"
+              >
+                Voltar ao início
+              </a>
+            </div>
           </div>
         </div>
       );

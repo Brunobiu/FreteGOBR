@@ -31,7 +31,19 @@ export default function MfaVerifyForm({ userId, onSuccess }: Props) {
         );
         return;
       }
-      onSuccess(result.usedBackupCode);
+      // Captura erros do onSuccess (markMfaVerified, audit log, navigate)
+      // pra evitar que falhe silenciosamente e o usuario fique preso na tela.
+      try {
+        onSuccess(result.usedBackupCode);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[MfaVerifyForm] onSuccess falhou:', err);
+        setError('Codigo verificado, mas a navegacao falhou. Recarregue a pagina.');
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[MfaVerifyForm] verifyMfa lancou:', err);
+      setError('Falha ao verificar codigo. Tente novamente.');
     } finally {
       setBusy(false);
     }

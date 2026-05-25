@@ -26,12 +26,22 @@ export default function AdminMfaVerifyPage() {
         <MfaVerifyForm
           userId={session.userId}
           onSuccess={(usedBackupCode) => {
+            // Persiste a flag mfaVerified no localStorage ANTES de navegar.
             markMfaVerified();
+
+            // Audit log em background (não bloqueia navegação)
             void logAdminAction({
               action: 'ADMIN_MFA_VERIFY',
               after: { usedBackupCode },
-            });
-            navigate('/admin', { replace: true });
+            }).catch(() => null);
+
+            // Pequeno delay garante que o write em localStorage foi consolidado
+            // antes do AdminGuard montar e chamar validateAdminSession().
+            // Sem isso, mobile com I/O lento pode ler localStorage antigo
+            // e cair em Stealth404 por mfa_required.
+            setTimeout(() => {
+              navigate('/admin', { replace: true });
+            }, 50);
           }}
         />
       </div>
