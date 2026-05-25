@@ -13,6 +13,8 @@ export interface EmbarcadorProfile {
   whatsapp?: string;
   rating: number;
   totalRatings: number;
+  branchState?: string | null;
+  branchCity?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,6 +26,8 @@ export interface UpdateEmbarcadorProfileData {
   cnpj?: string;
   whatsapp?: string;
   companyLogoUrl?: string;
+  branchState?: string | null;
+  branchCity?: string | null;
 }
 
 export interface EmbarcadorOnboardingProgress {
@@ -62,6 +66,8 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
     whatsapp: data.whatsapp,
     rating: data.rating,
     totalRatings: data.total_ratings,
+    branchState: (data as unknown as { branch_state?: string | null }).branch_state ?? null,
+    branchCity: (data as unknown as { branch_city?: string | null }).branch_city ?? null,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
   };
@@ -87,11 +93,14 @@ export async function updateEmbarcadorProfile(
   }
 
   // Update embarcador table
-  const embarcadorUpdate: Record<string, string> = {};
+  const embarcadorUpdate: Record<string, string | null> = {};
   if (data.companyName !== undefined) embarcadorUpdate.company_name = data.companyName;
   if (data.cnpj !== undefined) embarcadorUpdate.cnpj = data.cnpj;
   if (data.whatsapp !== undefined) embarcadorUpdate.whatsapp = data.whatsapp;
   if (data.companyLogoUrl !== undefined) embarcadorUpdate.company_logo_url = data.companyLogoUrl;
+  if (data.branchState !== undefined)
+    embarcadorUpdate.branch_state = data.branchState ? data.branchState.toUpperCase() : null;
+  if (data.branchCity !== undefined) embarcadorUpdate.branch_city = data.branchCity ?? null;
 
   if (Object.keys(embarcadorUpdate).length > 0) {
     const { error: embarcadorError } = await supabase

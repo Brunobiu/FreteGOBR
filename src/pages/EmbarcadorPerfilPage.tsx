@@ -23,6 +23,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import BarraProgressoCadastro from '../components/BarraProgressoCadastro';
 import LogoUploadField from '../components/LogoUploadField';
 import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
+import { BRAZIL_STATES } from '../utils/brazilStates';
 
 /**
  * Formata um telefone armazenado como dígitos (10 ou 11) no padrão visual
@@ -61,6 +62,12 @@ export default function EmbarcadorPerfilPage() {
   const [cnpjInput, setCnpjInput] = useState('');
   const [cnpjLoading, setCnpjLoading] = useState(false);
   const [cnpjError, setCnpjError] = useState<string | null>(null);
+
+  // Filial
+  const [branchState, setBranchState] = useState<string>('');
+  const [branchCity, setBranchCity] = useState<string>('');
+  const [savingBranch, setSavingBranch] = useState(false);
+  const [branchSaved, setBranchSaved] = useState(false);
 
   // E-mail
   const [savedEmail, setSavedEmail] = useState<string>('');
@@ -122,6 +129,8 @@ export default function EmbarcadorPerfilPage() {
       if (profile) {
         setCompanyName(profile.companyName || '');
         if (profile.cnpj) setCnpjInput(formatCnpj(profile.cnpj));
+        setBranchState((profile.branchState || '').toUpperCase());
+        setBranchCity(profile.branchCity || '');
       }
 
       // Lê company_logo_url direto da tabela embarcadores
@@ -241,13 +250,34 @@ export default function EmbarcadorPerfilPage() {
       // Não enviamos name (read-only), email (gerenciado pela RPC),
       // whatsapp/phone (read-only) nem companyName (preenchido via CNPJ).
       // O CNPJ já é persistido no handleCnpjChange.
-      await updateEmbarcadorProfile(user.id, {});
+      await updateEmbarcadorProfile(user.id, {
+        branchState: branchState || null,
+        branchCity: branchCity.trim() || null,
+      });
       setSuccess('Perfil salvo com sucesso!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveBranch = async () => {
+    if (!user) return;
+    setSavingBranch(true);
+    setError(null);
+    try {
+      await updateEmbarcadorProfile(user.id, {
+        branchState: branchState || null,
+        branchCity: branchCity.trim() || null,
+      });
+      setBranchSaved(true);
+      setTimeout(() => setBranchSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao salvar filial');
+    } finally {
+      setSavingBranch(false);
     }
   };
 
@@ -405,6 +435,51 @@ export default function EmbarcadorPerfilPage() {
               <p className="mt-1 text-[11px] text-gray-400">
                 Preenchido automaticamente a partir do CNPJ.
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="sm:col-span-1">
+                <label htmlFor="branch_state" className="block text-xs text-gray-600 mb-1">
+                  Filial — Estado
+                </label>
+                <select
+                  id="branch_state"
+                  value={branchState}
+                  onChange={(e) => setBranchState(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Selecione…</option>
+                  {BRAZIL_STATES.map((s) => (
+                    <option key={s.uf} value={s.uf}>
+                      {s.uf} — {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="sm:col-span-2">
+                <label htmlFor="branch_city" className="block text-xs text-gray-600 mb-1">
+                  Filial — Cidade
+                </label>
+                <input
+                  id="branch_city"
+                  type="text"
+                  value={branchCity}
+                  onChange={(e) => setBranchCity(e.target.value.slice(0, 120))}
+                  placeholder="Ex: Indiara"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="sm:col-span-3 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveBranch}
+                  disabled={savingBranch}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {savingBranch ? 'Salvando…' : 'Salvar filial'}
+                </button>
+                {branchSaved && <span className="text-xs text-green-700">✓ Filial salva</span>}
+              </div>
             </div>
 
             {user && (

@@ -20,6 +20,8 @@ import AdminProfilePage from '../../pages/admin/AdminProfilePage';
 import UsersListPage from '../../pages/admin/users/UsersListPage';
 import AdminsListPage from '../../pages/admin/users/AdminsListPage';
 import UserDetailPage from '../../pages/admin/users/UserDetailPage';
+import FretesListPage from '../../pages/admin/fretes/FretesListPage';
+import FreteDetailPage from '../../pages/admin/fretes/FreteDetailPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -34,6 +36,8 @@ export default function AdminLayoutRoute() {
             <Route path="users" element={<UsersListPage />} />
             <Route path="users/admins" element={<AdminsListPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />
+            <Route path="fretes" element={<FretesListPage />} />
+            <Route path="fretes/:id" element={<FreteDetailPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="perfil" element={<AdminProfilePage />} />
           </Route>

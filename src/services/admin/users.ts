@@ -35,7 +35,7 @@ export const DEFAULT_FILTERS: UsersFilters = {
   q: '',
   sort: 'created_desc',
   page: 1,
-  pageSize: 25,
+  pageSize: 10,
 };
 
 export interface UserRow {
@@ -273,7 +273,8 @@ export function parseUsersFiltersFromQuery(qs: URLSearchParams | string): UsersF
   const status = sp.get('status') as UserStatusFilter | null;
   const sort = sp.get('sort') as UserSort | null;
   const page = parseInt(sp.get('page') ?? '', 10);
-  const pageSize = parseInt(sp.get('pageSize') ?? '', 10);
+  const pageSizeRaw = parseInt(sp.get('pageSize') ?? '', 10);
+  const pageSize = [10, 50, 100].includes(pageSizeRaw) ? pageSizeRaw : DEFAULT_FILTERS.pageSize;
 
   return {
     type: type && VALID_TYPES.includes(type) ? type : DEFAULT_FILTERS.type,
@@ -281,7 +282,7 @@ export function parseUsersFiltersFromQuery(qs: URLSearchParams | string): UsersF
     q: sp.get('q') ?? DEFAULT_FILTERS.q,
     sort: sort && VALID_SORTS.includes(sort) ? sort : DEFAULT_FILTERS.sort,
     page: Number.isFinite(page) && page >= 1 ? page : DEFAULT_FILTERS.page,
-    pageSize: Number.isFinite(pageSize) && pageSize >= 1 ? pageSize : DEFAULT_FILTERS.pageSize,
+    pageSize,
   };
 }
 

@@ -9,6 +9,14 @@ import { NavLink } from 'react-router-dom';
 import { useAdminPermission } from '../../hooks/useAdminPermission';
 import { useAdminContext } from './AdminProvider';
 import type { AdminAction } from '../../services/admin/permissions';
+import { supabase } from '../../services/supabase';
+
+function resolvePhotoSrc(value: string | null | undefined): string | null {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  const { data } = supabase.storage.from('documents').getPublicUrl(value);
+  return data.publicUrl ?? null;
+}
 
 interface MenuItem {
   to: string;
@@ -119,11 +127,21 @@ export default function AdminSidebar({ open, onClose }: Props) {
         {/* Topo: avatar + FreteGO/Admin */}
         <div className="px-4 py-3 border-b border-gray-800 flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 overflow-hidden flex items-center justify-center text-white text-sm font-semibold shrink-0">
-            {session?.photoUrl ? (
-              <img src={session.photoUrl} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              initial
-            )}
+            {(() => {
+              const src = resolvePhotoSrc(session?.photoUrl);
+              return src ? (
+                <img
+                  src={src}
+                  alt="avatar"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = 'none';
+                  }}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                initial
+              );
+            })()}
           </div>
           <div className="min-w-0 flex-1">
             <div className="text-[10px] uppercase tracking-wider text-gray-500 leading-tight">

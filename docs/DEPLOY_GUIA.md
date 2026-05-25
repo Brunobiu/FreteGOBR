@@ -1,9 +1,8 @@
 # Guia de Deploy — Como subir o FreteGO no ar
 
-> Anotação criada a pedido do Bruno em 2026-05-24. Este documento
-> explica do zero como publicar o FreteGO em produção, conectar o
-> domínio próprio, e como o fluxo de "alterar código → subir nova
-> versão" funciona daqui pra frente.
+> Anotação criada a pedido do Bruno em 2026-05-24.
+> Atualizado em 2026-05-25 com o estado atual: integração Supabase↔GitHub
+> ativa, conta Vercel criada e conectada ao repositório.
 
 ---
 
@@ -15,192 +14,200 @@ funcionar em produção:
 | Peça                 | O que é                                              | Onde mora hoje                | Onde vai morar em produção         |
 | -------------------- | ---------------------------------------------------- | ----------------------------- | ---------------------------------- |
 | **Código fonte**     | Tudo que está em `src/`, configs, etc.               | Seu PC + GitHub               | GitHub (sempre)                    |
-| **Frontend (app)**   | O que o navegador baixa: HTML, JS, CSS               | `npm run dev` no seu PC       | Vercel ou Netlify (gratuito)       |
-| **Backend / Banco**  | Supabase (banco PostgreSQL, autenticação, storage)   | Já está em produção           | Já está em produção (não muda)     |
-| **Domínio**          | `seudominio.com.br`                                  | Comprado no registrador       | Apontado para a Vercel/Netlify     |
+| **Frontend (app)**   | O que o navegador baixa: HTML, JS, CSS               | `npm run dev` no seu PC       | Vercel (já conectada ao repo)      |
+| **Backend / Banco**  | Supabase (Postgres, autenticação, storage, realtime) | Já está em produção           | Já está em produção (não muda)     |
+| **Domínio**          | `seudominio.com.br`                                  | Comprado no registrador       | Apontado para a Vercel             |
 
-A boa notícia é que **o backend já está no ar** desde sempre — o
-Supabase que você usa já é o de produção. Só precisamos publicar o
-frontend e apontar o domínio.
+A boa notícia é que o **backend já está no ar** desde sempre — o
+Supabase que você usa já é o de produção. Só precisamos terminar
+de configurar a Vercel e (quando quiser) apontar o domínio.
 
 ---
 
 ## 2. Onde o código vive (GitHub)
 
-O fluxo é assim:
-
 ```
-[seu PC] ──git push──▶ [GitHub] ──auto-deploy──▶ [Vercel/Netlify] ──serve▶ [internet]
+[seu PC] ──git push──▶ [GitHub] ──auto-deploy──▶ [Vercel] ──serve▶ [internet]
+                              └──auto-migrate──▶ [Supabase]
 ```
 
-- **GitHub**: é o "caderno mestre" do código. A cada `git push`,
-  uma nova versão é gravada lá.
-- **Vercel/Netlify**: ferramenta de deploy. Conectada ao GitHub,
-  ela detecta quando você dá `git push` e **publica
-  automaticamente** a nova versão em alguns minutos.
-- O código NÃO precisa ser enviado manualmente pra hospedagem.
-  É só commitar e dar push, o resto é automático.
+- **GitHub**: caderno mestre do código. Cada `git push` grava nova versão.
+- **Vercel**: detecta push em `main` e publica nova versão do frontend em ~2 min.
+- **Supabase**: detecta push em `main` e aplica migrations novas de `supabase/migrations/` automaticamente.
 
-> Você já tem o GitHub funcionando — toda vez que rodamos
-> `git push origin main` o código vai pra lá.
+Você não precisa subir código manualmente em lugar nenhum: é só `git push`
+e os dois serviços (frontend + banco) atualizam sozinhos.
 
 ---
 
-## 3. Por que Vercel ou Netlify (e não cPanel/HostGator)?
+## 3. Estado atual (o que já está pronto)
 
-Hospedagens tradicionais (HostGator, Locaweb, cPanel) servem
-arquivos estáticos ou PHP. O FreteGO é uma **SPA React + Vite**,
-que precisa de:
-
-- Build automático (`npm run build`)
-- HTTPS sempre (geolocation, service workers)
-- CDN global (rapidez)
-- Redirect de qualquer rota pra `index.html` (SPA routing)
-
-A **Vercel** e a **Netlify** fazem tudo isso automaticamente, no
-**plano gratuito** de pequenos projetos:
-
-|                          | Vercel             | Netlify            |
-| ------------------------ | ------------------ | ------------------ |
-| Plano gratuito           | Sim                | Sim                |
-| HTTPS automático         | Sim                | Sim                |
-| Build automático         | Sim                | Sim                |
-| Domínio próprio          | Sim                | Sim                |
-| Limite gratuito          | 100 GB/mês banda   | 100 GB/mês banda   |
-| Recomendado para Vite    | ⭐ excelente       | ⭐ excelente       |
-
-Vou recomendar a **Vercel** por ser um pouco mais simples com
-Vite/React, mas as duas resolvem.
+| Etapa                                                    | Status |
+| -------------------------------------------------------- | :----: |
+| Repositório `Brunobiu/FreteGOBR` no GitHub               |   ✅   |
+| Supabase em produção (project `kvdwmgchtpdnllxwswtf`)    |   ✅   |
+| Integração **Supabase ↔ GitHub** (migrations auto)       |   ✅   |
+| Conta Vercel criada e conectada ao GitHub                |   ✅   |
+| Projeto Vercel apontando pro repo                        |   ✅   |
+| Variáveis de ambiente na Vercel                          | ⏳ falta |
+| URLs do Supabase Auth (Site URL + Redirect)              | ⏳ falta |
+| Primeiro deploy de produção bem-sucedido                 | ⏳ falta |
+| Domínio próprio                                          | ⏳ depois |
 
 ---
 
-## 4. Passo a passo — Deploy na Vercel (primeira vez)
+## 4. O que falta fazer (checklist)
 
-### 4.1 Criar conta
+### 4.1 Configurar variáveis de ambiente na Vercel
 
-1. Acesse https://vercel.com
-2. Clique em **Sign Up**.
-3. Escolha **Continue with GitHub** (assim ela já fica conectada
-   ao seu repositório).
-4. Autorize a Vercel a ler seus repositórios.
+Sem isso o frontend sobe mas não consegue falar com o Supabase
+(vai dar tela em branco ou erro de auth).
 
-### 4.2 Importar o projeto
+1. Vá na Vercel → projeto FreteGO → **Settings → Environment Variables**.
+2. Adicione **2 variáveis** (todos os 3 ambientes: Production, Preview, Development):
 
-1. No dashboard da Vercel, clique em **Add New → Project**.
-2. Escolha o repositório `Brunobiu/FreteGOBR` (ou o nome do seu).
-3. A Vercel detecta sozinha que é Vite e preenche tudo:
-   - **Framework Preset**: Vite
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-   - **Install Command**: `npm install`
-4. **Environment Variables** — clique em adicionar cada uma das
-   variáveis do seu `.env`:
+   - `VITE_SUPABASE_URL` = `https://kvdwmgchtpdnllxwswtf.supabase.co`
+   - `VITE_SUPABASE_ANON_KEY` = pega no painel do Supabase em **Settings → API → Project API keys → anon public**
 
+3. Salva. Não precisa reiniciar nada — vai pegar no próximo build.
+
+> **Importante**: a chave **anon** é pública e pode ficar no frontend.
+> NUNCA coloque a `service_role` em variável `VITE_*` — essa é só pra
+> backend e dá acesso total ao banco.
+
+### 4.2 Configurar URLs no Supabase Auth
+
+Sem isso, login com magic link e reset de senha quebram em produção.
+
+1. Supabase → **Authentication → URL Configuration**.
+2. **Site URL**: cole a URL que a Vercel te deu (algo tipo
+   `https://fretego-bruno.vercel.app`). Quando comprar o domínio próprio,
+   troque pra ele.
+3. **Additional Redirect URLs**: adicione, uma por linha:
    ```
-   VITE_SUPABASE_URL = https://xxxxxxxx.supabase.co
-   VITE_SUPABASE_ANON_KEY = eyJhbGciOi...
+   https://fretego-bruno.vercel.app/**
+   https://*.vercel.app/**
+   http://localhost:5173/**
    ```
+   O `**` é importante — significa "qualquer rota dentro desse domínio".
+4. Salva.
 
-   (Pega os valores no seu `.env` local. **Não precisa subir o
-   `.env` pro GitHub** — ele já está no `.gitignore`.)
+### 4.3 Disparar o primeiro deploy
 
-5. Clique em **Deploy**.
-6. Em ~2-3 minutos, a Vercel te dá uma URL tipo
-   `fretego-bruno.vercel.app` — **já funcionando, com HTTPS**.
+Se ainda não rodou:
 
-### 4.3 Apontar seu domínio próprio
+- Na Vercel, no painel do projeto, clica em **Deployments → Redeploy** no
+  deploy mais recente (a Vercel já criou um quando você conectou o repo,
+  mas talvez tenha falhado por causa das variáveis ausentes).
+- Ou faz qualquer commit pequeno e `git push origin main` que dispara
+  novo build com as variáveis já configuradas.
 
-1. No projeto da Vercel, vá em **Settings → Domains**.
-2. Digite seu domínio (ex: `fretego.com.br`).
-3. A Vercel mostra os registros DNS que você precisa adicionar no
-   painel do registrador onde comprou o domínio. Normalmente:
+Acompanha o log. Se der erro de build, manda print que eu ajudo a
+diagnosticar.
+
+### 4.4 Testar em produção
+
+Quando o deploy ficar verde:
+
+1. Abre a URL `*.vercel.app` no navegador.
+2. Tenta criar uma conta nova de motorista ou embarcador.
+3. Tenta logar com o admin (Bruno Henrique / `Nexus_Vortex99`) em
+   `https://*.vercel.app/admin/login`.
+4. Confirma que a tela admin carrega usuários, fretes, etc.
+
+Se algo quebrar, geralmente é uma das 3 coisas:
+- variável de ambiente faltando ou errada → seção 4.1
+- URL não cadastrada no Auth → seção 4.2
+- migration nova não aplicada (raro com a integração ativa) → ver seção 5.3
+
+### 4.5 Apontar domínio próprio (depois)
+
+1. Compra o domínio onde quiser (Registro.br, GoDaddy, Hostinger, etc).
+2. Vercel → projeto → **Settings → Domains**.
+3. Digita o domínio (ex: `fretego.com.br`).
+4. Vercel mostra os registros DNS pra adicionar no painel do registrador:
 
    ```
    Tipo: A      Nome: @     Valor: 76.76.21.21
    Tipo: CNAME  Nome: www   Valor: cname.vercel-dns.com
    ```
 
-4. Vai no painel do seu registrador (Registro.br, GoDaddy, etc),
-   adiciona esses registros.
-5. A propagação leva de **alguns minutos a 24h** (geralmente <1h).
-6. A Vercel detecta automaticamente e ativa **HTTPS** no seu
-   domínio (certificado Let's Encrypt grátis e renovação
-   automática).
-
-Pronto. `https://fretego.com.br` vai estar no ar.
+5. Adiciona no painel do registrador. Propagação leva de minutos a 24h.
+6. A Vercel ativa **HTTPS automático** (Let's Encrypt grátis, renovação automática).
+7. **Volta no Supabase Auth** (seção 4.2) e troca o `Site URL` pro
+   domínio definitivo.
 
 ---
 
-## 5. Configurações importantes do Supabase pra produção
+## 5. Configurações importantes do Supabase
 
-O banco já está no ar, mas precisa garantir alguns pontos:
+### 5.1 URL Configuration
 
-### 5.1 Adicionar o domínio em "Site URL" e "Redirect URLs"
+Cobertas na seção 4.2 acima.
 
-No painel do Supabase:
+### 5.2 Variáveis de ambiente
 
-1. **Authentication → URL Configuration**
-2. **Site URL**: `https://fretego.com.br` (o domínio que você
-   apontou)
-3. **Additional Redirect URLs**: cole aqui também as URLs da
-   Vercel (`https://fretego-bruno.vercel.app` e qualquer preview
-   `https://fretego-bruno-*.vercel.app`).
+Cobertas na seção 4.1.
 
-Sem isso, login com Magic Link e recuperação de senha não
-funcionam fora do localhost.
+### 5.3 Migrations — fluxo automático com a integração
 
-### 5.2 Conferir as variáveis de ambiente da Vercel
+**A integração Supabase ↔ GitHub está ativa**. Toda vez que você fizer
+`git push origin main` com um arquivo novo em `supabase/migrations/`,
+o Supabase aplica sozinho.
 
-Confirma que `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`
-batem **exatamente** com os valores em **Project Settings → API**
-no Supabase.
+Migrations já aplicadas no banco (manualmente, antes da integração):
 
-### 5.3 Migrações pendentes
+- 001 a 029 (schema base do FreteGO + chat + likes + realtime)
+- 030 admin-foundation
+- 031 admin-users
+- 032 admin-fretes
+- 033 embarcador-branch
+- 034 admin-notify-user
 
-Antes de cada deploy, **rode no SQL Editor do Supabase** qualquer
-migration nova que esteja em `supabase/migrations/` e ainda não
-foi aplicada. Hoje a última é a `019_add_frete_origin_destination_detail.sql`.
+A próxima vai ser **035_admin_blacklist.sql** quando a spec for executada.
+Essa já vai ser aplicada automaticamente pela integração ao subir pra `main`.
+
+> **Importante**: as migrations antigas NÃO vão ser re-rodadas pela
+> integração — ela só aplica arquivos novos a partir do momento em que
+> foi ativada. Como nossas migrations são todas idempotentes (`CREATE ...
+> IF NOT EXISTS`, `DROP POLICY IF EXISTS`), mesmo se rodassem de novo
+> não causariam problema.
 
 ### 5.4 Backups
 
-O Supabase faz backup diário automático no plano gratuito (mantém
-7 dias). Em planos pagos sobe para 30 dias e backup point-in-time.
+O Supabase faz backup diário automático no plano Free (mantém 7 dias).
+No Pro sobe pra 30 dias com point-in-time.
 
 ---
 
-## 6. Fluxo de trabalho dia a dia (depois de tudo no ar)
-
-Esse é o ciclo que você vai repetir cada vez que mudar algo:
+## 6. Fluxo de trabalho dia a dia
 
 ```
-1. Mexer no código no seu PC (com Cursor/Kiro/VSCode)
+1. Mexer no código (Cursor/Kiro/VSCode)
    ↓
 2. Testar localmente (npm run dev → http://localhost:5173)
    ↓
-3. Quando estiver bom, commitar e dar push:
+3. Commitar e dar push:
    git add .
    git commit -m "feat: ajuste no botão X"
    git push origin main
    ↓
-4. Vercel detecta o push e faz build automático (~2 min)
+4. Vercel detecta o push e faz build (~2 min)
    ↓
-5. Nova versão fica no ar em https://fretego.com.br
+5. Supabase aplica migrations novas se houver
    ↓
-6. Se mudou algo no banco, rodar a migration nova no
-   Supabase Studio (SQL Editor)
+6. Nova versão fica no ar
 ```
 
-**Atalho útil**: a Vercel cria um "Preview Deployment" pra cada
-branch que não é a `main`. Se você criar uma branch `git checkout
--b experimento`, der push, vai sair uma URL única tipo
-`fretego-bruno-experimento.vercel.app` pra testar antes de
-mergear na produção.
+**Branches de teste** (opcional): cada branch que não é a `main` ganha
+um "Preview Deployment" próprio na Vercel. Útil pra testar mudanças
+grandes sem mexer em produção.
 
 ---
 
 ## 7. Custos esperados
 
-Pra um projeto recém-lançado com pouco tráfego:
+Pra um projeto recém-lançado:
 
 | Item                       | Custo mensal estimado          |
 | -------------------------- | ------------------------------ |
@@ -211,9 +218,8 @@ Pra um projeto recém-lançado com pouco tráfego:
 
 Quando o projeto crescer:
 
-- **Vercel Pro**: US$ 20/mês — mais banda, mais builds, analytics
-- **Supabase Pro**: US$ 25/mês — backup point-in-time, 8GB
-  banco, sem pausa por inatividade
+- **Vercel Pro**: US$ 20/mês
+- **Supabase Pro**: US$ 25/mês — backup point-in-time, 8GB banco, sem pausa por inatividade
 
 ---
 
@@ -221,47 +227,39 @@ Quando o projeto crescer:
 
 ### Nunca commitar segredos
 
-Já está protegido pelo `.gitignore`, mas confirme antes de cada
-push: o arquivo `.env` **NUNCA** vai pro GitHub. As variáveis
-sensíveis ficam apenas em:
+`.env` está no `.gitignore` e o conteúdo dele NUNCA vai pro GitHub.
+As variáveis ficam apenas em:
 
-- `.env` local (no seu PC)
-- **Project Settings → Environment Variables** na Vercel
+- `.env` local (PC do Bruno)
+- Vercel → Settings → Environment Variables (produção)
+- Supabase Studio (mostradas em Settings → API)
+
+A pasta `Credencial/` também está no `.gitignore` — fica fora do repo.
 
 ### Banco compartilhado com dev
 
-Hoje seu Supabase é único — `npm run dev` no localhost e
-`fretego.com.br` em produção falam com o **mesmo banco**. Isso é
-OK pra começar, mas tem dois cuidados:
+Hoje seu Supabase é único: localhost e produção falam com o **mesmo
+banco**. OK pra começar, mas:
 
-1. **Não rode migrations destrutivas** (DROP, TRUNCATE) sem ter
-   certeza absoluta.
-2. Em algum momento (quando o app crescer), criar um **segundo
-   projeto Supabase só pra desenvolvimento** e ter dois `.env`:
-   um pro localhost (`.env.development`) e outro pra produção
-   (variáveis na Vercel).
+1. Não rode migrations destrutivas (DROP, TRUNCATE) sem certeza.
+2. Quando o app tiver usuários reais, criar **um segundo projeto
+   Supabase pra dev** e ter dois `.env`: localhost vs produção.
 
 ### Mobile app no futuro
 
-Quando virar app iOS/Android (React Native ou Capacitor), o
-mesmo Supabase atende sem mudança. Só o frontend muda — o
-"backend" continua o mesmo banco.
+Quando virar app iOS/Android (React Native ou Capacitor), o mesmo
+Supabase atende sem mudança. Só o frontend muda — o "backend" continua
+o mesmo banco.
 
 ---
 
 ## 9. Resumo curto
 
-1. **Código**: GitHub (já funciona).
-2. **Frontend**: Vercel (gratuito, conecta ao GitHub, deploy
-   automático).
-3. **Backend**: Supabase (já no ar).
-4. **Domínio**: aponta DNS pro Vercel.
-5. **Mudou código?** `git push` → Vercel publica em 2 min.
-6. **Mudou banco?** rodar a migration nova no Supabase Studio.
-
-Quando você quiser, eu te ajudo a fazer o primeiro deploy passo a
-passo — basta avisar. ✅
-
-
-
-Sobre o pagamento falta
+1. **Código**: GitHub (✅ ok).
+2. **Backend**: Supabase em produção (✅ ok, com migrations auto via push).
+3. **Frontend**: Vercel conectada ao repo (✅), faltam as 2 variáveis de ambiente.
+4. **Auth URLs**: configurar Site URL e Redirect no Supabase Auth.
+5. **Primeiro deploy**: redeploy ou push novo dispara o build em produção.
+6. **Domínio próprio**: depois, apontando DNS pra Vercel.
+7. **Mudou código?** `git push` → publica em 2 min.
+8. **Mudou banco?** add migration em `supabase/migrations/` → push → aplica sozinho.

@@ -1,39 +1,37 @@
 /**
- * UsersListPage - /admin/users
+ * FretesListPage - /admin/fretes
  */
 
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
-  bulkToggleActive,
-  exportUsersCSV,
-  isMasterAdmin,
-  listUsers,
-  parseUsersFiltersFromQuery,
-  serializeUsersFiltersToQuery,
+  bulkClose,
+  bulkCancel,
+  exportFretesCSV,
+  getAlerts,
+  listFretes,
+  parseFretesFiltersFromQuery,
+  serializeFretesFiltersToQuery,
   type BulkResult,
-  type UsersFilters,
-  type UsersListResult,
-} from '../../../services/admin/users';
-import { useAdminContext } from '../../../components/admin/AdminProvider';
+  type FretesAlerts,
+  type FretesFilters,
+  type FretesListResult,
+} from '../../../services/admin/fretes';
 import { useAdminPermission } from '../../../hooks/useAdminPermission';
-import UsersFiltersUI from '../../../components/admin/users/UsersFilters';
-import UsersTable from '../../../components/admin/users/UsersTable';
-import UsersBulkBar from '../../../components/admin/users/UsersBulkBar';
-import { Link } from 'react-router-dom';
+import FretesFiltersUI from '../../../components/admin/fretes/FretesFilters';
+import FretesTable from '../../../components/admin/fretes/FretesTable';
+import FretesBulkBar from '../../../components/admin/fretes/FretesBulkBar';
+import FretesAlertsCard from '../../../components/admin/fretes/FretesAlertsCard';
 
-export default function UsersListPage() {
+export default function FretesListPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const filters = useMemo(() => parseUsersFiltersFromQuery(searchParams), [searchParams]);
+  const filters = useMemo(() => parseFretesFiltersFromQuery(searchParams), [searchParams]);
 
-  const { allowed: canView } = useAdminPermission('USER_VIEW');
-  const { allowed: canToggleActive } = useAdminPermission('USER_TOGGLE_ACTIVE');
-  const { allowed: canManageAdmins } = useAdminPermission('ADMIN_ROLE_GRANT');
+  const { allowed: canView } = useAdminPermission('FRETE_VIEW');
+  const { allowed: canForceClose } = useAdminPermission('FRETE_FORCE_CLOSE');
 
-  const { session } = useAdminContext();
-  const selfId = session?.userId ?? null;
-
-  const [data, setData] = useState<UsersListResult | null>(null);
+  const [data, setData] = useState<FretesListResult | null>(null);
+  const [alerts, setAlerts] = useState<FretesAlerts | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -43,8 +41,8 @@ export default function UsersListPage() {
   } | null>(null);
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [showBulkCancel, setShowBulkCancel] = useState(false);
 
-  // Carrega usuarios sempre que filtros mudam
   useEffect(() => {
     if (!canView) return;
     let cancelled = false;
@@ -52,12 +50,14 @@ export default function UsersListPage() {
     setError(null);
     void (async () => {
       try {
-        const result = await listUsers(filters);
+        const [list, al] = await Promise.all([listFretes(filters), getAlerts()]);
         if (cancelled) return;
-        setData(result);
+        setData(list);
+        setAlerts(al);
       } catch (err) {
         if (cancelled) return;
-        setError((err as Error).message);
+        console.error('[admin/fretes] listFretes/getAlerts falhou:', err);
+        setError((err as Error).message ?? String(err));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -67,8 +67,8 @@ export default function UsersListPage() {
     };
   }, [canView, filters]);
 
-  function applyFilters(next: UsersFilters) {
-    setSearchParams(serializeUsersFiltersToQuery(next));
+  function applyFilters(next: FretesFilters) {
+    setSearchParams(serializeFretesFiltersToQuery(next));
     setSelectedIds(new Set());
   }
 
@@ -85,24 +85,37 @@ export default function UsersListPage() {
     if (!data) return;
     setSelectedIds(() => {
       if (!checked) return new Set();
-      const next = new Set<string>();
-      for (const r of data.rows) {
-        if (!isMasterAdmin(r) && r.id !== selfId) next.add(r.id);
-      }
-      return next;
+      return new Set(data.rows.map((r) => r.id));
     });
   }
 
-  async function handleBulk(targetState: boolean) {
+  async function handleBulkClose() {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
     setBulkProgress({ current: 0, total: ids.length });
     try {
-      const result = await bulkToggleActive(ids, targetState);
+      const result = await bulkClose(ids);
       setBulkResult(result);
       setSelectedIds(new Set());
-      // Recarrega lista
-      const refreshed = await listUsers(filters);
+      const refreshed = await listFretes(filters);
+      setData(refreshed);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBulkProgress(null);
+    }
+  }
+
+  async function handleBulkCancelConfirmed(reason: string) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setShowBulkCancel(false);
+    setBulkProgress({ current: 0, total: ids.length });
+    try {
+      const result = await bulkCancel(ids, reason);
+      setBulkResult(result);
+      setSelectedIds(new Set());
+      const refreshed = await listFretes(filters);
       setData(refreshed);
     } catch (err) {
       setError((err as Error).message);
@@ -114,13 +127,13 @@ export default function UsersListPage() {
   async function handleExport() {
     setExporting(true);
     try {
-      const result = await exportUsersCSV(filters);
+      const result = await exportFretesCSV(filters);
       const blob = new Blob([result.csv], { type: 'text/csv;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14);
       a.href = url;
-      a.download = `fretego-usuarios-${ts}.csv`;
+      a.download = `fretego-fretes-${ts}.csv`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -142,11 +155,17 @@ export default function UsersListPage() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <UsersFiltersUI
-          filters={filters}
-          onChange={applyFilters}
-          totalFiltered={data?.total ?? 0}
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <FretesFiltersUI
+            filters={filters}
+            onChange={applyFilters}
+            totalFiltered={data?.total ?? 0}
+          />
+          <FretesAlertsCard
+            alerts={alerts}
+            onClickFlagged={() => applyFilters({ ...filters, flagged: true, page: 1 })}
+          />
+        </div>
 
         <div className="flex items-center gap-2">
           <select
@@ -161,14 +180,6 @@ export default function UsersListPage() {
             <option value={50}>50</option>
             <option value={100}>100</option>
           </select>
-          {canManageAdmins && (
-            <Link
-              to="/admin/users/admins"
-              className="px-2.5 py-1 rounded text-xs bg-gray-800 text-gray-200 hover:bg-gray-700 transition"
-            >
-              Admins
-            </Link>
-          )}
           <button
             type="button"
             onClick={() => void handleExport()}
@@ -180,47 +191,43 @@ export default function UsersListPage() {
         </div>
       </div>
 
-      {canToggleActive && (
-        <UsersBulkBar
+      {canForceClose && (
+        <FretesBulkBar
           selectedCount={selectedIds.size}
           inProgress={bulkProgress}
-          onActivate={() => void handleBulk(true)}
-          onDeactivate={() => void handleBulk(false)}
+          onClose={() => void handleBulkClose()}
+          onCancel={() => setShowBulkCancel(true)}
           onClear={() => setSelectedIds(new Set())}
         />
       )}
 
       {error && (
         <div className="rounded bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-300">
-          Nao foi possivel carregar usuarios.{' '}
+          <div>Nao foi possivel carregar fretes.</div>
+          <div className="text-xs text-red-400/80 mt-1 break-all">{error}</div>
           <button
             type="button"
-            onClick={() => setSearchParams(serializeUsersFiltersToQuery(filters))}
-            className="underline"
+            onClick={() => setSearchParams(serializeFretesFiltersToQuery(filters))}
+            className="underline mt-2"
           >
             Tentar novamente
           </button>
         </div>
       )}
 
-      <UsersTable
+      <FretesTable
         rows={data?.rows ?? []}
         loading={loading}
         selectedIds={selectedIds}
         onToggleSelect={toggleSelect}
         onToggleSelectAll={toggleSelectAll}
-        canSelect={canToggleActive}
-        isMasterAdminId={(id) => {
-          const u = data?.rows.find((r) => r.id === id);
-          return u ? isMasterAdmin(u) : false;
-        }}
-        isSelfId={(id) => id === selfId}
+        canSelect={canForceClose}
       />
 
       {data && data.total > 0 && (
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div>
-            Página {data.page} de {totalPages} · {data.total} usuários
+            Página {data.page} de {totalPages} · {data.total} fretes
           </div>
           <div className="flex gap-2">
             <button
@@ -264,6 +271,79 @@ export default function UsersListPage() {
           </button>
         </div>
       )}
+
+      {showBulkCancel && data && data.rows.length > 0 && (
+        <BulkCancelModal
+          count={selectedIds.size}
+          onClose={() => setShowBulkCancel(false)}
+          onConfirm={handleBulkCancelConfirmed}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal local para bulk cancel com motivo
+function BulkCancelModal({
+  count,
+  onClose,
+  onConfirm,
+}: {
+  count: number;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+  const trimmed = reason.trim();
+  const canSubmit = trimmed.length > 0 && trimmed.length <= 1000;
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="bg-gray-900 border border-gray-800 rounded-xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-5 py-3 border-b border-gray-800">
+          <h3 className="text-sm font-semibold text-gray-200">
+            Cancelar {count} fretes selecionados
+          </h3>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-sm text-gray-400">
+            O mesmo motivo sera aplicado a todos os fretes do lote.
+          </p>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 1000))}
+            rows={4}
+            className="w-full px-3 py-2 rounded bg-gray-800 border border-gray-700 text-sm text-gray-100"
+            placeholder="Motivo do cancelamento..."
+          />
+          <div className="flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              autoFocus
+              className="px-3 py-1.5 rounded text-sm text-gray-400 hover:text-white"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={() => onConfirm(reason)}
+              disabled={!canSubmit}
+              className="px-4 py-1.5 rounded text-sm bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white"
+            >
+              Cancelar fretes
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

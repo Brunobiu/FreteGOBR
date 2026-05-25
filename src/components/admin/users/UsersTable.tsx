@@ -4,6 +4,7 @@
 
 import { Link } from 'react-router-dom';
 import { classifyUserStatus, type UserRow } from '../../../services/admin/users';
+import { supabase } from '../../../services/supabase';
 
 interface Props {
   rows: UserRow[];
@@ -49,6 +50,17 @@ function formatPhone(p: string): string {
     return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
   }
   return p;
+}
+
+/**
+ * Resolve URL pública para uma foto de perfil.
+ * Aceita tanto URL absoluta (http/https) quanto path relativo ao bucket `documents`.
+ */
+function resolvePhotoSrc(value: string | null): string | null {
+  if (!value) return null;
+  if (/^https?:\/\//i.test(value)) return value;
+  const { data } = supabase.storage.from('documents').getPublicUrl(value);
+  return data.publicUrl ?? null;
 }
 
 export default function UsersTable({
@@ -154,15 +166,21 @@ export default function UsersTable({
                 <td className="px-3 py-2">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 overflow-hidden flex items-center justify-center text-white text-xs font-semibold shrink-0">
-                      {u.profile_photo_url ? (
-                        <img
-                          src={u.profile_photo_url}
-                          alt=""
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        initial
-                      )}
+                      {(() => {
+                        const src = resolvePhotoSrc(u.profile_photo_url);
+                        return src ? (
+                          <img
+                            src={src}
+                            alt=""
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          initial
+                        );
+                      })()}
                     </div>
                     <div className="min-w-0">
                       <div className="text-gray-100 font-medium truncate">{u.name}</div>
