@@ -14,6 +14,7 @@
  */
 
 import { supabase } from './supabase';
+import { checkBlacklistGate, GENERIC_EMAIL_MESSAGE } from './admin/blacklist';
 
 export type VerificationStatus = 'OK' | 'INVALID' | 'EXPIRED' | 'BLOCKED';
 
@@ -35,6 +36,12 @@ export async function sendEmailVerificationCode(email: string): Promise<void> {
   const trimmed = (email ?? '').trim();
   if (!trimmed) {
     throw new VerificationError('Informe um e-mail válido.', 'UNKNOWN');
+  }
+
+  // Pre-check blacklist (email) com timeout 3s + timing parity (fail-open)
+  const { blocked } = await checkBlacklistGate('email', trimmed, 'BLACKLIST_EMAIL_BLOCKED');
+  if (blocked) {
+    throw new VerificationError(GENERIC_EMAIL_MESSAGE, 'UNKNOWN');
   }
 
   const { error } = await supabase.rpc('generate_email_verification_code', {

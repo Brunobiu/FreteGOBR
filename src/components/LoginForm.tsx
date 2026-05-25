@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { LoginCredentials } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
 import PasswordInput from './PasswordInput';
+import { checkBlacklistGate, GENERIC_LOGIN_MESSAGE } from '../services/admin/blacklist';
 
 const loginSchema = z.object({
   phone: z
@@ -75,6 +76,14 @@ export function LoginForm({
 
     try {
       const cleanPhone = data.phone.replace(/\D/g, '');
+
+      // Pre-check blacklist (timing-parity + 3s timeout fail-open)
+      const { blocked } = await checkBlacklistGate('phone', cleanPhone, 'BLACKLIST_LOGIN_BLOCKED');
+      if (blocked) {
+        setError(GENERIC_LOGIN_MESSAGE);
+        return;
+      }
+
       await onSubmit({ ...data, phone: cleanPhone });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');

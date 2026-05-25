@@ -113,8 +113,8 @@ export default function UserDetailPage() {
 
   async function handleUnban() {
     try {
-      const updated = await unbanUser(user.id, user.updated_at);
-      setBundle((b) => (b ? { ...b, user: updated } : b));
+      const result = await unbanUser(user.id, user.updated_at);
+      setBundle((b) => (b ? { ...b, user: result.user } : b));
       setActionMsg('Usuario desbanido.');
     } catch (err) {
       handleErr(err);

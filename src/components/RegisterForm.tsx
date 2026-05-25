@@ -6,6 +6,7 @@ import type { RegisterData } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
 import { capitalizeName } from '../utils/textCase';
 import PasswordInput from './PasswordInput';
+import { checkBlacklistGate, GENERIC_SIGNUP_MESSAGE } from '../services/admin/blacklist';
 
 const registerSchema = z
   .object({
@@ -96,8 +97,17 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
       return;
     }
     try {
+      const cleanPhone = data.phone.replace(/\D/g, '');
+
+      // Pre-check blacklist (phone) com timeout 3s + timing parity (fail-open)
+      const { blocked } = await checkBlacklistGate('phone', cleanPhone, 'BLACKLIST_SIGNUP_BLOCKED');
+      if (blocked) {
+        setError(GENERIC_SIGNUP_MESSAGE);
+        return;
+      }
+
       await onSubmit({
-        phone: data.phone.replace(/\D/g, ''),
+        phone: cleanPhone,
         password: data.password,
         name: capitalizeName(data.name),
         userType: data.userType,

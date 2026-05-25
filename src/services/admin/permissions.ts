@@ -21,7 +21,15 @@ export const ADMIN_ACTIONS = [
   'FINANCEIRO_VIEW',
   'FINANCEIRO_EDIT',
   'BLACKLIST_VIEW',
+  /**
+   * @deprecated Substituida por BLACKLIST_MANAGE em admin-blacklist (migration 035).
+   * Mantida no enum durante transicao para evitar quebra retroativa.
+   * Sera removida em uma migracao futura quando todo codigo consumidor
+   * estiver migrado para BLACKLIST_MANAGE.
+   */
   'BLACKLIST_EDIT',
+  'BLACKLIST_MANAGE',
+  'BLACKLIST_BULK',
   'CRM_VIEW',
   'CRM_EDIT',
   'SUPORTE_VIEW',
@@ -52,6 +60,7 @@ const SUPORTE_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
   'SUPORTE_VIEW',
   'SUPORTE_REPLY',
   'CRM_VIEW',
+  'BLACKLIST_VIEW',
 ]);
 
 const MODERADOR_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
@@ -59,7 +68,7 @@ const MODERADOR_PERMS: ReadonlySet<AdminAction> = new Set<AdminAction>([
   'FRETE_VIEW',
   'FRETE_FORCE_CLOSE',
   'BLACKLIST_VIEW',
-  'BLACKLIST_EDIT',
+  'BLACKLIST_MANAGE',
 ]);
 
 const ADMIN_DENY: ReadonlySet<AdminAction> = new Set<AdminAction>([

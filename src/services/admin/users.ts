@@ -779,17 +779,44 @@ export async function toggleActive(
   });
 }
 
+export interface BanUserBlacklistItem {
+  type: 'phone' | 'cpf' | 'cnpj' | 'email';
+  value: string;
+}
+
+export interface BanUserBlacklistResult {
+  inserted: number;
+  skipped: number;
+  failed: number;
+  details: Array<{
+    type: BanUserBlacklistItem['type'];
+    status: 'inserted' | 'skipped' | 'failed';
+    error?: string;
+  }>;
+}
+
+export interface BanUserResult {
+  user: UserRow;
+  blacklistResult?: BanUserBlacklistResult;
+}
+
+export interface UnbanUserResult {
+  user: UserRow;
+  blacklistRemoved?: number;
+}
+
 export async function banUser(
   id: string,
   reason: string,
-  expectedUpdatedAt: string
-): Promise<UserRow> {
+  expectedUpdatedAt: string,
+  options?: { addToBlacklist?: BanUserBlacklistItem[] }
+): Promise<BanUserResult> {
   await assertNotMasterNorSelf(id);
   if (!reason || reason.trim().length === 0 || reason.length > 1000) {
     throw new UsersServiceError('INVALID_INPUT');
   }
   const callerId = await getCurrentUserId();
-  return applyVersionedUpdateUsers({
+  const updated = await applyVersionedUpdateUsers({
     id,
     patch: {
       is_active: false,
@@ -802,11 +829,62 @@ export async function banUser(
     before: null,
     after: { ban_reason: reason.trim() },
   });
+
+  const items = options?.addToBlacklist ?? [];
+  if (items.length === 0) return { user: updated };
+
+  const { addEntry, BlacklistServiceError } = await import('./blacklist');
+  const details: BanUserBlacklistResult['details'] = [];
+  let inserted = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  // Pool de concorrencia 5 herdado dos demais bulks
+  const queue = [...items];
+  async function worker() {
+    while (queue.length > 0) {
+      const item = queue.shift();
+      if (!item) break;
+      try {
+        await addEntry({
+          type: item.type,
+          valueRaw: item.value,
+          reason: reason.trim(),
+          expiresAt: null,
+          sourceUserId: id,
+        });
+        inserted++;
+        details.push({ type: item.type, status: 'inserted' });
+      } catch (err) {
+        if (err instanceof BlacklistServiceError && err.code === 'ALREADY_BLACKLISTED') {
+          skipped++;
+          details.push({ type: item.type, status: 'skipped' });
+        } else {
+          failed++;
+          details.push({
+            type: item.type,
+            status: 'failed',
+            error: (err as Error).message,
+          });
+        }
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(5, items.length) }, () => worker()));
+
+  return {
+    user: updated,
+    blacklistResult: { inserted, skipped, failed, details },
+  };
 }
 
-export async function unbanUser(id: string, expectedUpdatedAt: string): Promise<UserRow> {
+export async function unbanUser(
+  id: string,
+  expectedUpdatedAt: string,
+  options?: { removeBlacklistEntries?: boolean }
+): Promise<UnbanUserResult> {
   await assertNotMasterNorSelf(id);
-  return applyVersionedUpdateUsers({
+  const updated = await applyVersionedUpdateUsers({
     id,
     patch: {
       is_active: true,
@@ -819,6 +897,39 @@ export async function unbanUser(id: string, expectedUpdatedAt: string): Promise<
     before: null,
     after: { is_active: true },
   });
+
+  if (!options?.removeBlacklistEntries) return { user: updated };
+
+  // RPC admin_blacklist_remove_by_user (best-effort: nao aborta o unban)
+  try {
+    const { supabase } = await import('../supabase');
+    const { logAdminAction } = await import('./audit');
+    const { data, error } = await supabase.rpc('admin_blacklist_remove_by_user', {
+      p_user_id: id,
+    });
+    if (error) {
+      // best-effort: nao aborta unban; log opcional
+      return { user: updated, blacklistRemoved: 0 };
+    }
+    const removedCount =
+      typeof data === 'object' && data !== null && 'removed_count' in data
+        ? Number((data as { removed_count: number }).removed_count) || 0
+        : 0;
+    try {
+      await logAdminAction({
+        action: 'BLACKLIST_REMOVED_BY_USER',
+        targetType: 'users',
+        targetId: id,
+        before: { user_id: id },
+        after: { removed_count: removedCount },
+      });
+    } catch {
+      // best-effort
+    }
+    return { user: updated, blacklistRemoved: removedCount };
+  } catch {
+    return { user: updated, blacklistRemoved: 0 };
+  }
 }
 
 // ===================== Edicao =====================
