@@ -6,11 +6,7 @@ import type { Frete } from '../services/fretes';
 import type { GeographicPoint } from '../types';
 import type { GeolocationStatus } from '../hooks/useGeolocation';
 import { getRouteGeometry } from '../services/geolocation';
-import {
-  RADIUS_OPTIONS_KM,
-  haversineDistanceKm,
-  type RadiusOption,
-} from '../utils/geoDistance';
+import { RADIUS_OPTIONS_KM, haversineDistanceKm, type RadiusOption } from '../utils/geoDistance';
 
 interface MapaFretesProps {
   fretes: Frete[];
@@ -61,13 +57,7 @@ function destIcon(): L.DivIcon {
   });
 }
 
-function MapAutoCenter({
-  point,
-  radiusKm,
-}: {
-  point: GeographicPoint | null;
-  radiusKm: number;
-}) {
+function MapAutoCenter({ point, radiusKm }: { point: GeographicPoint | null; radiusKm: number }) {
   const map = useMap();
   useEffect(() => {
     if (!point) return;
@@ -99,11 +89,7 @@ function MapInvalidateOnResize({ trigger }: { trigger: boolean }) {
 /**
  * Centraliza o mapa na rota selecionada (ou volta ao padrão).
  */
-function FitRoute({
-  routeBounds,
-}: {
-  routeBounds: L.LatLngBoundsExpression | null;
-}) {
+function FitRoute({ routeBounds }: { routeBounds: L.LatLngBoundsExpression | null }) {
   const map = useMap();
   useEffect(() => {
     if (!routeBounds) return;
@@ -170,8 +156,7 @@ export default function MapaFretes({
   const [showHelp, setShowHelp] = useState(false);
 
   // Detecta browser para instruções específicas no help
-  const userAgent =
-    typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+  const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
   const isChrome = userAgent.includes('chrome') && !userAgent.includes('edg');
   const isFirefox = userAgent.includes('firefox');
   const isSafari = userAgent.includes('safari') && !userAgent.includes('chrome');
@@ -213,11 +198,17 @@ export default function MapaFretes({
               position={[f.originLocation.latitude, f.originLocation.longitude]}
               icon={pinIcon(f.status)}
               eventHandlers={{
-                // Hover abre popup automaticamente (desktop)
-                mouseover: (e) => e.target.openPopup(),
-                mouseout: (e) => e.target.closePopup(),
-                // Click traça a rota
-                click: () => setSelectedRouteFrete(f),
+                // Click traça a rota e abre popup. Não usamos mouseover/mouseout
+                // porque touch (iOS Safari) dispara esses eventos de forma errática
+                // e provoca crash do Leaflet (layerPointToLatLng undefined).
+                click: (e) => {
+                  setSelectedRouteFrete(f);
+                  try {
+                    e.target.openPopup();
+                  } catch {
+                    // ignora se o mapa ainda não está pronto
+                  }
+                },
               }}
             >
               <Popup>
@@ -225,13 +216,10 @@ export default function MapaFretes({
                   <p className="font-semibold text-gray-800 mb-1 text-xs">
                     {f.origin} → {f.destination}
                   </p>
-                  <p className="text-green-700 font-bold text-xs mb-1">
-                    {formatBRL(f.value)}
-                  </p>
+                  <p className="text-green-700 font-bold text-xs mb-1">{formatBRL(f.value)}</p>
                   {motoristaPoint && (
                     <p className="text-gray-600 text-[10px]">
-                      {formatKm(haversineDistanceKm(motoristaPoint, f.originLocation))} km de
-                      você
+                      {formatKm(haversineDistanceKm(motoristaPoint, f.originLocation))} km de você
                     </p>
                   )}
                 </div>
@@ -280,9 +268,7 @@ export default function MapaFretes({
                     ]}
                     icon={destIcon()}
                   />
-                  <FitRoute
-                    routeBounds={positions as L.LatLngBoundsExpression}
-                  />
+                  <FitRoute routeBounds={positions as L.LatLngBoundsExpression} />
                 </>
               );
             })()}
@@ -310,9 +296,7 @@ export default function MapaFretes({
                     setRadiusMenuOpen(false);
                   }}
                   className={`px-3 py-1 text-[11px] text-left whitespace-nowrap ${
-                    r === radiusKm
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-50'
+                    r === radiusKm ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   {r} km
@@ -448,11 +432,9 @@ export default function MapaFretes({
                 <div className="space-y-2 text-xs text-gray-700">
                   <p>
                     Você está acessando o app via{' '}
-                    <strong>
-                      {typeof window !== 'undefined' ? window.location.host : 'IP'}
-                    </strong>
-                    , que não é uma origem segura. Navegadores só permitem geolocalização em
-                    HTTPS ou em <code>localhost</code>.
+                    <strong>{typeof window !== 'undefined' ? window.location.host : 'IP'}</strong>,
+                    que não é uma origem segura. Navegadores só permitem geolocalização em HTTPS ou
+                    em <code>localhost</code>.
                   </p>
                   <p className="font-medium text-gray-800 mt-2">Soluções:</p>
                   <ul className="list-disc list-inside space-y-1 text-gray-700">

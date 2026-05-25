@@ -35,11 +35,10 @@ import {
 
 // Lazy import: leaflet + react-leaflet só caem no chunk dos motoristas.
 const MapaFretes = lazy(() => import('../components/MapaFretes'));
+import MapaFretesBoundary from '../components/MapaFretesBoundary';
 
 function MapaSkeleton() {
-  return (
-    <div className="w-full h-[90px] md:h-[110px] rounded-md bg-gray-100 animate-pulse mb-3" />
-  );
+  return <div className="w-full h-[90px] md:h-[110px] rounded-md bg-gray-100 animate-pulse mb-3" />;
 }
 
 export default function HomePage() {
@@ -73,7 +72,7 @@ export default function HomePage() {
   const [viewMode, setViewMode] = useViewPreference('fretego-view-home', 'cards');
   const isMobile = useIsMobile();
   // Motorista sempre vê cards. Apenas embarcador/visitante alternam entre cards/tabela no desktop.
-  const effectiveView = isMobile || (user?.userType === 'motorista') ? 'cards' : viewMode;
+  const effectiveView = isMobile || user?.userType === 'motorista' ? 'cards' : viewMode;
 
   // Contexto de cálculo financeiro do motorista (km/l + diesel).
   // Carregado apenas no ramo motorista; nulo até carregar.
@@ -189,27 +188,15 @@ export default function HomePage() {
     loadFretes({});
     const channel = supabase
       .channel('fretes-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'fretes' },
-        () => {
-          loadFretes(currentFiltersRef.current);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'fretes' },
-        () => {
-          loadFretes(currentFiltersRef.current);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'DELETE', schema: 'public', table: 'fretes' },
-        () => {
-          loadFretes(currentFiltersRef.current);
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fretes' }, () => {
+        loadFretes(currentFiltersRef.current);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fretes' }, () => {
+        loadFretes(currentFiltersRef.current);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'fretes' }, () => {
+        loadFretes(currentFiltersRef.current);
+      })
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -255,8 +242,7 @@ export default function HomePage() {
 
   // Lista filtrada por raio para o ramo motorista; intacta caso contrário.
   const visibleFretes = useMemo(
-    () =>
-      isMotorista ? filterFretesByRadius(fretes, motoristaPoint, radiusKm) : fretes,
+    () => (isMotorista ? filterFretesByRadius(fretes, motoristaPoint, radiusKm) : fretes),
     [isMotorista, fretes, motoristaPoint, radiusKm]
   );
 
@@ -273,9 +259,7 @@ export default function HomePage() {
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
         {/* Header inline: título + contagem + ações */}
         <div className="flex items-center mb-3 gap-2 flex-wrap">
-          <h1 className="text-base sm:text-lg font-semibold text-gray-800">
-            Fretes Disponíveis
-          </h1>
+          <h1 className="text-base sm:text-lg font-semibold text-gray-800">Fretes Disponíveis</h1>
           <span className="text-xs text-gray-500">({visibleFretes.length})</span>
           <div className="flex items-center gap-2 ml-auto">
             {isMotorista && user && calcLoaded && (
@@ -311,17 +295,19 @@ export default function HomePage() {
 
         {/* Mapa fixo para motorista (lazy) */}
         {isMotorista && (
-          <Suspense fallback={<MapaSkeleton />}>
-            <MapaFretes
-              fretes={visibleFretes}
-              motoristaPoint={motoristaPoint}
-              radiusKm={radiusKm}
-              onRadiusChange={handleRadiusChange}
-              onFreteClick={handleFreteClick}
-              geolocationStatus={geo.status}
-              onRequestLocation={geo.requestLocation}
-            />
-          </Suspense>
+          <MapaFretesBoundary>
+            <Suspense fallback={<MapaSkeleton />}>
+              <MapaFretes
+                fretes={visibleFretes}
+                motoristaPoint={motoristaPoint}
+                radiusKm={radiusKm}
+                onRadiusChange={handleRadiusChange}
+                onFreteClick={handleFreteClick}
+                geolocationStatus={geo.status}
+                onRequestLocation={geo.requestLocation}
+              />
+            </Suspense>
+          </MapaFretesBoundary>
         )}
 
         {showCalcBanner && (
