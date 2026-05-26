@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreteGO - Em Construção</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --green: #00FF88;
+            --green-dim: rgba(0, 255, 136, 0.08);
+            --green-glow: rgba(0, 255, 136, 0.3);
+            --bg: #080A08;
+            --border: rgba(0, 255, 136, 0.1);
+            --text: #E8F0EC;
+            --muted: #4A5C50;
+        }
+
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Syne', sans-serif;
+            color: var(--text);
+            background: var(--bg);
+            overflow: hidden;
+        }
+
+        canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* VÍDEO */
+        .bg-video {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: 0;
+            filter: saturate(0.3) brightness(0.25);
+        }
+
+        /* OVERLAY GRADIENT */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse at 50% 40%, rgba(0,255,136,0.04) 0%, transparent 65%),
+                rgba(8,10,8,0.82);
+            z-index: 1;
+        }
+
+        /* CONTEÚDO */
+        .content {
+            position: relative;
+            z-index: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 32px 28px;
+            gap: 0;
+            max-width: 380px;
+        }
+
+        /* TAG TOPO */
+        .status-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--green-dim);
+            border: 1px solid rgba(0,255,136,0.2);
+            border-radius: 4px;
+            padding: 6px 14px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.62rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: var(--green);
+            margin-bottom: 40px;
+        }
+
+        .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 1.4s ease-in-out infinite;
+        }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+        /* ÍCONE */
+        .icon-wrap {
+            width: 72px;
+            height: 72px;
+            border: 1px solid rgba(0,255,136,0.15);
+            border-radius: 18px;
+            background: var(--green-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 28px;
+        }
+
+        .icon-wrap svg {
+            width: 34px;
+            height: 34px;
+            animation: spin 8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* TITLE */
+        .title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: clamp(3rem, 12vw, 5.5rem);
+            letter-spacing: 0.08em;
+            line-height: 0.9;
+            color: #fff;
+            margin-bottom: 6px;
+        }
+
+        .title em {
+            color: var(--green);
+            font-style: normal;
+        }
+
+        /* DIVIDER */
+        .divider {
+            width: 60px;
+            height: 2px;
+            background: linear-gradient(to right, var(--green), transparent);
+            margin: 24px auto 24px;
+        }
+
+        /* SUBTÍTULO */
+        .subtitle {
+            font-size: 0.85rem;
+            color: rgba(232,240,236,0.4);
+            line-height: 1.7;
+            max-width: 260px;
+            font-family: 'DM Mono', monospace;
+            letter-spacing: 0.02em;
+        }
+
+        /* PROGRESSO */
+        .progress-block {
+            margin-top: 32px;
+            width: 100%;
+            background: rgba(0,255,136,0.04);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.62rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .progress-label span:first-child { color: var(--muted); }
+        .progress-label span:last-child { color: var(--green); font-weight: 500; }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 38%;
+            background: var(--green);
+            border-radius: 99px;
+            box-shadow: 0 0 10px var(--green-glow);
+            animation: pulse-bar 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes pulse-bar {
+            from { opacity: 0.7; }
+            to   { opacity: 1; box-shadow: 0 0 18px var(--green-glow); }
+        }
+
+        /* BOTÃO VOLTAR */
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 32px;
+            padding: 14px 28px;
+            border-radius: 10px;
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.08);
+            color: var(--muted);
+            font-family: 'Syne', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-decoration: none;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.18s;
+        }
+
+        .btn-back:hover {
+            border-color: rgba(0,255,136,0.2);
+            color: var(--text);
+        }
+
+        .btn-back:active { transform: scale(0.97); }
+        .btn-back svg { width: 14px; height: 14px; }
+
+        /* ANIMAÇÕES DE ENTRADA */
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .status-tag   { animation: fadeUp 0.4s 0.1s both; }
+        .icon-wrap    { animation: fadeUp 0.4s 0.2s both; }
+        .title        { animation: fadeUp 0.4s 0.3s both; }
+        .divider      { animation: fadeUp 0.4s 0.35s both; }
+        .subtitle     { animation: fadeUp 0.4s 0.4s both; }
+        .progress-block { animation: fadeUp 0.4s 0.45s both; }
+        .btn-back     { animation: fadeUp 0.4s 0.5s both; }
+    </style>
+</head>
+<body>
+
+    <video class="bg-video" autoplay loop muted playsinline>
+        <source src="imagem/0325.mp4" type="video/mp4">
+    </video>
+    <div class="overlay"></div>
+    <canvas id="c"></canvas>
+
+    <div class="content">
+
+        <div class="status-tag">
+            <span class="dot"></span>
+            Em desenvolvimento
+        </div>
+
+        <div class="icon-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#00FF88" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07M8.46 8.46a5 5 0 0 0 0 7.07"/>
+            </svg>
+        </div>
+
+        <h1 class="title">APP EM<br><em>BREVE</em></h1>
+
+        <div class="divider"></div>
+
+        <p class="subtitle">Estamos construindo algo sólido. O app FreteGO vai conectar cargas e caminhões em todo o Brasil.</p>
+
+        <div class="progress-block">
+            <div class="progress-label">
+                <span>Progresso do build</span>
+                <span>38%</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill"></div>
+            </div>
+        </div>
+
+        <a href="javascript:history.back()" class="btn-back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Voltar
+        </a>
+
+    </div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+const lines = Array.from({ length: 18 }, () => ({
+    x: Math.random() * window.innerWidth,
+    y: Math.random() * window.innerHeight,
+    speed: 2 + Math.random() * 4,
+    length: 50 + Math.random() * 120,
+    opacity: 0.03 + Math.random() * 0.09,
+    width: 0.5 + Math.random() * 1.2,
+}));
+
+(function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    lines.forEach(l => {
+        l.y += l.speed;
+        if (l.y - l.length > canvas.height) {
+            l.y = -l.length;
+            l.x = Math.random() * canvas.width;
+        }
+        const g = ctx.createLinearGradient(l.x, l.y - l.length, l.x, l.y);
+        g.addColorStop(0, `rgba(0,255,136,0)`);
+        g.addColorStop(1, `rgba(0,255,136,${l.opacity})`);
+        ctx.beginPath();
+        ctx.strokeStyle = g;
+        ctx.lineWidth = l.width;
+        ctx.moveTo(l.x, l.y - l.length);
+        ctx.lineTo(l.x, l.y);
+        ctx.stroke();
+    });
+    requestAnimationFrame(draw);
+})();
+</script>
+
+</body>
+</html>

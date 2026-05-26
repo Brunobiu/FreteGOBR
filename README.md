@@ -1,109 +1,130 @@
 # FreteGO
 
-Marketplace de frete brasileiro conectando embarcadores e motoristas.
+Marketplace de frete brasileiro conectando embarcadores e motoristas, com painel administrativo completo.
 
-## 🚀 Tecnologias
+## Stack
 
-- **React 18** - Biblioteca UI
-- **TypeScript** - Tipagem estática
-- **Vite** - Build tool e dev server
-- **Tailwind CSS** - Framework CSS utility-first
-- **ESLint** - Linter para qualidade de código
-- **Prettier** - Formatação de código
-- **Husky** - Git hooks para automação
+- **React 18** + TypeScript (strict) + Vite
+- **Tailwind CSS** — UI utility-first
+- **Supabase** — Postgres + Auth + Storage + Edge Functions + Realtime
+- **React Router v6** — SPA routing
+- **Leaflet + react-leaflet** — Mapas interativos
+- **Vitest + fast-check** — Testes unitários e property-based
+- **Husky + lint-staged** — Pre-commit (ESLint + Prettier)
 
-## 📁 Estrutura do Projeto
+## Funcionalidades
+
+### Plataforma (usuários)
+
+- Cadastro e login com verificação de e-mail
+- Perfil de embarcador (empresa, CNPJ, logo, plano)
+- Perfil de motorista (documentos, RNTRC, veículo)
+- Publicação de fretes com formulário completo (origem/destino com mapa, produto, valor, distância)
+- Mapa interativo com raio de busca configurável
+- Listagem de fretes com filtros e likes
+- Chat em tempo real entre embarcador e motorista (com anexos)
+- Notificações push e in-app
+- Sugestão de viagens
+
+### Painel Administrativo (`/admin`)
+
+Acesso restrito com MFA TOTP, RBAC granular e audit-by-construction.
+
+| Módulo | Migration | Descrição |
+|--------|-----------|-----------|
+| Foundation | 030 | RBAC (`is_admin_with_permission`), MFA TOTP, audit logs, Master Admin imutável |
+| Usuários | 031 | Banimento, toggle ativo, bulk operations, CSV export |
+| Fretes | 032 | Flag, edição, cancelamento, exclusão de fretes |
+| Blacklist | 035 | Lista negra (phone/CPF/CNPJ/email/IP), auto-blacklist no ban |
+| Dashboard | 036 | KPIs agregados, gráficos SVG inline, mapa de calor, mini-dashboard |
+| Financeiro | 037 | Comissão (flat + faixas), repasses 1:1 com fretes, marcar pago, estornar *(em progresso)* |
+
+Padrões do painel:
+- Versionamento otimista (`updated_at` + `STALE_VERSION`)
+- Idempotência forte (`_SKIPPED` em operações repetidas)
+- Stealth_404 (sem revelar existência de rotas protegidas)
+- Degradação parcial (`Promise.allSettled` em sub-queries)
+- CSV BOM UTF-8 + `;` + RFC 4180 + truncamento 10.000 linhas
+- Bulk com pool de concorrência 5
+
+## Estrutura do Projeto
 
 ```
-FreteGO/
-├── src/
-│   ├── components/     # Componentes React reutilizáveis
-│   ├── services/       # Serviços e integrações (Supabase, APIs)
-│   ├── hooks/          # Custom React hooks
-│   ├── types/          # Definições de tipos TypeScript
-│   ├── utils/          # Funções utilitárias
-│   ├── App.tsx         # Componente principal
-│   ├── main.tsx        # Entry point
-│   └── index.css       # Estilos globais com Tailwind
-├── .husky/             # Git hooks
-├── .env.example        # Exemplo de variáveis de ambiente
-└── package.json        # Dependências e scripts
+src/
+  components/
+    admin/           # Componentes do painel (sidebar, guard, shell, módulos)
+    *.tsx            # Componentes públicos (mapa, chat, fretes, forms)
+  pages/
+    admin/           # Páginas do painel (dashboard, users, fretes, blacklist)
+    *.tsx            # Páginas públicas (home, login, register, perfil)
+  services/
+    admin/           # Services do painel (audit, permissions, auth, módulos)
+    supabase.ts      # Cliente Supabase único
+  hooks/             # Custom hooks (useAdminPermission, useAdminSession, etc.)
+  __tests__/
+    admin/           # Property tests por módulo (fast-check)
+
+supabase/
+  migrations/        # 037 migrations (aplicadas automaticamente via GitHub integration)
+
+.kiro/
+  specs/             # Specs de features (requirements → design → tasks)
+  steering/          # Convenções do projeto (carregadas automaticamente)
 ```
 
-## 🛠️ Configuração
+## Setup
 
 ### Pré-requisitos
 
-- Node.js 18+ 
-- npm ou yarn
+- Node.js 18+
+- Conta Supabase com projeto configurado
 
 ### Instalação
 
-1. Clone o repositório
 ```bash
 git clone <repository-url>
 cd FreteGO
-```
-
-2. Instale as dependências
-```bash
 npm install
-```
-
-3. Configure as variáveis de ambiente
-```bash
 cp .env.example .env
+# Preencher VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY
 ```
 
-Edite o arquivo `.env` com suas credenciais do Supabase:
-- `VITE_SUPABASE_URL` - URL do projeto Supabase
-- `VITE_SUPABASE_ANON_KEY` - Chave anônima do Supabase
-- `VITE_SUPABASE_SERVICE_KEY` - Chave de serviço do Supabase
-
-### Scripts Disponíveis
+### Scripts
 
 ```bash
-# Desenvolvimento
-npm run dev          # Inicia servidor de desenvolvimento
-
-# Build
-npm run build        # Compila para produção
-npm run preview      # Preview da build de produção
-
-# Qualidade de Código
-npm run lint         # Executa ESLint
-npm run format       # Formata código com Prettier
+npm run dev          # Dev server (Vite)
+npm run build        # Build produção
+npm run preview      # Preview local da build
+npm run lint         # ESLint
+npx tsc --noEmit     # Type check
+npx vitest --run     # Testes (property-based + unit)
 ```
 
-## 🔧 Configurações
+## Deploy
 
-### TypeScript
+- **Frontend**: Vercel (deploy automático em push para `main`)
+- **Backend**: Supabase (migrations aplicam automaticamente via GitHub integration)
+- Branch `main` direto — sem PRs obrigatórios no momento
 
-O projeto usa TypeScript em modo **strict** para máxima segurança de tipos. Configurações em `tsconfig.json`.
+## Variáveis de Ambiente
 
-### ESLint
+| Variável | Descrição |
+|----------|-----------|
+| `VITE_SUPABASE_URL` | URL do projeto Supabase |
+| `VITE_SUPABASE_ANON_KEY` | Chave anônima (publishable) |
 
-Configurado com regras recomendadas para React e TypeScript. Veja `.eslintrc.cjs`.
+## Status do Desenvolvimento
 
-### Prettier
+- [x] Plataforma base (cadastro, login, fretes, mapa, chat)
+- [x] Painel admin: Foundation + RBAC + MFA
+- [x] Painel admin: Gestão de usuários
+- [x] Painel admin: Gestão de fretes
+- [x] Painel admin: Blacklist
+- [x] Painel admin: Dashboard com KPIs
+- [ ] Painel admin: Financeiro (comissão + repasses) — *backend pronto, UI em progresso*
+- [ ] Painel admin: Suporte / CRM
+- [ ] Painel admin: Configurações gerais
 
-Formatação automática com configurações em `.prettierrc`:
-- Single quotes
-- 2 espaços de indentação
-- 100 caracteres por linha
+## Licença
 
-### Husky
-
-Git hooks configurados:
-- **pre-commit**: Executa lint-staged para validar código antes do commit
-
-## 📝 Próximos Passos
-
-1. Configurar Supabase (Task 2)
-2. Implementar autenticação (Tasks 4-5)
-3. Desenvolver gestão de fretes (Tasks 11-12)
-4. Adicionar mapa interativo (Task 15)
-
-## 📄 Licença
-
-Este projeto é privado e proprietário.
+Projeto privado e proprietário.

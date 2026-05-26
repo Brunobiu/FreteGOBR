@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreteGO — Divulgar Frete / Parcerias</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --green:      #3A9E3A;
+            --green-dark: #2A7A2A;
+            --green-dim:  rgba(58,158,58,0.09);
+            --yellow:     #F5C800;
+            --yellow-dim: rgba(245,200,0,0.1);
+            --bg:         #0A0C0A;
+            --surface:    #111511;
+            --surface2:   #161D16;
+            --border:     rgba(58,158,58,0.1);
+            --text:       #E8EDE8;
+            --muted:      #4A5E4A;
+        }
+        *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+        html{scroll-behavior:smooth;}
+        body{background:var(--bg);font-family:'Inter',sans-serif;color:var(--text);min-height:100vh;display:flex;justify-content:center;}
+        body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");}
+
+        .page{width:100%;max-width:480px;position:relative;z-index:1;padding:0 0 60px;}
+
+        /* TOPO */
+        .top-nav{display:flex;align-items:center;justify-content:space-between;padding:28px 22px 0;}
+        .back-btn{display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:0.78rem;font-weight:600;text-decoration:none;transition:color 0.15s;}
+        .back-btn:hover{color:var(--text);}
+        .back-btn svg{width:14px;height:14px;}
+        .nav-badge{display:inline-flex;align-items:center;gap:7px;background:var(--yellow-dim);border:1px solid rgba(245,200,0,0.22);border-radius:4px;padding:5px 12px;font-size:0.6rem;letter-spacing:0.14em;text-transform:uppercase;color:var(--yellow);font-weight:700;}
+
+        /* HERO */
+        .hero{padding:24px 22px 28px;position:relative;}
+        .hero::after{content:'';position:absolute;bottom:0;left:22px;right:22px;height:1px;background:linear-gradient(to right,rgba(58,158,58,0.3),rgba(245,200,0,0.15),transparent);}
+        .hero h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(2.4rem,8vw,3.2rem);letter-spacing:0.08em;line-height:0.92;color:#fff;margin-bottom:14px;}
+        .hero h1 span{color:var(--yellow);}
+        .hero p{font-size:0.85rem;color:rgba(232,237,232,0.55);line-height:1.7;max-width:380px;}
+        .hero p strong{color:rgba(232,237,232,0.85);}
+
+        /* SEÇÃO */
+        .section{padding:28px 22px 0;}
+        .section-title{font-size:0.6rem;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+        .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+        /* COMO FUNCIONA */
+        .how-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+        .how-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 14px;}
+        .how-card .hc-icon{font-size:1.4rem;margin-bottom:10px;}
+        .how-card .hc-title{font-weight:700;font-size:0.84rem;color:var(--text);margin-bottom:5px;}
+        .how-card .hc-desc{font-size:0.73rem;color:var(--muted);line-height:1.6;}
+
+        /* ENGAJAMENTO */
+        .engage-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
+        .eng-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:16px 14px;text-align:center;}
+        .eng-icon{font-size:1.3rem;margin-bottom:8px;}
+        .eng-num{font-family:'Bebas Neue',sans-serif;font-size:1.8rem;letter-spacing:0.06em;line-height:1;color:var(--yellow);}
+        .eng-label{font-size:0.68rem;color:var(--muted);margin-top:4px;font-weight:600;letter-spacing:0.04em;}
+        .eng-sub{font-size:0.62rem;color:var(--muted);margin-top:2px;opacity:0.7;}
+        .engage-note{font-size:0.7rem;color:var(--muted);text-align:center;line-height:1.6;padding:10px 4px 0;}
+        .engage-note strong{color:var(--green);}
+
+        /* PROVA SOCIAL — imagens verticais */
+        .proof-list{display:flex;flex-direction:column;gap:14px;margin-top:4px;}
+        .proof-item{}
+        .proof-img{
+            width:100%;aspect-ratio:16/9;object-fit:cover;
+            border-radius:12px;border:10px solid var(--border);display:block;
+            background:var(--surface2);
+        }
+        .proof-caption{
+            margin-top:8px;font-size:0.75rem;font-weight:700;
+            color:var(--yellow);display:flex;align-items:center;gap:6px;
+        }
+        .proof-caption svg{width:13px;height:13px;flex-shrink:0;}
+
+        /* CALCULADORA */
+        .calc-box{margin:24px 22px 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+        .calc-head{padding:18px 20px 14px;border-bottom:1px solid var(--border);}
+        .calc-head h2{font-family:'Bebas Neue',sans-serif;font-size:1.5rem;letter-spacing:0.1em;color:#fff;}
+        .calc-head p{font-size:0.75rem;color:var(--muted);margin-top:3px;}
+        .calc-body{padding:20px;}
+
+        .calc-group{margin-bottom:22px;}
+        .calc-label{font-size:0.72rem;font-weight:700;color:var(--text);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+        .calc-label svg{width:14px;height:14px;color:var(--green);}
+
+        /* CHIPS DE REDE */
+        .chip-grid{display:flex;flex-wrap:wrap;gap:7px;}
+        .chip-sel{
+            display:inline-flex;align-items:center;gap:6px;
+            padding:7px 12px;border-radius:8px;
+            background:var(--surface2);border:1px solid rgba(255,255,255,0.06);
+            font-size:0.78rem;font-weight:600;color:var(--muted);
+            cursor:pointer;transition:all 0.18s;user-select:none;
+            position:relative;
+        }
+        .chip-sel:hover{border-color:rgba(58,158,58,0.3);color:var(--text);}
+        .chip-sel.active{background:rgba(58,158,58,0.12);border-color:rgba(58,158,58,0.4);color:var(--green);}
+        .chip-sel .cs-icon{font-size:0.95rem;}
+
+        /* BADGE BOMBANDO */
+        .hot-badge{
+            position:absolute;top:-8px;right:-6px;
+            background:linear-gradient(135deg,#FF4500,#FF6B00);
+            color:#fff;font-size:0.5rem;font-weight:800;letter-spacing:0.04em;
+            padding:2px 5px;border-radius:4px;white-space:nowrap;
+            box-shadow:0 2px 6px rgba(255,69,0,0.4);
+            pointer-events:none;
+        }
+
+        /* PREÇO INDIVIDUAL DO CHIP */
+        .chip-price-row{
+            margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;
+        }
+        .chip-price-tag{
+            display:inline-flex;align-items:center;gap:5px;
+            font-size:0.7rem;color:var(--muted);
+            background:var(--surface);border:1px solid var(--border);
+            border-radius:6px;padding:3px 9px;
+        }
+        .chip-price-tag .cp-nome{font-weight:700;color:var(--text);}
+        .chip-price-tag .cp-val{color:var(--green);font-weight:700;}
+
+        /* total parcial */
+        .subtotal-bar{
+            margin-top:10px;padding:10px 14px;border-radius:10px;
+            background:rgba(58,158,58,0.06);border:1px solid rgba(58,158,58,0.15);
+            display:flex;justify-content:space-between;align-items:center;
+        }
+        .subtotal-bar span{font-size:0.72rem;color:var(--muted);font-weight:600;}
+        .subtotal-bar strong{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;letter-spacing:0.06em;color:var(--yellow);}
+
+        /* STEPPER */
+        .stepper{display:flex;align-items:center;gap:12px;}
+        .stepper-btn{width:34px;height:34px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);font-size:1.2rem;font-weight:700;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all 0.15s;flex-shrink:0;}
+        .stepper-btn:hover{background:rgba(58,158,58,0.1);border-color:rgba(58,158,58,0.3);}
+        .stepper-val{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;letter-spacing:0.06em;color:#fff;min-width:28px;text-align:center;}
+        .stepper-unit{font-size:0.72rem;color:var(--muted);font-weight:500;}
+
+        /* RESULTADO TOTAL */
+        .calc-result{margin-top:20px;padding:18px 16px;border-radius:12px;background:linear-gradient(135deg,rgba(58,158,58,0.08),rgba(245,200,0,0.05));border:1px solid rgba(58,158,58,0.2);}
+        .result-row{display:flex;justify-content:space-between;align-items:center;}
+        .result-label{font-size:0.72rem;color:var(--muted);font-weight:600;}
+        .result-price{font-family:'Bebas Neue',sans-serif;font-size:2rem;letter-spacing:0.06em;color:var(--yellow);}
+        .result-detail{font-size:0.68rem;color:var(--muted);margin-top:5px;line-height:1.6;}
+        .result-detail span{color:var(--green);font-weight:600;}
+
+        /* INCLUSO */
+        .included-box{margin:20px 22px 0;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:18px;}
+        .included-title{font-weight:800;font-size:0.85rem;color:var(--text);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+        .included-title svg{width:16px;height:16px;color:var(--green);}
+        .included-list{display:flex;flex-direction:column;gap:8px;}
+        .inc-item{display:flex;align-items:flex-start;gap:10px;font-size:0.78rem;color:rgba(232,237,232,0.55);line-height:1.5;}
+        .inc-item svg{width:14px;height:14px;color:var(--green);flex-shrink:0;margin-top:2px;}
+
+        /* FORMULÁRIO */
+        .form-box{margin:20px 22px 0;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;}
+        .form-head{padding:18px 20px 14px;border-bottom:1px solid var(--border);}
+        .form-head h2{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:0.1em;color:#fff;}
+        .form-head p{font-size:0.73rem;color:var(--muted);margin-top:3px;}
+        .form-body{padding:20px;display:flex;flex-direction:column;gap:14px;}
+
+        .field-label{font-size:0.7rem;font-weight:700;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px;}
+        .field-req{color:var(--yellow);margin-left:2px;}
+        .field-input{width:100%;background:var(--surface2);border:1px solid rgba(255,255,255,0.07);border-radius:9px;padding:11px 14px;color:var(--text);font-family:'Inter',sans-serif;font-size:0.88rem;font-weight:500;outline:none;transition:border-color 0.2s;}
+        .field-input:focus{border-color:rgba(58,158,58,0.4);}
+        .field-input.error{border-color:rgba(220,50,50,0.5);}
+        .field-input::placeholder{color:var(--muted);}
+
+        .selected-summary{background:rgba(58,158,58,0.05);border:1px solid rgba(58,158,58,0.15);border-radius:9px;padding:12px 14px;font-size:0.75rem;color:rgba(232,237,232,0.55);line-height:1.8;white-space:pre-line;}
+        .selected-summary strong{color:var(--green);font-weight:700;}
+
+        .error-msg{display:none;font-size:0.7rem;color:#e05555;margin-top:6px;padding:8px 12px;background:rgba(220,50,50,0.07);border:1px solid rgba(220,50,50,0.18);border-radius:7px;}
+        .error-msg.show{display:block;}
+
+        .submit-btn{width:100%;padding:15px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,var(--green-dark),var(--green));color:#fff;font-family:'Inter',sans-serif;font-size:1rem;font-weight:800;letter-spacing:0.02em;transition:filter 0.15s,transform 0.15s;display:flex;align-items:center;justify-content:center;gap:10px;box-shadow:0 0 28px rgba(58,158,58,0.2);}
+        .submit-btn:hover{filter:brightness(1.07);}
+        .submit-btn:active{transform:scale(0.98);}
+        .submit-btn svg{width:20px;height:20px;}
+        .form-disclaimer{font-size:0.67rem;color:var(--muted);text-align:center;line-height:1.6;margin-top:2px;}
+
+        /* FOOTER — igual ao index (fixo na base) */
+        .fixed-footer {
+            position:fixed; bottom:0; left:50%; transform:translateX(-50%);
+            width:100%; max-width:480px;
+            background:rgba(10,12,10,0.96); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+            border-top:1px solid var(--border); padding:9px 20px 14px; z-index:90;
+            display:flex; justify-content:space-between; align-items:center;
+        }
+        .footer-social{display:flex;gap:6px;}
+        .social-icon-btn{width:34px;height:34px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;text-decoration:none;transition:all 0.18s;}
+        .social-icon-btn svg{width:15px;height:15px;display:block;}
+        .social-icon-btn:active{transform:scale(0.9);}
+        .social-icon-btn.tiktok:hover   {background:#111;border-color:rgba(255,255,255,0.2);}
+        .social-icon-btn.youtube:hover  {background:#FF0000;border-color:#FF0000;}
+        .social-icon-btn.facebook:hover {background:#1877F2;border-color:#1877F2;}
+        .social-icon-btn.instagram:hover{background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);border-color:transparent;}
+        .social-icon-btn.kwai:hover     {background:#FF6500;border-color:#FF6500;}
+        .social-icon-btn:hover svg{filter:brightness(0) invert(1);}
+        .footer-brand{font-size:0.58rem;color:var(--muted);text-align:right;line-height:1.7;}
+
+        /* padding para o conteúdo não ficar atrás do footer fixo */
+        .page{padding-bottom:80px;}
+
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+        .top-nav {animation:fadeUp 0.35s 0.05s both;}
+        .hero    {animation:fadeUp 0.35s 0.1s both;}
+        .section {animation:fadeUp 0.35s 0.15s both;}
+        .calc-box{animation:fadeUp 0.35s 0.2s both;}
+        .form-box{animation:fadeUp 0.35s 0.25s both;}
+    </style>
+</head>
+<body>
+<div class="page">
+
+    <!-- TOPO -->
+    <div class="top-nav">
+        <a href="index.html" class="back-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Voltar
+        </a>
+        <div class="nav-badge">💼 Parcerias</div>
+    </div>
+
+    <!-- HERO -->
+    <div class="hero">
+        <h1>DIVULGUE<br>SEU <span>FRETE</span></h1>
+        <p>
+            Alcance <strong>mais caminhoneiros</strong> em todo o Brasil ou locais específicos, através das nossas redes sociais: TikTok, Facebook, YouTube, Instagram e nossos grupos regionais de WhatsApp.
+            <br><br>
+            Nossas redes somam <strong>mais de 5.000 visualizações por post</strong>.
+            <br><br>
+            Qual a chance de você <strong>fechar seu frete rápido</strong> postando com a gente?
+        </p>
+    </div>
+
+    <!-- COMO FUNCIONA -->
+    <div class="section">
+        <div class="section-title">Como funciona</div>
+        <div class="how-grid">
+            <div class="how-card">
+                <!-- ícone câmera/galeria -->
+                <div class="hc-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                </div>
+                <div class="hc-title">Você manda o conteúdo</div>
+                <div class="hc-desc">Manda a arte, vídeo ou texto da sua carga. A gente reposta nas redes selecionadas.</div>
+            </div>
+            <div class="how-card">
+                <div class="hc-icon">📱</div>
+                <div class="hc-title">A gente reposta</div>
+                <div class="hc-desc">Feed, Stories e grupos WhatsApp em todas as redes. Post fica 30 dias no ar.</div>
+            </div>
+            <div class="how-card">
+                <div class="hc-icon">🚛</div>
+                <div class="hc-title">Motoristas entram em contato</div>
+                <div class="hc-desc">Caminhoneiros interessados falam direto com você. Sem intermediário.</div>
+            </div>
+            <div class="how-card">
+                <div class="hc-icon">📊</div>
+                <div class="hc-title">Mais alcance</div>
+                <div class="hc-desc">+15 redes e grupos ativos. Comunidade crescendo toda semana.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ENGAJAMENTO -->
+    <div class="section">
+        <div class="section-title">Nosso alcance</div>
+        <div class="engage-grid">
+            <div class="eng-card">
+                <div class="eng-icon">🎵</div>
+                <div class="eng-num">+ 800K</div>
+                <div class="eng-label">TikTok</div>
+                <div class="eng-sub">Visualizações nas redes sociais.</div>
+            </div>
+            <div class="eng-card">
+                <div class="eng-icon">👥</div>
+                <div class="eng-num">+ 3K</div>
+                <div class="eng-label">Seguidores</div>
+                <div class="eng-sub">TikTok e crescendo</div>
+            </div>
+            <div class="eng-card">
+                <div class="eng-icon">💬</div>
+                <div class="eng-num">18</div>
+                <div class="eng-label">Grupos WA</div>
+                <div class="eng-sub">grupos regionais ativos</div>
+            </div>
+            <div class="eng-card">
+                <div class="eng-icon">🗺️</div>
+                <div class="eng-num">27</div>
+                <div class="eng-label">Estados</div>
+                <div class="eng-sub">cobertura nacional</div>
+            </div>
+        </div>
+
+        <!-- PROVA SOCIAL — 5 imagens verticais com legendas -->
+        <div class="proof-list" style="margin-top:18px;">
+
+            <div class="proof-item">
+                <img src="imagem/1.jpeg" alt="Resultado 1" class="proof-img">
+                <div class="proof-caption">
+                    <svg viewBox="0 0 24 24" fill="var(--yellow)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Mais de 180.000 mil visualizações
+                </div>
+            </div>
+
+            <div class="proof-item">
+                <img src="imagem/2.jpeg" alt="Resultado 2" class="proof-img">
+                <div class="proof-caption">
+                    <svg viewBox="0 0 24 24" fill="var(--yellow)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Mais de 28.000 mil visualizações
+                </div>
+            </div>
+
+            <div class="proof-item">
+                <img src="imagem/3.jpeg" alt="Resultado 3" class="proof-img">
+                <div class="proof-caption">
+                    <svg viewBox="0 0 24 24" fill="var(--yellow)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Mais de 32.000 mil visualizações
+                </div>
+            </div>
+
+            <div class="proof-item">
+                <img src="imagem/4.jpeg" alt="Resultado 4" class="proof-img">
+                <div class="proof-caption">
+                    <svg viewBox="0 0 24 24" fill="var(--yellow)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Mais de 105.000 mil visualizações
+                </div>
+            </div>
+
+            <div class="proof-item">
+                <img src="imagem/5.jpeg" alt="Resultado 5" class="proof-img">
+                <div class="proof-caption">
+                    <svg viewBox="0 0 24 24" fill="var(--yellow)"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    Mais de 79.000 mil visualizações
+                </div>
+            </div>
+
+        </div>
+
+        <p class="engage-note" style="margin-top:16px;">
+            Atualizado em abril/2026. Conta em crescimento acelerado<br>
+            <strong>Números sobem toda semana</strong>.
+        </p>
+    </div>
+
+    <!-- CALCULADORA -->
+    <div class="calc-box">
+        <div class="calc-head">
+            <h2>MONTE SEU PACOTE</h2>
+            <p>Selecione as opções e veja o valor na hora</p>
+        </div>
+        <div class="calc-body">
+
+            <!-- REDES -->
+            <div class="calc-group">
+                <div class="calc-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    Onde quer divulgar?
+                </div>
+                <div class="chip-grid">
+                    <div class="chip-sel" data-id="tiktok"    data-base="80"  onclick="toggleRede(this)">
+                        <span class="cs-icon">🎵</span>TikTok
+                        <span class="hot-badge">BOMBANDO 🔥</span>
+                    </div>
+                    <div class="chip-sel" data-id="facebook"  data-base="60"  onclick="toggleRede(this)"><span class="cs-icon">📘</span>Facebook</div>
+                    <div class="chip-sel" data-id="instagram" data-base="70"  onclick="toggleRede(this)"><span class="cs-icon">📸</span>Instagram</div>
+                    <div class="chip-sel" data-id="youtube"   data-base="90"  onclick="toggleRede(this)"><span class="cs-icon">▶</span>YouTube</div>
+                    <div class="chip-sel" data-id="kwai"      data-base="50"  onclick="toggleRede(this)">
+                        <span class="cs-icon">🎬</span>Kwai
+                        <!-- <span class="hot-badge">BOMBANDO 🔥</span> -->
+                    </div>
+                    <div class="chip-sel" data-id="grupos"    data-base="40"  onclick="toggleRede(this)">
+                        <span class="cs-icon">💬</span>Grupos WA
+                        <span class="hot-badge">BOMBANDO 🔥</span>
+                    </div>
+                </div>
+
+                <!-- PREÇOS POR REDE EM TEMPO REAL -->
+                <div class="chip-price-row" id="priceRow" style="display:none;"></div>
+                <div class="subtotal-bar" id="subtotalBar" style="display:none;">
+                    <span>Subtotal redes</span>
+                    <strong id="subtotalVal">R$ 0</strong>
+                </div>
+            </div>
+
+            <!-- FEED -->
+            <div class="calc-group">
+                <div class="calc-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+                    Posts no Feed por semana
+                </div>
+                <div class="stepper">
+                    <div class="stepper-btn" onclick="change('feed',-1)">−</div>
+                    <div class="stepper-val" id="valFeed">1</div>
+                    <div class="stepper-btn" onclick="change('feed',1)">+</div>
+                    <div class="stepper-unit">post/sem = <span id="feedMes">4</span>/mês</div>
+                </div>
+            </div>
+
+            <!-- STORIES -->
+            <div class="calc-group">
+                <div class="calc-label">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Stories por dia
+                </div>
+                <div class="stepper">
+                    <div class="stepper-btn" onclick="change('stories',-1)">−</div>
+                    <div class="stepper-val" id="valStories">0</div>
+                    <div class="stepper-btn" onclick="change('stories',1)">+</div>
+                    <div class="stepper-unit">stories/dia = <span id="storiesMes">0</span>/mês</div>
+                </div>
+            </div>
+
+            <!-- RESULTADO TOTAL -->
+            <div class="calc-result">
+                <div class="result-row">
+                    <div class="result-label">💰 Total mensal estimado</div>
+                    <div class="result-price" id="resultPrice">R$ 0</div>
+                </div>
+                <div class="result-detail" id="resultDetail">Selecione as redes e quantidade de posts para ver o valor.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- INCLUSO -->
+    <div class="included-box">
+        <div class="included-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            O que está incluso em todos os pacotes
+        </div>
+        <div class="included-list">
+            <div class="inc-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Cada post fica ativo por <strong style="color:var(--text)">30 dias</strong> nas redes selecionadas
+            </div>
+            <div class="inc-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Divulgação nos grupos regionais do WhatsApp FreteGO
+            </div>
+            <div class="inc-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Você manda o conteúdo (arte, vídeo ou texto) — a gente reposta
+            </div>
+            <div class="inc-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Contato do motorista vai direto pra você — sem intermediário
+            </div>
+        </div>
+    </div>
+
+    <!-- FORMULÁRIO -->
+    <div class="form-box">
+        <div class="form-head">
+            <h2>SOLICITAR PARCERIA</h2>
+            <p>Preencha todos os campos para enviar pelo WhatsApp</p>
+        </div>
+        <div class="form-body">
+
+            <div>
+                <div class="field-label">Seu nome completo <span class="field-req">*</span></div>
+                <input type="text" class="field-input" id="fNome" placeholder="Ex: João da Silva"
+                    oninput="capitalizarNome(this)">
+            </div>
+
+            <div>
+                <div class="field-label">WhatsApp para contato <span class="field-req">*</span></div>
+                <input type="tel" class="field-input" id="fTel" placeholder="(64) 9 9999-9999"
+                    oninput="mascaraTel(this)" maxlength="16">
+            </div>
+
+            <div>
+                <div class="field-label">E-mail <span class="field-req">*</span></div>
+                <input type="email" class="field-input" id="fEmail" placeholder="contato@fretegobr.com.br">
+            </div>
+
+            <div>
+                <div class="field-label">Transportadora / Empresa <span class="field-req">*</span></div>
+                <input type="text" class="field-input" id="fEmpresa" placeholder="Ex: Transportes Silva Ltda">
+            </div>
+
+            <div>
+                <div class="field-label">Tipo de carga / frete <span class="field-req">*</span></div>
+                <input type="text" class="field-input" id="fCarga" placeholder="Ex: Soja, Calcário, Geral...">
+            </div>
+
+            <div>
+                <div class="field-label">Pacote / configuração selecionada</div>
+                <div class="selected-summary" id="formSummary">Nenhuma opção selecionada ainda. Use a calculadora acima.</div>
+            </div>
+
+            <div class="error-msg" id="errorMsg">⚠️ Preencha todos os campos obrigatórios antes de enviar.</div>
+
+            <button class="submit-btn" onclick="enviarWhatsApp()">
+                <svg viewBox="0 0 32 32"><path d="M16 3C9.373 3 4 8.373 4 15c0 2.385.668 4.61 1.832 6.5L4 29l7.723-1.812A12.93 12.93 0 0016 28c6.627 0 12-5.373 12-12S22.627 3 16 3z" fill="rgba(255,255,255,0.25)"/><path d="M21.5 18.5c-.3-.15-1.8-.9-2.08-1-.28-.1-.48-.15-.68.15s-.78.99-.96 1.2c-.18.21-.36.23-.66.08-.3-.15-1.27-.47-2.42-1.5-.9-.8-1.5-1.79-1.68-2.09-.18-.3-.02-.46.13-.6.14-.14.3-.36.45-.54.15-.18.2-.3.3-.5.1-.2.05-.38-.02-.53-.07-.15-.68-1.64-.93-2.25-.24-.58-.49-.5-.68-.51-.18-.01-.38-.01-.58-.01s-.53.08-.81.38c-.28.3-1.07 1.05-1.07 2.56s1.1 2.97 1.25 3.17c.15.2 2.16 3.3 5.24 4.63.73.32 1.3.51 1.75.65.73.23 1.4.2 1.92.12.59-.09 1.8-.74 2.05-1.45.25-.71.25-1.32.18-1.45-.07-.13-.27-.2-.57-.35z" fill="rgba(255,255,255,0.8)"/></svg>
+                Enviar pelo WhatsApp
+            </button>
+            <div class="form-disclaimer">Você será redirecionado para o WhatsApp com todas as informações já preenchidas. Respondemos em até 24h.</div>
+        </div>
+    </div>
+
+</div><!-- /page -->
+
+<!-- FOOTER IGUAL AO INDEX -->
+<div class="fixed-footer">
+    <div class="footer-social">
+        <a href="https://www.tiktok.com/@fretego.bruno" target="_blank" class="social-icon-btn tiktok">
+            <svg viewBox="0 0 24 24" fill="#4A5E4A"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.27 6.27 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z"/></svg>
+        </a>
+        <a href="https://www.instagram.com/fretegobr" target="_blank" class="social-icon-btn instagram">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#4A5E4A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="0.8" fill="#4A5E4A" stroke="none"/></svg>
+        </a>
+        <a href="https://www.facebook.com/share/1UURCUmSs5/?mibextid=wwXIfr" target="_blank" class="social-icon-btn facebook">
+            <svg viewBox="0 0 24 24" fill="#4A5E4A"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        </a>
+        <a href="https://www.youtube.com/@FreteGO" target="_blank" class="social-icon-btn youtube">
+            <svg viewBox="0 0 24 24" fill="#4A5E4A"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46A2.78 2.78 0 0 0 1.46 6.42 29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58 2.78 2.78 0 0 0 1.95 1.96C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.96A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58z"/><polygon points="9.75 15.02 15.5 12 9.75 8.98 9.75 15.02" fill="#0A0C0A"/></svg>
+        </a>
+        <a href="https://k.kwai.com/u/@fretego/DszYfCoq" target="_blank" class="social-icon-btn kwai">
+            <svg viewBox="0 0 100 100"><text x="50" y="50" font-family="Arial Black,sans-serif" font-size="58" font-weight="900" fill="#4A5E4A" text-anchor="middle" dominant-baseline="central">K</text></svg>
+        </a>
+    </div>
+    <div class="footer-brand">contato@fretegobr.com.br<br>fretegobr.com.br</div>
+</div>
+
+<script>
+/* ── MÁSCARAS ── */
+function capitalizarNome(input) {
+    const preposicoes = new Set(['de','da','do','dos','das','e','em','a','o','as','os']);
+    const pos = input.selectionStart;
+    const val = input.value
+        .toLowerCase()
+        .split(' ')
+        .map((w,i) => (i === 0 || !preposicoes.has(w))
+            ? w.charAt(0).toUpperCase() + w.slice(1)
+            : w)
+        .join(' ');
+    input.value = val;
+    input.setSelectionRange(pos, pos);
+}
+
+function mascaraTel(input) {
+    let v = input.value.replace(/\D/g, '').slice(0, 11);
+    if (v.length <= 2)       v = v.replace(/(\d{0,2})/,'($1');
+    else if (v.length <= 3)  v = v.replace(/(\d{2})(\d{0,1})/,'($1) $2');
+    else if (v.length <= 7)  v = v.replace(/(\d{2})(\d{1})(\d{0,4})/,'($1) $2 $3');
+    else                     v = v.replace(/(\d{2})(\d{1})(\d{4})(\d{0,4})/,'($1) $2 $3-$4');
+    input.value = v;
+}
+
+/* ── CALCULADORA ── */
+const PRECO_FEED_BASE  = 45;
+const PRECO_STORY_BASE = 8;
+const REDE_INFO = {
+    tiktok:    {label:'TikTok',    base:80},
+    facebook:  {label:'Facebook',  base:60},
+    instagram: {label:'Instagram', base:70},
+    youtube:   {label:'YouTube',   base:90},
+    kwai:      {label:'Kwai',      base:50},
+    grupos:    {label:'Grupos WA', base:40},
+};
+
+let redesSel   = new Set();
+let feedQtd    = 1;
+let storiesQtd = 0;
+
+function toggleRede(el) {
+    const id = el.dataset.id;
+    if (redesSel.has(id)) { redesSel.delete(id); el.classList.remove('active'); }
+    else                   { redesSel.add(id);    el.classList.add('active'); }
+    calcular();
+}
+
+function change(tipo, delta) {
+    if (tipo === 'feed') {
+        feedQtd = Math.max(1, Math.min(7, feedQtd + delta));
+        document.getElementById('valFeed').textContent = feedQtd;
+        document.getElementById('feedMes').textContent = feedQtd * 4;
+    } else {
+        storiesQtd = Math.max(0, Math.min(5, storiesQtd + delta));
+        document.getElementById('valStories').textContent = storiesQtd;
+        document.getElementById('storiesMes').textContent = storiesQtd * 30;
+    }
+    calcular();
+}
+
+function calcular() {
+    const priceRow    = document.getElementById('priceRow');
+    const subtotalBar = document.getElementById('subtotalBar');
+
+    if (redesSel.size === 0) {
+        priceRow.style.display    = 'none';
+        subtotalBar.style.display = 'none';
+        document.getElementById('resultPrice').textContent  = 'R$ 0';
+        document.getElementById('resultDetail').textContent = 'Selecione as redes e quantidade de posts para ver o valor.';
+        updateSummary(0, 0);
+        return;
+    }
+
+    // Preço por rede: base * postsMes
+    const postsMes   = feedQtd * 4;
+    const storiesMes = storiesQtd * 30;
+
+    let subtotalRedes = 0;
+    let tagsHTML = '';
+    redesSel.forEach(id => {
+        const info   = REDE_INFO[id];
+        const valRede = info.base * postsMes;
+        subtotalRedes += valRede;
+        tagsHTML += `<div class="chip-price-tag"><span class="cp-nome">${info.label}</span><span class="cp-val">R$&nbsp;${valRede.toLocaleString('pt-BR')}</span></div>`;
+    });
+
+    priceRow.innerHTML    = tagsHTML;
+    priceRow.style.display = 'flex';
+
+    // Stories adicional sobre a média
+    const totalStories = PRECO_STORY_BASE * storiesMes;
+    const total = Math.round((subtotalRedes + totalStories) / 10) * 10;
+
+    subtotalBar.style.display = 'flex';
+    document.getElementById('subtotalVal').textContent = 'R$ ' + subtotalRedes.toLocaleString('pt-BR');
+    document.getElementById('resultPrice').textContent = 'R$ ' + total.toLocaleString('pt-BR');
+
+    const redesArr = [...redesSel].map(id => REDE_INFO[id].label);
+    document.getElementById('resultDetail').innerHTML =
+        `<span>${redesArr.join(' · ')}</span> · ${postsMes} posts/mês no feed${storiesMes > 0 ? ' · ' + storiesMes + ' stories/mês' : ''}`;
+
+    updateSummary(total, subtotalRedes);
+}
+
+function updateSummary(total, subtotalRedes) {
+    const el = document.getElementById('formSummary');
+    if (redesSel.size === 0) {
+        el.textContent = 'Nenhuma opção selecionada ainda. Use a calculadora acima.';
+        return;
+    }
+    const redesArr   = [...redesSel].map(id => REDE_INFO[id].label);
+    const postsMes   = feedQtd * 4;
+    const storiesMes = storiesQtd * 30;
+
+    el.innerHTML =
+        `Redes:\n${redesArr.map(r => '• ' + r).join('\n')}\n\n` +
+        `Posts feed: <strong>${feedQtd}x/semana (${postsMes}/mês)</strong>` +
+        (storiesMes > 0 ? `\nStories: <strong>${storiesQtd}x/dia (${storiesMes}/mês)</strong>` : '') +
+        (total > 0 ? `\n\nValor: <strong>R$ ${total.toLocaleString('pt-BR')}/mês</strong>` : '');
+}
+
+/* ── ENVIAR WHATSAPP ── */
+function enviarWhatsApp() {
+    const nome    = document.getElementById('fNome').value.trim();
+    const tel     = document.getElementById('fTel').value.trim();
+    const email   = document.getElementById('fEmail').value.trim();
+    const empresa = document.getElementById('fEmpresa').value.trim();
+    const carga   = document.getElementById('fCarga').value.trim();
+    const errEl   = document.getElementById('errorMsg');
+
+    // Validar e-mail
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    const campos = [
+        {id:'fNome',   val:nome,    ok:!!nome},
+        {id:'fTel',    val:tel,     ok:tel.replace(/\D/g,'').length >= 10},
+        {id:'fEmail',  val:email,   ok:emailOk},
+        {id:'fEmpresa',val:empresa, ok:!!empresa},
+        {id:'fCarga',  val:carga,   ok:!!carga},
+    ];
+
+    let temErro = false;
+    campos.forEach(c => {
+        const el = document.getElementById(c.id);
+        if (!c.ok) { el.classList.add('error'); temErro = true; }
+        else        { el.classList.remove('error'); }
+    });
+
+    if (temErro) {
+        errEl.classList.add('show');
+        errEl.scrollIntoView({behavior:'smooth', block:'center'});
+        return;
+    }
+    errEl.classList.remove('show');
+
+    // Montar template exato
+    const redesArr   = [...redesSel].map(id => REDE_INFO[id].label);
+    const postsMes   = feedQtd * 4;
+    const storiesMes = storiesQtd * 30;
+
+    // Calcular total
+    let subtotalRedes = 0;
+    redesSel.forEach(id => { subtotalRedes += REDE_INFO[id].base * postsMes; });
+    const totalStories = PRECO_STORY_BASE * storiesMes;
+    const total = Math.round((subtotalRedes + totalStories) / 10) * 10;
+
+    const redesLinhas = redesArr.map(r => r).join(' \n');
+
+    const msg =
+        `*FreteGO — Solicitação de Parceria*\n\n` +
+        `*Nome:* ${nome}\n` +
+        `*WhatsApp:* ${tel}\n` +
+        `*E-mail:* ${email}\n` +
+        `*Empresa:* ${empresa}\n` +
+        `*Tipo de carga:* ${carga}\n\n` +
+        `*Pacote:*\n` +
+        `Redes: \n${redesLinhas}\n\n` +
+        `Posts feed: ${feedQtd}x/semana (${postsMes}/mês)\n` +
+        (storiesMes > 0 ? `Stories: ${storiesQtd}x/dia (${storiesMes}/mês)\n` : '') +
+        `\nValor: R$ ${total > 0 ? total.toLocaleString('pt-BR') : '--'}/mês`;
+
+    window.open('https://wa.me/64993357150?text=' + encodeURIComponent(msg), '_blank');
+}
+</script>
+</body>
+</html>
