@@ -425,38 +425,42 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - **Nota**: HomePage renderiza `<MapaToolbar>` apenas dentro do bloco `{isMotorista && (...)}` (linha ~280). Embarcador segue caminho separado com `<FreteFiltersComponent>` regular.
 
 - [ ] 8. UserTicketForm e PublicTicketForm
-  - [ ] 8.1 `src/components/UserTicketForm.tsx`
+  - [x] 8.1 `src/components/UserTicketForm.tsx`
     - Modal/inline com campos `subject`, `body`, `priority` (low/normal/high).
     - Submit chama `submitUserTicket`.
     - Toast sucesso + fecha modal.
     - _Requirements: 8.1, 8.2_
 
-  - [ ] 8.2 `src/components/PublicTicketForm.tsx`
+  - [x] 8.2 `src/components/PublicTicketForm.tsx`
     - Form público com `guest_name`, `guest_email`, `subject`, `body`.
     - Honeypot `website_url` em `<input type="text" name="website_url" tabIndex={-1} autoComplete="off" style={{ position:'absolute', left:'-9999px' }} />`.
     - Submit chama `submitPublicTicket` (sem auth).
     - Toast genérico de sucesso `Recebemos sua mensagem. Entraremos em contato pelo email informado.` em todos os retornos (anti-enumeration).
     - _Requirements: 9.1, 9.3, 9.4_
 
-  - [ ] 8.3 `src/pages/PublicTicketPage.tsx` (rota `/contato`)
+  - [x] 8.3 `src/pages/PublicTicketPage.tsx` (rota `/contato`)
     - Página pública usando `PublicTicketForm`.
     - Acessível sem login.
     - SEO: title "Contato — FreteGO".
     - _Requirements: 9.1_
+    - **Nota**: rota adicionada em `App.tsx` antes das ProtectedRoutes. Header próprio com link Entrar/Criar conta + footer com copyright.
 
   - [ ] 8.4 Link "Fale conosco" no footer/landing
     - Adicionar link na home pública (`/`) e em `/login` apontando para `/contato`.
     - _Requirements: 9.1_
+    - **Pendente**: a HomePage atual é só o feed de fretes (não há landing pública). LoginPage delega ao LoginForm que precisa edição. Fica para Phase 2 ou para a spec de landing-page.
 
-  - [ ] 8.5 Página `MyTicketsPage.tsx` (user logado, rota `/tickets`)
+  - [x] 8.5 Página `MyTicketsPage.tsx` (user logado, rota `/tickets`)
     - Lista tickets do user via `listMyTickets`.
     - Click abre detail page `/tickets/:id`.
     - _Requirements: 8.6_
+    - **Nota**: rota `/tickets/novo` adicionada também (NewTicketPage com UserTicketForm).
 
-  - [ ] 8.6 Página `MyTicketDetailPage.tsx` (user logado)
+  - [x] 8.6 Página `MyTicketDetailPage.tsx` (user logado)
     - Lista mensagens + form de resposta inline.
     - Click em "Responder" chama `postMyTicketReply`.
     - _Requirements: 8.6_
+    - **Nota**: caixa de resposta oculta quando ticket está `resolved`. Mensagens estilo chat com alinhamento à esquerda (admin) / direita (user).
 
 - [ ] 9. Páginas admin
   - [ ] 9.1 `src/pages/admin/AdminBroadcastPage.tsx`

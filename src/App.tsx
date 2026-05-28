@@ -18,6 +18,10 @@ const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
 const MensagensPage = lazy(() => import('./pages/MensagensPage'));
 const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
 const AssistentePage = lazy(() => import('./pages/AssistantePage'));
+const PublicTicketPage = lazy(() => import('./pages/PublicTicketPage'));
+const MyTicketsPage = lazy(() => import('./pages/MyTicketsPage'));
+const NewTicketPage = lazy(() => import('./pages/NewTicketPage'));
+const MyTicketDetailPage = lazy(() => import('./pages/MyTicketDetailPage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
@@ -48,6 +52,14 @@ function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/contato"
+          element={
+            <LazyRoute>
+              <PublicTicketPage />
+            </LazyRoute>
+          }
+        />
         <Route
           path="/perfil/motorista"
           element={
@@ -142,6 +154,36 @@ function App() {
             <ProtectedRoute>
               <LazyRoute>
                 <AssistentePage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tickets"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <MyTicketsPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tickets/novo"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <NewTicketPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/tickets/:id"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <MyTicketDetailPage />
               </LazyRoute>
             </ProtectedRoute>
           }
