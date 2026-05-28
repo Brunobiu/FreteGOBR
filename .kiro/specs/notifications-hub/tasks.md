@@ -353,8 +353,8 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - fast-check: gerar par `(real_updated_at, stale_updated_at)` distintos. `replyToTicket(id, body, stale)` ⇒ STALE_VERSION. `replyToTicket(id, body, real)` ⇒ sucesso.
     - _Requirements: 8.5, CP-4_
 
-- [ ] 5. Edge Function `send-public-ticket-reply`
-  - [ ] 5.1 Criar `supabase/functions/send-public-ticket-reply/index.ts`
+- [x] 5. Edge Function `send-public-ticket-reply`
+  - [x] 5.1 Criar `supabase/functions/send-public-ticket-reply/index.ts`
     - Verify JWT habilitado (chamadas vêm de admin autenticado via fetch direto, ou do RPC via service-role).
     - Input: `ticket_id, guest_name, guest_email, subject, body, admin_name`.
     - Validar `guest_email` formato.
@@ -362,18 +362,21 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - Enviar via provider de email (env: `EMAIL_PROVIDER_API_KEY`).
     - Retorna `{ ok: true, message_id }` ou `{ ok: false, error }`.
     - _Requirements: 9.6, 9.7_
+    - **Nota**: implementado com switch entre 3 providers (`log`, `resend`, `sendgrid`) via env `EMAIL_PROVIDER`. Auth aceita Bearer SERVICE_ROLE_KEY (chamada interna) OU JWT de admin com permissão `SUPORTE_REPLY` (browser via `supabase.functions.invoke`). Helper TS `sendPublicTicketReplyEmail()` em `services/admin/tickets.ts` orquestra a chamada do client.
 
-  - [ ] 5.2 Adicionar template HTML do email
+  - [x] 5.2 Adicionar template HTML do email
     - `supabase/functions/send-public-ticket-reply/template.html` ou inline.
     - Variáveis: `{{guest_name}}`, `{{subject}}`, `{{body}}`, `{{admin_name}}`, `{{reply_link}}`.
     - Estilo simples: header verde com logo FreteGO, body em texto, rodapé com link de "responder".
     - _Requirements: 9.6_
+    - **Nota**: template inline em `renderEmailHtml()`. Estilo verde FreteGO + escape HTML defensivo + suporte a quebras de linha via `white-space: pre-wrap`.
 
-  - [ ] 5.3 Configurar env vars no Supabase
+  - [x] 5.3 Configurar env vars no Supabase
     - `EMAIL_PROVIDER_API_KEY` (Resend/SendGrid/SES — a definir).
     - `EMAIL_FROM_ADDRESS` (ex: `suporte@fretego.com.br`).
     - Documentar em `docs/SUPABASE_SETUP.md` ou similar.
     - _Requirements: 9.6_
+    - **Nota**: documentado em `docs/NOTIFICATIONS_HUB_ENV.md` com instruções de setup para Resend/SendGrid/log + smoke test manual.
 
 - [ ] 6. NotificationsModal — extensão
   - [ ] 6.1 Atualizar `categorize` em `NotificationsModal.tsx`

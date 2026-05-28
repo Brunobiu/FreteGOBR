@@ -505,3 +505,65 @@ export async function markEmailSent(messageId: string, sentAt: string): Promise<
   void data;
   return { ok: true };
 }
+
+// ─── Edge Function: envio de email para tickets publicos ───────────────────
+
+/**
+ * Resultado da chamada à Edge Function `send-public-ticket-reply`.
+ */
+export interface SendPublicTicketReplyEmailResult {
+  ok: boolean;
+  messageId?: string;
+  error?: string;
+}
+
+/**
+ * Invoca a Edge Function `send-public-ticket-reply` para enviar a resposta
+ * do admin a um ticket público por email. Retorna o `messageId` em sucesso
+ * ou erro descritivo (que o caller pode optar por exibir ou só logar).
+ *
+ * Convenção de uso:
+ * 1. Chamar `replyToTicket(...)` primeiro — persiste a mensagem no banco
+ *    com `email_sent_at = NULL`.
+ * 2. Se `result.isPublic === true`, chamar esta função.
+ * 3. Em sucesso: chamar `markEmailSent(messageId, NOW())` para marcar a
+ *    mensagem como entregue.
+ * 4. Em falha: deixa `email_sent_at = NULL` e exibe toast ao admin
+ *    "Resposta salva, mas falha ao enviar email."
+ *
+ * A Edge Function é configurada com `verify_jwt: true`, então o JWT do
+ * admin autenticado é injetado automaticamente por `supabase.functions.invoke`.
+ * A função valida internamente que o caller tem permissão `SUPORTE_REPLY`.
+ */
+export async function sendPublicTicketReplyEmail(input: {
+  ticketId: string;
+  guestName: string;
+  guestEmail: string;
+  subject: string;
+  body: string;
+  adminName: string;
+  /** URL absoluta opcional para "Continuar conversa" no email. */
+  replyLink?: string;
+}): Promise<SendPublicTicketReplyEmailResult> {
+  const { data, error } = await supabase.functions.invoke('send-public-ticket-reply', {
+    body: {
+      ticket_id: input.ticketId,
+      guest_name: input.guestName,
+      guest_email: input.guestEmail,
+      subject: input.subject,
+      body: input.body,
+      admin_name: input.adminName,
+      reply_link: input.replyLink ?? null,
+    },
+  });
+
+  if (error) {
+    return { ok: false, error: error.message ?? 'Falha ao enviar email' };
+  }
+
+  const raw = (data ?? {}) as { ok?: boolean; message_id?: string; error?: string };
+  if (raw.ok) {
+    return { ok: true, messageId: raw.message_id ?? '' };
+  }
+  return { ok: false, error: raw.error ?? 'Falha desconhecida' };
+}
