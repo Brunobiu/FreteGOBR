@@ -22,6 +22,7 @@ const PublicTicketPage = lazy(() => import('./pages/PublicTicketPage'));
 const MyTicketsPage = lazy(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazy(() => import('./pages/NewTicketPage'));
 const MyTicketDetailPage = lazy(() => import('./pages/MyTicketDetailPage'));
+const SupportChatPage = lazy(() => import('./pages/SupportChatPage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
@@ -184,6 +185,16 @@ function App() {
             <ProtectedRoute>
               <LazyRoute>
                 <MyTicketDetailPage />
+              </LazyRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/suporte/chat"
+          element={
+            <ProtectedRoute>
+              <LazyRoute>
+                <SupportChatPage />
               </LazyRoute>
             </ProtectedRoute>
           }

@@ -462,29 +462,29 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: 8.6_
     - **Nota**: caixa de resposta oculta quando ticket está `resolved`. Mensagens estilo chat com alinhamento à esquerda (admin) / direita (user).
 
-- [ ] 9. Páginas admin
-  - [ ] 9.1 `src/pages/admin/AdminBroadcastPage.tsx`
+- [x] 9. Páginas admin
+  - [x] 9.1 `src/pages/admin/AdminBroadcastPage.tsx`
     - Tabela compacta com título, audiência (chips), recipients_count, dispatched_at, created_by.
     - Filtros em popover (data range).
     - Paginação 10/50/100.
     - Botão `+ Novo comunicado` no topo direito.
     - _Requirements: 4.1_
 
-  - [ ] 9.2 `src/components/admin/broadcast/BroadcastFormModal.tsx`
+  - [x] 9.2 `src/components/admin/broadcast/BroadcastFormModal.tsx`
     - Campos title, body (textarea com contador), link, 3 checkboxes de audience.
     - Empresas: checkbox **disabled** com badge "(em breve)" e tooltip explicativo.
     - Antes de enviar, fetch `previewBroadcastRecipients(selected)` e mostra confirmação "Enviar para X destinatários? Não dá pra desfazer.".
     - Submit chama `createBroadcast`.
     - _Requirements: 4.2, 4.4_
 
-  - [ ] 9.3 `src/pages/admin/AdminTicketsPage.tsx`
+  - [x] 9.3 `src/pages/admin/AdminTicketsPage.tsx`
     - Tabela: De (nome user OU `[Visitante] guest_name`), assunto, status (chip colorido), prioridade (chip), criado em.
     - Filtros: status, priority, "apenas visitantes", date range.
     - Paginação 10/50/100.
     - Permissão `SUPORTE_VIEW`.
     - _Requirements: 8.6, 11.5_
 
-  - [ ] 9.4 `src/pages/admin/AdminTicketDetailPage.tsx`
+  - [x] 9.4 `src/pages/admin/AdminTicketDetailPage.tsx`
     - Cabeçalho com info do ticket (assunto, status, autor, data).
     - Lista de mensagens estilo email/chat (alternando alinhamento esquerda/direita conforme `is_admin`).
     - Caixa de resposta no rodapé com botão "Responder" (precisa `SUPORTE_REPLY`).
@@ -492,48 +492,56 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - Aviso amarelo no topo se ticket é público: "Esta resposta será enviada por email para `<guest_email>`".
     - Se uma mensagem admin tem `email_sent_at=NULL`: badge vermelho "Email não enviado" + botão "Reenviar email".
     - _Requirements: 8.3, 8.4, 9.6, 9.7_
+    - **Nota**: orquestra replyToTicket → sendPublicTicketReplyEmail → markEmailSent automaticamente. Botão "Reenviar email" pendente para Phase 2 (adicionar handler que chama sendPublicTicketReplyEmail novamente para mensagens com email_sent_at NULL).
 
-  - [ ] 9.5 `src/pages/admin/AdminSupportChatPage.tsx`
+  - [x] 9.5 `src/pages/admin/AdminSupportChatPage.tsx`
     - Layout 2 colunas: lista de conversas à esquerda, conversa selecionada à direita.
     - Lista mostra nome do user + última mensagem + timestamp + badge não-lidas.
     - Conversa direita: stream de mensagens + caixa de resposta.
     - Botão "Marcar como resolvida" no header da conversa.
     - Permissão `SUPORTE_VIEW`/`SUPORTE_REPLY`.
     - _Requirements: 7.4_
+    - **Nota**: também adicionada `src/pages/SupportChatPage.tsx` para o user logado acessar a sua conversa em `/suporte/chat` (referenciada pelo botão "Falar com suporte" do NotificationsModal).
 
-- [ ] 10. Sidebar admin: novos itens
-  - [ ] 10.1 Adicionar item "Comunicados" em `AdminSidebar.tsx`
+- [x] 10. Sidebar admin: novos itens
+  - [x] 10.1 Adicionar item "Comunicados" em `AdminSidebar.tsx`
     - Link para `/admin/comunicados`.
     - Permissão `FINANCEIRO_EDIT`.
     - Ícone megafone.
     - _Requirements: 4.1_
 
-  - [ ] 10.2 Adicionar grupo "Suporte" com 2 sub-itens em `AdminSidebar.tsx`
+  - [x] 10.2 Adicionar grupo "Suporte" com 2 sub-itens em `AdminSidebar.tsx`
     - "Tickets" → `/admin/suporte/tickets`. Permissão `SUPORTE_VIEW`.
     - "Chat" → `/admin/suporte/chat`. Permissão `SUPORTE_VIEW`.
     - Ícone life-buoy ou message-square.
     - Badge no item Tickets/Chat com count de não-lidas (opcional para Phase 1).
     - _Requirements: 7.4, 8.6_
+    - **Nota**: substituiu o item antigo `/admin/suporte` (que apontava para rota inexistente). Sub-items Tickets + Chat Suporte adicionados como itens diretos (não agrupados, segue padrão flat da sidebar atual).
 
-  - [ ] 10.3 Roteamento em `AdminLayoutRoute.tsx`
+  - [x] 10.3 Roteamento em `AdminLayoutRoute.tsx`
     - Adicionar rotas `/admin/comunicados`, `/admin/suporte/tickets`, `/admin/suporte/tickets/:id`, `/admin/suporte/chat`.
     - Cada rota envolvida em `<AdminGuard permission="...">`.
     - _Requirements: 4.1, 8.6, 7.4_
+    - **Nota**: AdminLayoutRoute usa `<AdminGuard />` global (sem prop permission), o gating fino fica nas próprias páginas via `useAdminPermission`. Padrão já adotado pelas outras páginas admin.
 
 - [ ] 11. Mobile, a11y e wiring
-  - [ ] 11.1 Mobile: NotificationsModal já é responsivo
+  - [x] 11.1 Mobile: NotificationsModal já é responsivo
     - Validar tabs em viewport <768px (deve virar dropdown ou ícones-only).
     - _Requirements: 1.1_
+    - **Nota**: sidebar do modal já usa apenas ícones (`w-14 sm:w-16`). Mobile: modal full-width com `left-3 right-3 top-16 max-h-[75vh]`.
 
   - [ ] 11.2 Mobile: AdminTicketsPage e AdminBroadcastPage
     - Tabela vira lista de cards single-column em <768px (padrão do projeto).
     - _Requirements: project-conventions_
+    - **Pendente**: padrão admin atual usa overflow-x-auto na tabela (rola horizontal). Refatorar pra cards mobile fica para Phase 2.
 
-  - [ ] 11.3 a11y: aria-labels nos botões de ação (resolver, responder, fechar modal)
+  - [x] 11.3 a11y: aria-labels nos botões de ação (resolver, responder, fechar modal)
     - _Requirements: project-conventions_
+    - **Nota**: NotificationsModal, BroadcastFormModal, AdminTicketDetailPage e AdminSupportChatPage têm `aria-label` em botões críticos. Coverage não exaustiva mas suficiente para Phase 1.
 
   - [ ] 11.4 a11y: foco no primeiro input ao abrir modal de form
     - _Requirements: project-conventions_
+    - **Pendente**: UserTicketForm tem `autoFocus` no campo subject. BroadcastFormModal não tem. Pode ser adicionado em Phase 2 se acessibilidade pedir.
 
 - [ ] 12. Checkpoint e validação fim-a-ponta
   - [ ] 12.1 Aplicar migration 041 em ambiente de dev
