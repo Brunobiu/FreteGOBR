@@ -18,20 +18,50 @@ const SOUND_KEY = 'fretego-notif-sound';
 
 /**
  * Triagem automatica do campo Notification.type para cada categoria.
- * Convencao de prefixos no banco:
- *   - anuncios:    starts with frete_, anuncio_
- *   - chat:        starts with chat_, message_
- *   - tickets:     starts with ticket_, support_, suporte_
- *   - atividades:  qualquer outro (rating, payment, system, etc.)
+ * Contrato versionado (Requirement 3 da spec notifications-hub):
+ * prefixos mais especificos vencem prefixos mais genericos.
+ *
+ *   - broadcast_*           -> anuncios
+ *   - anuncio_*             -> anuncios
+ *   - frete_like_*          -> atividades  (mais especifico que frete_)
+ *   - frete_*               -> anuncios
+ *   - chat_support_*        -> mensagens   (mais especifico que chat_)
+ *   - chat_*                -> mensagens   (legacy: 'chat_message')
+ *   - message_*, msg_*      -> mensagens
+ *   - new_message           -> mensagens   (legacy chat de frete via 023)
+ *   - ticket_*              -> tickets
+ *   - support_*, suporte_*  -> tickets
+ *   - qualquer outro        -> atividades  (fallback: rating_, plan_,
+ *                                            system_, etc.)
  */
 function categorize(type: string | null | undefined): CategoryKey {
   const t = (type ?? '').toLowerCase();
-  if (t.startsWith('frete_') || t.startsWith('anuncio_')) return 'anuncios';
+
+  // Anuncios
+  if (t.startsWith('broadcast_') || t.startsWith('anuncio_')) return 'anuncios';
+
+  // Atividades especificas (devem vir antes do fallback frete_)
+  if (t.startsWith('frete_like_')) return 'atividades';
+
+  // Anuncios (fallback frete_)
+  if (t.startsWith('frete_')) return 'anuncios';
+
+  // Mensagens (mais especifico antes de chat_)
+  if (t.startsWith('chat_support_')) return 'chat';
   if (t.startsWith('chat_') || t.startsWith('message_') || t.startsWith('msg_')) return 'chat';
+  if (t === 'new_message') return 'chat';
+
+  // Tickets
   if (t.startsWith('ticket_') || t.startsWith('support_') || t.startsWith('suporte_'))
     return 'tickets';
+
   return 'atividades';
 }
+
+/**
+ * Helper export para uso em testes property-based (CP-1).
+ */
+export const categorizeNotification = categorize;
 
 function timeAgoBR(date: Date): string {
   const now = Date.now();
@@ -238,7 +268,20 @@ export default function NotificationsModal({ open, onClose, userId }: Notificati
           </nav>
 
           {/* Lista */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto flex flex-col">
+            {/* Cabecalho contextual com acao por categoria */}
+            <CategoryHeader
+              active={active}
+              onOpenSupport={() => {
+                onClose();
+                navigate('/suporte/chat');
+              }}
+              onOpenNewTicket={() => {
+                onClose();
+                navigate('/tickets/novo');
+              }}
+            />
+
             {loading ? (
               <div className="flex items-center justify-center h-32 text-sm text-gray-500">
                 Carregando...
@@ -317,6 +360,56 @@ export default function NotificationsModal({ open, onClose, userId }: Notificati
       </div>
     </div>
   );
+}
+
+// ─── CategoryHeader: barra de acao contextual no topo da lista ────────────
+
+function CategoryHeader({
+  active,
+  onOpenSupport,
+  onOpenNewTicket,
+}: {
+  active: CategoryKey;
+  onOpenSupport: () => void;
+  onOpenNewTicket: () => void;
+}) {
+  if (active === 'chat') {
+    return (
+      <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">
+          Mensagens
+        </span>
+        <button
+          type="button"
+          onClick={onOpenSupport}
+          className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white text-xs font-medium rounded-md"
+        >
+          <IconSupport />
+          Falar com suporte
+        </button>
+      </div>
+    );
+  }
+
+  if (active === 'tickets') {
+    return (
+      <div className="px-4 py-2 border-b border-gray-100 bg-gray-50/60 flex items-center justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-gray-500 font-medium">
+          Tickets
+        </span>
+        <button
+          type="button"
+          onClick={onOpenNewTicket}
+          className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-md"
+        >
+          <IconPlus />
+          Abrir ticket
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ─── Icones ──────────────────────────────────────────────────────────────
@@ -427,6 +520,27 @@ function IconSoundOff() {
         strokeWidth={2}
         d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
       />
+    </svg>
+  );
+}
+
+function IconSupport() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"
+      />
+    </svg>
+  );
+}
+
+function IconPlus() {
+  return (
+    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
     </svg>
   );
 }

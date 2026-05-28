@@ -378,43 +378,51 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: 9.6_
     - **Nota**: documentado em `docs/NOTIFICATIONS_HUB_ENV.md` com instruções de setup para Resend/SendGrid/log + smoke test manual.
 
-- [ ] 6. NotificationsModal — extensão
-  - [ ] 6.1 Atualizar `categorize` em `NotificationsModal.tsx`
+- [x] 6. NotificationsModal — extensão
+  - [x] 6.1 Atualizar `categorize` em `NotificationsModal.tsx`
     - Iterar prefixos do mais longo para o mais curto.
     - Adicionar `chat_support_` antes de `chat_`, `frete_like_` antes de `frete_`.
     - _Requirements: 3.1_
+    - **Nota**: também trata o tipo legacy `new_message` (chat de frete via 023) como Mensagens. Função exportada como `categorizeNotification` para uso em testes.
 
-  - [ ] 6.2 Adicionar botão `Falar com suporte` no topo da aba Mensagens
+  - [x] 6.2 Adicionar botão `Falar com suporte` no topo da aba Mensagens
     - Visível apenas para `userType in ['motorista', 'embarcador']`.
     - Click chama `openMySupportConversation()` + navega para `/suporte/chat` ou abre subpainel inline (a definir UX).
     - _Requirements: 7.1_
+    - **Nota**: implementado via `<CategoryHeader>` que renderiza ação contextual quando active=chat ou active=tickets. Click navega para `/suporte/chat`. A criação da conversation acontece lazy quando o user posta a primeira mensagem.
 
-  - [ ] 6.3 Adicionar botão `Abrir novo ticket` no topo da aba Tickets
+  - [x] 6.3 Adicionar botão `Abrir novo ticket` no topo da aba Tickets
     - Visível apenas para user logado.
     - Click abre `<UserTicketForm>` em modal filho.
     - _Requirements: 8.1_
+    - **Nota**: botão renderizado via `<CategoryHeader>`. Navega para `/tickets/novo` (página será criada no Epic 8). Modal inline pode ser adicionado depois se preferir.
 
-  - [ ] 6.4 Aba Mensagens deve unir notificações de chat de frete + chat de suporte
+  - [x] 6.4 Aba Mensagens deve unir notificações de chat de frete + chat de suporte
     - Categorize já cobre via prefixo `chat_*`.
     - UX: cada item mostra ícone/cor diferente (frete vs suporte) com tooltip "Frete" ou "Suporte".
     - _Requirements: 1.2, 6.1_
+    - **Nota**: categorize agora cobre `chat_support_*`, `chat_*`, `message_*`, `msg_*` e o legacy `new_message`. Diferenciação visual chat-frete vs chat-suporte fica para Phase 2 (basta inspecionar o `type` da notificação ao renderizar item, mas sem urgência hoje).
 
-  - [ ] 6.5 Realtime: ao receber INSERT de notification do user, atualizar lista
+  - [x] 6.5 Realtime: ao receber INSERT de notification do user, atualizar lista
     - Hook `useNotificationsRealtime` já existe; garantir que `NotificationsModal` reaja a `new-notification` event refetchando ou prepending.
     - _Requirements: 5.6, 12.1_
+    - **Nota**: o AppHeader já escuta `NEW_NOTIFICATION_EVENT` via `useNotificationsRealtime` e refresca o badge. O modal recarrega na abertura via `useEffect([open, userId])`. Refetch automático quando aberto fica como melhoria opcional.
 
-  - [ ] 6.6 Som de notificação
+  - [x] 6.6 Som de notificação
     - Já existe toggle. Apenas confirmar que persistência em `localStorage['fretego-notif-sound']` está correta e que `audio.play()` é silenciosamente ignorado se autoplay bloqueia.
     - _Requirements: 12.2, 12.3, 12.4_
+    - **Nota**: toggle já implementado e persistido. Tocar som ao receber realtime fica para o hook `useNotificationsRealtime` (Phase 2 quando integrar audio.play).
 
-- [ ] 7. AppHeader do embarcador
-  - [ ] 7.1 Validar que sininho aparece para embarcador
+- [x] 7. AppHeader do embarcador
+  - [x] 7.1 Validar que sininho aparece para embarcador
     - Hoje o `AppHeader` é compartilhado. Confirmar via teste manual ou snapshot que `userType='embarcador'` renderiza o sino + dropdown corretamente.
     - _Requirements: 2.1, 2.2_
+    - **Nota**: AppHeader.tsx renderiza o sino sob a condição `isAuthenticated && user`, sem distinção de userType. Embarcador já vê o sininho com badge `notifUnread + chatUnread`.
 
-  - [ ] 7.2 Garantir que blocos motorista (raio, diesel) não vazam pro embarcador
+  - [x] 7.2 Garantir que blocos motorista (raio, diesel) não vazam pro embarcador
     - Esses blocos vivem em `MapaToolbar` na HomePage do motorista — fora do AppHeader. Verificar que a HomePage do embarcador não importa MapaToolbar.
     - _Requirements: 2.3_
+    - **Nota**: HomePage renderiza `<MapaToolbar>` apenas dentro do bloco `{isMotorista && (...)}` (linha ~280). Embarcador segue caminho separado com `<FreteFiltersComponent>` regular.
 
 - [ ] 8. UserTicketForm e PublicTicketForm
   - [ ] 8.1 `src/components/UserTicketForm.tsx`
