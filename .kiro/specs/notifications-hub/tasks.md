@@ -211,117 +211,119 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - **Não auto-aplicada** — apenas documental.
     - _Requirements: project-conventions_
 
-- [ ] 2. Tipos TS, helpers e error mapping
-  - [ ] 2.1 Tipos públicos em `src/services/admin/broadcasts.ts`
+- [x] 2. Tipos TS, helpers e error mapping
+  - [x] 2.1 Tipos públicos em `src/services/admin/broadcasts.ts`
     - Exportar `Broadcast`, `TargetAudience`, `BroadcastStatus`.
     - JSDoc em pt-BR explicando cada campo.
     - _Requirements: 4.1_
 
-  - [ ] 2.2 Tipos públicos em `src/services/admin/tickets.ts`
+  - [x] 2.2 Tipos públicos em `src/services/admin/tickets.ts`
     - Exportar `SupportTicket`, `TicketStatus`, `TicketPriority`, `TicketMessage`.
     - _Requirements: 8.1_
 
-  - [ ] 2.3 Tipos públicos em `src/services/admin/supportChat.ts`
+  - [x] 2.3 Tipos públicos em `src/services/admin/supportChat.ts`
     - Exportar `SupportConversation`, `SupportChatMessage`.
     - _Requirements: 7.1_
 
-  - [ ] 2.4 Helper `mapPostgresError(err)` reutilizável (se já não existir uma versão genérica)
+  - [x] 2.4 Helper `mapPostgresError(err)` reutilizável (se já não existir uma versão genérica)
     - Mapear códigos `P0001` (`STALE_VERSION`, `INVALID_TITLE`, `INVALID_BODY`, `EMPTY_AUDIENCE`, `INVALID_INPUT`, `PUBLIC_TICKET_RATE_LIMITED`, `NOT_FOUND`, `INVALID_STATUS`) para mensagens user-facing pt-BR canônicas.
     - Mapear `42501` para `Acesso negado.`.
     - Mapear `STALE_VERSION` para toast "Outro admin atualizou. Recarregando." + dispatch refetch.
     - _Requirements: project-conventions_
+    - **Nota**: cada service tem sua própria classe de erro tipada (`BroadcastError`, `TicketError`, `SupportChatError`) e `mapPostgresError` específico — segue o padrão dos outros módulos admin (financeiro, blacklist, fretes).
 
-- [ ] 3. Leituras de service (TypeScript)
-  - [ ] 3.1 `listBroadcasts({limit,offset})` → `{ items, total }`
+- [x] 3. Leituras de service (TypeScript)
+  - [x] 3.1 `listBroadcasts({limit,offset})` → `{ items, total }`
     - SELECT * FROM broadcast_announcements + count exato.
     - Ordem `created_at DESC`.
     - _Requirements: 4.1_
 
-  - [ ] 3.2 `getBroadcastDetail(id)` → broadcast + breakdown por audience
+  - [x] 3.2 `getBroadcastDetail(id)` → broadcast + breakdown por audience
     - SELECT broadcast.
     - SELECT count agrupado por user_type via JOIN com notifications onde broadcast_id = id.
     - _Requirements: 4.5_
 
-  - [ ] 3.3 `previewBroadcastRecipients(audience)` → number
+  - [x] 3.3 `previewBroadcastRecipients(audience)` → number
     - SELECT count(*) FROM users WHERE is_active=true AND user_type=ANY(audience).
     - Usado no modal de confirmação antes de enviar.
     - _Requirements: 4.4_
 
-  - [ ] 3.4 `listMyTickets()` (user) → SupportTicket[]
+  - [x] 3.4 `listMyTickets()` (user) → SupportTicket[]
     - SELECT * FROM support_tickets WHERE user_id=auth.uid() ORDER BY created_at DESC.
     - _Requirements: 8.6_
 
-  - [ ] 3.5 `getMyTicket(id)` → { ticket, messages[] }
+  - [x] 3.5 `getMyTicket(id)` → { ticket, messages[] }
     - SELECT ticket + SELECT messages do ticket.
     - RLS garante que só o dono lê.
     - _Requirements: 8.6_
 
-  - [ ] 3.6 `listAdminTickets(filters)` → { items, total }
+  - [x] 3.6 `listAdminTickets(filters)` → { items, total }
     - Filtros: status, priority, guestOnly (`user_id IS NULL`), q (LIKE em subject), date range.
     - Paginação 10/50/100.
     - _Requirements: 8.6, 11.5_
 
-  - [ ] 3.7 `getAdminTicketDetail(id)` → { ticket, messages[] }
+  - [x] 3.7 `getAdminTicketDetail(id)` → { ticket, messages[] }
     - Mesma estrutura, RLS admin libera todos os tickets.
     - _Requirements: 11.5_
 
-  - [ ] 3.8 `listSupportConversations(filters)` (admin) → { items, total }
+  - [x] 3.8 `listSupportConversations(filters)` (admin) → { items, total }
     - SELECT chat_conversations + JOIN users (nome do user) + count de mensagens não-lidas (read_at NULL AND is_admin=false).
     - Ordem `updated_at DESC`.
     - _Requirements: 7.4_
 
-  - [ ] 3.9 `getSupportConversationMessages(conversationId)` → SupportChatMessage[]
+  - [x] 3.9 `getSupportConversationMessages(conversationId)` → SupportChatMessage[]
     - SELECT chat_messages WHERE conversation_id=$.
     - _Requirements: 7.4_
 
-  - [ ] 3.10 `openMySupportConversation()` (user)
+  - [x] 3.10 `openMySupportConversation()` (user)
     - SELECT chat_conversations WHERE user_id=auth.uid() ou cria.
     - Idempotente — sempre retorna a única conversa do user.
     - _Requirements: 7.1_
 
 - [ ] 4. Mutações de service (TypeScript)
-  - [ ] 4.1 `createBroadcast(input)` (admin)
+  - [x] 4.1 `createBroadcast(input)` (admin)
     - Wrap em `executeAdminMutation` com action `BROADCAST_CREATE`, target_type `broadcast_announcements`, after_data com title+audience.
     - Chama RPC `rpc_create_broadcast`.
     - _Requirements: 4.4, 4.5_
 
-  - [ ] 4.2 `submitUserTicket(input)` (user)
+  - [x] 4.2 `submitUserTicket(input)` (user)
     - Chama RPC `submit_user_ticket`.
     - Sem `executeAdminMutation` (não é mutação admin).
     - _Requirements: 8.2_
 
-  - [ ] 4.3 `submitPublicTicket(input)` (anon)
+  - [x] 4.3 `submitPublicTicket(input)` (anon)
     - Chama RPC `submit_public_ticket` com role anon.
     - Resposta opaca `{ submitted: true }` em todos os caminhos (honeypot, rate-limit, sucesso).
     - _Requirements: 9.2, 9.3, 9.4_
 
-  - [ ] 4.4 `postMyTicketReply(ticketId, body)` (user)
+  - [x] 4.4 `postMyTicketReply(ticketId, body)` (user)
     - INSERT direto em `support_ticket_messages` (RLS valida ownership do ticket).
     - _Requirements: 8.3_
 
-  - [ ] 4.5 `replyToTicket(ticketId, body, expectedUpdatedAt)` (admin)
+  - [x] 4.5 `replyToTicket(ticketId, body, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_REPLY`.
     - Chama RPC `reply_to_ticket`.
     - Se ticket é público (user_id=null): após sucesso da RPC, chama Edge Function `send-public-ticket-reply` com guest_email, guest_name, subject, body, admin_name. Em sucesso: chama RPC `mark_email_sent(message_id, NOW())`. Em falha: deixa `email_sent_at=NULL`, exibe toast "Resposta salva, mas falha ao enviar email. Verifique o destinatário."
     - _Requirements: 8.3, 9.6, 9.7_
+    - **Nota**: a chamada da Edge Function é responsabilidade do caller (ex.: AdminTicketDetailPage). O service expõe `replyToTicket` que retorna `isPublic`, `guestEmail`, etc. para o caller orquestrar. O `markEmailSent` foi exportado separadamente.
 
-  - [ ] 4.6 `resolveTicket(ticketId, expectedUpdatedAt)` (admin)
+  - [x] 4.6 `resolveTicket(ticketId, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_TICKET_RESOLVE`.
     - Detecta `{skipped:true}` e exibe toast neutro `Ticket já estava resolvido.`.
     - _Requirements: 8.4_
 
-  - [ ] 4.7 `postSupportMessage(message)` (user)
+  - [x] 4.7 `postSupportMessage(message)` (user)
     - SELECT/INSERT da Support_Conversation se necessário.
     - INSERT em `chat_messages` com `is_admin=false`.
     - _Requirements: 7.2_
 
-  - [ ] 4.8 `postAdminReply(conversationId, message, expectedUpdatedAt)` (admin)
+  - [x] 4.8 `postAdminReply(conversationId, message, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_CHAT_REPLY`.
     - Versionamento otimista contra `chat_conversations.updated_at`.
     - INSERT mensagem + UPDATE updated_at.
     - _Requirements: 7.3_
 
-  - [ ] 4.9 `resolveSupportConversation(id, expectedUpdatedAt)` (admin)
+  - [x] 4.9 `resolveSupportConversation(id, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_CHAT_RESOLVE`.
     - Idempotente _SKIPPED.
     - _Requirements: 7.6_
