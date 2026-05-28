@@ -77,6 +77,12 @@ const ITEMS: MenuItem[] = [
     icon: 'M9 12l2 2 4-4M7 8h10M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z',
     permission: 'AUDIT_VIEW',
   },
+  {
+    to: '/admin/anuncios',
+    label: 'Anuncios',
+    icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',
+    permission: 'FINANCEIRO_EDIT',
+  },
 ];
 
 interface Props {

@@ -25,6 +25,7 @@ import FreteDetailPage from '../../pages/admin/fretes/FreteDetailPage';
 import BlacklistListPage from '../../pages/admin/blacklist/BlacklistListPage';
 import BlacklistBulkImportPage from '../../pages/admin/blacklist/BlacklistBulkImportPage';
 import BlacklistDetailPage from '../../pages/admin/blacklist/BlacklistDetailPage';
+import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -45,6 +46,7 @@ export default function AdminLayoutRoute() {
             <Route path="blacklist/bulk" element={<BlacklistBulkImportPage />} />
             <Route path="blacklist/:id" element={<BlacklistDetailPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
+            <Route path="anuncios" element={<AdminAnunciosPage />} />
             <Route path="perfil" element={<AdminProfilePage />} />
           </Route>
         </Route>

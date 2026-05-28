@@ -209,3 +209,12 @@ body {
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out both;
 }
+
+/* Pulse lento para indicador de erro/GPS inativo */
+@keyframes pulseSlow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.animate-pulse-slow {
+  animation: pulseSlow 2s ease-in-out infinite;
+}

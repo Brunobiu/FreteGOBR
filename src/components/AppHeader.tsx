@@ -4,11 +4,13 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import FreteCalculator from './FreteCalculator';
 import BadgeEmpresa from './BadgeEmpresa';
 import { getEmbarcadorProfile } from '../services/embarcador';
+import { getMotoristaProfile } from '../services/motorista';
 import { resolveProfilePhotoUrl } from '../services/documents';
 import { capitalizeName } from '../utils/textCase';
 import { getTotalUnreadCount } from '../services/chatFrete';
 import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
+import { useGeolocation } from '../hooks/useGeolocation';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -22,6 +24,7 @@ export default function AppHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [companyName, setCompanyName] = useState<string | null>(null);
+  const [vehicleName, setVehicleName] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [chatUnread, setChatUnread] = useState(0);
   const [notifUnread, setNotifUnread] = useState(0);
@@ -31,6 +34,25 @@ export default function AppHeader() {
   const planLink = user?.userType === 'embarcador' ? '/embarcador/plano' : '/motorista/plano';
   const displayName = user?.name ? capitalizeName(user.name) : '';
   const totalUnread = chatUnread + notifUnread;
+
+  // Localizacao do usuario
+  const geo = useGeolocation();
+  const isLocated = geo.status === 'granted' && !!geo.point;
+  const locationLabel = isLocated
+    ? geo.address
+      ? geo.address.split(',')[0].trim().slice(0, 20)
+      : 'Localizado'
+    : geo.status === 'denied' || geo.status === 'error' || geo.status === 'insecure'
+      ? 'Erro'
+      : 'Sem GPS';
+
+  // Solicita localizacao automaticamente quando usuario logado (uma vez)
+  useEffect(() => {
+    if (isAuthenticated && geo.status === 'idle') {
+      geo.requestLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   // Carrega o nome da empresa quando o usuário é embarcador
   useEffect(() => {
@@ -46,6 +68,27 @@ export default function AppHeader() {
       })
       .catch(() => {
         if (!cancelled) setCompanyName(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.userType]);
+
+  // Carrega o nome do veiculo quando o usuario eh motorista
+  useEffect(() => {
+    let cancelled = false;
+    if (user?.userType !== 'motorista') {
+      setVehicleName(null);
+      return;
+    }
+    getMotoristaProfile(user.id)
+      .then((profile) => {
+        if (!cancelled) {
+          setVehicleName(profile?.vehicleModel ? capitalizeName(profile.vehicleModel) : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setVehicleName(null);
       });
     return () => {
       cancelled = true;
@@ -133,152 +176,133 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+      <header className="sticky top-0 z-40 bg-gray-100">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
-          <div className="relative flex items-center h-12 sm:h-14">
-            {/* Esquerda: hambúrguer */}
-            <div className="flex items-center gap-2 min-w-0 z-10">
+          <div className="relative flex items-center h-14 sm:h-16 gap-3">
+            {/* Esquerda-centro: foto + nome + tipo */}
+            {isAuthenticated && user ? (
+              <div className="relative flex-1 min-w-0" ref={profileRef}>
+                <button
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  className="flex items-center gap-2.5 w-full hover:opacity-80 transition-opacity"
+                  aria-label="Menu do perfil"
+                >
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
+                    {photoUrl ? (
+                      <img
+                        src={photoUrl}
+                        alt={displayName}
+                        className="w-full h-full object-cover"
+                        onError={() => setPhotoUrl(null)}
+                      />
+                    ) : (
+                      <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
+                      Olá, {displayName.split(' ').slice(0, 2).join(' ')}
+                    </p>
+                    <p className="text-xs sm:text-sm font-bold text-gray-800 leading-tight truncate">
+                      {user.userType === 'embarcador'
+                        ? (companyName || 'Embarcador')
+                        : `Motorista${vehicleName ? ' - ' + vehicleName : ''}`}
+                    </p>
+                  </div>
+                </button>
+
+                {profileOpen && (
+                  <div className="absolute left-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
+                    <Link
+                      to={profileLink}
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <ProfileIcon />
+                      Meu Perfil
+                    </Link>
+                    <Link
+                      to="/configuracoes"
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <CogIcon />
+                      Configurações
+                    </Link>
+                    <Link
+                      to={planLink}
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <ShieldIcon />
+                      Planos
+                    </Link>
+                    <div className="border-t border-gray-200 my-1" />
+                    <button
+                      onClick={handleLogout}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-gray-100"
+                    >
+                      <LogoutIcon />
+                      Sair
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <Link
+                to="/"
+                aria-label="FreteGO"
+                className="flex-1 flex items-center"
+              >
+                <img
+                  src="/logo.png"
+                  alt="FreteGO"
+                  className="h-9 sm:h-11 w-auto object-contain select-none"
+                  draggable={false}
+                />
+              </Link>
+            )}
+
+            {/* Direita: localizacao + sino + entrar */}
+            <div className="flex items-center gap-2 ml-auto z-10 flex-shrink-0">
               {isAuthenticated && (
                 <button
-                  onClick={() => setDrawerOpen(true)}
-                  className="relative p-1.5 -ml-1 text-gray-600 hover:text-gray-900"
-                  aria-label="Abrir menu"
+                  type="button"
+                  onClick={() => geo.requestLocation()}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
+                  title={isLocated ? 'GPS ativo' : 'Clique para ativar localização'}
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6h16M4 12h16M4 18h16"
-                    />
+                  <span className={`w-2 h-2 rounded-full ${isLocated ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse-slow'}`} />
+                  <span className={`text-[11px] font-medium ${isLocated ? 'text-green-700' : 'text-red-600'}`}>
+                    {locationLabel}
+                  </span>
+                </button>
+              )}
+
+              {isAuthenticated && user ? (
+                <button
+                  onClick={() => setDrawerOpen(true)}
+                  className="relative p-1.5 rounded-full hover:bg-gray-100 transition-colors"
+                  aria-label="Notificações"
+                >
+                  <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                   </svg>
-                  {totalUnread > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                      {totalUnread > 9 ? '9+' : totalUnread}
+                  {(notifUnread + chatUnread) > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
+                      {(notifUnread + chatUnread) > 9 ? '9+' : (notifUnread + chatUnread)}
                     </span>
                   )}
                 </button>
-              )}
-              {isAuthenticated && user?.userType === 'embarcador' && companyName && (
-                <BadgeEmpresa companyName={companyName} />
-              )}
-            </div>
-
-            {/* Centro: logo */}
-            <Link
-              to={user?.userType === 'embarcador' ? '/embarcador' : '/'}
-              aria-label="FreteGO"
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center"
-            >
-              <img
-                src="/logo.png"
-                alt="FreteGO"
-                className="h-9 sm:h-11 w-auto object-contain select-none"
-                draggable={false}
-              />
-            </Link>
-
-            {/* Direita: avatar + dropdown */}
-            <div className="flex items-center gap-2 ml-auto z-10">
-              {isAuthenticated && user ? (
-                <div className="relative" ref={profileRef}>
-                  <button
-                    onClick={() => setProfileOpen(!profileOpen)}
-                    className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                    aria-label="Menu do perfil"
-                  >
-                    <span className="text-sm text-gray-700 hidden md:block max-w-[140px] truncate">
-                      {displayName}
-                    </span>
-                    <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300">
-                      {photoUrl ? (
-                        <img
-                          src={photoUrl}
-                          alt="Foto"
-                          className="w-full h-full object-cover"
-                          onError={() => setPhotoUrl(null)}
-                        />
-                      ) : (
-                        <svg
-                          className="w-4 h-4 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <svg
-                      className={`w-4 h-4 text-gray-500 transition-transform ${profileOpen ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-
-                  {profileOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
-                      <Link
-                        to={profileLink}
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        <ProfileIcon />
-                        Meu Perfil
-                      </Link>
-                      <Link
-                        to="/configuracoes"
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        <CogIcon />
-                        Configurações
-                      </Link>
-                      <Link
-                        to={planLink}
-                        onClick={() => setProfileOpen(false)}
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      >
-                        <ShieldIcon />
-                        Planos
-                      </Link>
-                      <div className="border-t border-gray-200 my-1" />
-                      <button
-                        onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                      >
-                        <LogoutIcon />
-                        Sair
-                      </button>
-                    </div>
-                  )}
-                </div>
               ) : (
-                <>
-                  <Link
-                    to="/login"
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900"
-                  >
-                    Entrar
-                  </Link>
-                  <Link
-                    to="/register"
-                    className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Cadastrar
-                  </Link>
-                </>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                >
+                  Entrar
+                </Link>
               )}
             </div>
           </div>
@@ -419,24 +443,11 @@ function SideDrawer({ onClose, chatUnread, notifUnread, onOpenCalc, isMotorista 
           {tab === 'menu' ? (
             <div className="py-2">
               <DrawerItem
-                icon={<MsgIcon />}
-                label="Mensagens"
-                badge={chatUnread}
-                onClick={handleChat}
-              />
-              <DrawerItem
                 icon={<BellIcon />}
                 label="Notificações"
-                badge={notifUnread}
+                badge={notifUnread + chatUnread}
                 onClick={() => setTab('notif')}
               />
-              {isMotorista && (
-                <DrawerItem
-                  icon={<CalcIcon />}
-                  label="Calculadora de frete"
-                  onClick={onOpenCalc}
-                />
-              )}
             </div>
           ) : (
             <div>
