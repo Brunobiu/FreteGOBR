@@ -12,8 +12,10 @@ import { Outlet } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import SessionTimer from './SessionTimer';
 import { useSessionTimeout } from '../../hooks/useSessionTimeout';
+import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
 export default function AdminShell() {
+  useDocumentTitle('Admin');
   const [open, setOpen] = useState(true);
   const { showWarning, minutesRemaining, dismissWarning } = useSessionTimeout();
 

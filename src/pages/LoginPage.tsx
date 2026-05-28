@@ -2,12 +2,14 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { LoginCredentials } from '../types';
 
 // Imagem de fundo - caminhão em estrada (Unsplash)
 const BG_IMAGE = 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1920&q=80';
 
 export function LoginPage() {
+  useDocumentTitle('Login');
   const navigate = useNavigate();
   const location = useLocation();
   const { login, user } = useAuth();

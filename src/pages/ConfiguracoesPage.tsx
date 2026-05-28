@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
 import PasswordInput from '../components/PasswordInput';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ConfiguracoesPage() {
+  useDocumentTitle('Configurações');
   const navigate = useNavigate();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');

@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import AppHeader from '../components/AppHeader';
 
 // Planos disponíveis (placeholder)
@@ -53,6 +54,7 @@ const PLANS = [
 ];
 
 export default function MotoristaPlanPage() {
+  useDocumentTitle('Plano - Motorista');
   useAuth();
   const [, setSelectedPlan] = useState<string | null>(null);
 

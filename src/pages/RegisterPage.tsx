@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
 const BG_IMAGE = 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1920&q=80';
 
 export function RegisterPage() {
+  useDocumentTitle('Criar Conta');
   const navigate = useNavigate();
   const { register } = useAuth();
   const [imageError, setImageError] = useState(false);

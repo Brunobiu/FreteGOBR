@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import AppHeader from '../components/AppHeader';
 
 // Planos disponíveis para embarcadores (placeholder)
@@ -57,6 +58,7 @@ const PLANS = [
 ];
 
 export default function EmbarcadorPlanPage() {
+  useDocumentTitle('Plano - Embarcador');
   useAuth();
   const [, setSelectedPlan] = useState<string | null>(null);
 
