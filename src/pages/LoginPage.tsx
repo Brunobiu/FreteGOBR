@@ -1,19 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import type { LoginCredentials } from '../types';
-
-// Imagem de fundo - caminhão em estrada (Unsplash)
-const BG_IMAGE = 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=1920&q=80';
 
 export function LoginPage() {
   useDocumentTitle('Login');
   const navigate = useNavigate();
   const location = useLocation();
   const { login, user } = useAuth();
-  const [imageError, setImageError] = useState(false);
 
   const state = (location.state ?? null) as { successMessage?: string; phone?: string } | null;
 
@@ -35,32 +31,14 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen relative">
-      {/* Imagem de fundo */}
-      {!imageError ? (
-        <img
-          src={BG_IMAGE}
-          alt=""
-          role="presentation"
-          onError={() => setImageError(true)}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-gray-900" />
-      )}
-
-      {/* Overlay escuro */}
-      <div className="absolute inset-0 bg-black/55" />
-
-      {/* Conteúdo centralizado */}
-      <div className="relative min-h-screen flex items-center justify-center p-4">
-        <LoginForm
-          onSubmit={handleLogin}
-          onRegisterClick={() => navigate('/register')}
-          successMessage={state?.successMessage}
-          initialPhone={state?.phone}
-        />
-      </div>
+    <div className="min-h-screen bg-gray-100 relative flex items-center justify-center p-4">
+      {/* Conteudo centralizado */}
+      <LoginForm
+        onSubmit={handleLogin}
+        onRegisterClick={() => navigate('/register')}
+        successMessage={state?.successMessage}
+        initialPhone={state?.phone}
+      />
     </div>
   );
 }
