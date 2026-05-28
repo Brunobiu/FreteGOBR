@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import {
   getActiveFretes,
   incrementFreteViews,
@@ -8,6 +8,7 @@ import {
 } from '../services/fretes';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
+import MotoristaBottomNav from '../components/MotoristaBottomNav';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
 import FreteFiltersComponent from '../components/FreteFilters';
@@ -24,6 +25,7 @@ import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/
 import { getLikedFreteIds } from '../services/likes';
 import WelcomeLoading from '../components/WelcomeLoading';
 import AnunciosCarousel from '../components/AnunciosCarousel';
+import CommoditiesCarousel from '../components/CommoditiesCarousel';
 import {
   RADIUS_DEFAULT_KM,
   RADIUS_STORAGE_KEY,
@@ -43,7 +45,6 @@ function MapaSkeleton() {
 
 export default function HomePage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   useDocumentTitle(user?.userType === 'motorista' ? 'Motorista' : null);
   const [fretes, setFretes] = useState<Frete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -242,8 +243,13 @@ export default function HomePage() {
   const motoristaPoint = geo.status === 'success' && geo.point ? geo.point : null;
 
   // Lista filtrada por raio para o ramo motorista; intacta caso contrário.
+  // Se motorista nao tem GPS (motoristaPoint null), mostra todos os fretes
+  // em vez de retornar lista vazia.
   const visibleFretes = useMemo(
-    () => (isMotorista ? filterFretesByRadius(fretes, motoristaPoint, radiusKm) : fretes),
+    () =>
+      isMotorista && motoristaPoint
+        ? filterFretesByRadius(fretes, motoristaPoint, radiusKm)
+        : fretes,
     [isMotorista, fretes, motoristaPoint, radiusKm]
   );
 
@@ -257,7 +263,7 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-100">
       <AppHeader />
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 pb-24 md:pb-4">
         {/* Header (apenas para embarcador/desktop) */}
         {!isMotorista && (
           <div className="flex items-center mb-3 gap-2 flex-wrap">
@@ -312,6 +318,9 @@ export default function HomePage() {
             {/* Carrossel de anuncios entre mapa e header */}
             <AnunciosCarousel />
 
+            {/* Carrossel de categorias de commodities (gerenciado pelo admin) */}
+            <CommoditiesCarousel />
+
             {/* Filtro desativado por enquanto - sera reativado em versao futura
             <div className="sticky top-12 sm:top-14 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 mb-3 bg-gray-100/90 backdrop-blur-sm">
               <FreteFiltersComponent
@@ -324,7 +333,9 @@ export default function HomePage() {
 
             {/* Header do motorista: Fretes Disponiveis + Diesel */}
             <div className="flex items-center mb-3 gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-800">Fretes Disponíveis</h1>
+              <h1 className="text-base sm:text-lg font-semibold text-gray-800">
+                Fretes Disponíveis
+              </h1>
               <span className="text-xs text-gray-500">({visibleFretes.length})</span>
               {user && calcLoaded && (
                 <div className="ml-auto">
@@ -429,6 +440,9 @@ export default function HomePage() {
         }}
         motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
       />
+
+      {/* Barra inferior de navegacao - apenas motorista */}
+      {isMotorista && <MotoristaBottomNav chatBadge={0} />}
 
       {/* FAB Pergunte a Iara - desativado por enquanto, sera reativado em versao futura
       {isMotorista && (

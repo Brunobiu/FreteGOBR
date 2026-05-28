@@ -60,11 +60,26 @@ function destIcon(): L.DivIcon {
 function MapAutoCenter({ point, radiusKm }: { point: GeographicPoint | null; radiusKm: number }) {
   const map = useMap();
   useEffect(() => {
-    if (!point) return;
-    const circle = L.circle([point.latitude, point.longitude], {
-      radius: radiusKm * 1000,
-    });
-    map.fitBounds(circle.getBounds(), { padding: [30, 30] });
+    if (!point || !map) return;
+    // Defer pra garantir que o mapa esta totalmente montado
+    const t = window.setTimeout(() => {
+      try {
+        // Verifica se o mapa ainda existe e tem container valido
+        if (!map.getContainer || typeof map.getContainer !== 'function') return;
+        const container = map.getContainer();
+        if (!container || !container.isConnected) return;
+
+        const circle = L.circle([point.latitude, point.longitude], {
+          radius: radiusKm * 1000,
+        });
+        map.fitBounds(circle.getBounds(), { padding: [30, 30] });
+      } catch {
+        // Falha silenciosa - boundary ja captura, mas evita crash
+        // Erro tipico: 'layerPointToLatLng' undefined quando o mapa
+        // ainda nao terminou de montar. Nao afeta o funcionamento.
+      }
+    }, 100);
+    return () => window.clearTimeout(t);
   }, [point, radiusKm, map]);
   return null;
 }
@@ -79,7 +94,13 @@ function MapInvalidateOnResize({ trigger }: { trigger: boolean }) {
   useEffect(() => {
     // Espera a animação CSS terminar antes de invalidar o tamanho
     const t = window.setTimeout(() => {
-      map.invalidateSize();
+      try {
+        if (map && map.invalidateSize) {
+          map.invalidateSize();
+        }
+      } catch {
+        // ignore
+      }
     }, 200);
     return () => window.clearTimeout(t);
   }, [trigger, map]);

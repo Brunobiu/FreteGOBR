@@ -94,25 +94,34 @@ export default function AnunciosCarousel() {
 
   if (anuncios.length === 0) return null;
 
+  // Largura de cada slide em % e gap entre eles
+  // 85% = slide principal, sobrando 15% pra mostrar o proximo "peek"
+  const SLIDE_WIDTH_PCT = 85;
+  const GAP_PCT = 2;
+
   return (
     <div className="mb-4">
       <div
         ref={containerRef}
-        className="relative w-full overflow-hidden rounded-xl"
+        className="relative w-full overflow-hidden"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onMouseEnter={triggerPause}
       >
         <div
           className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+          style={{
+            transform: `translateX(-${currentIndex * (SLIDE_WIDTH_PCT + GAP_PCT)}%)`,
+            gap: `${GAP_PCT}%`,
+          }}
         >
           {anuncios.map((anuncio) => (
             <button
               key={anuncio.id}
               type="button"
               onClick={() => handleClick(anuncio)}
-              className="w-full flex-shrink-0 cursor-pointer"
+              className="flex-shrink-0 cursor-pointer rounded-xl overflow-hidden shadow-md"
+              style={{ width: `${SLIDE_WIDTH_PCT}%` }}
               aria-label={anuncio.name}
             >
               <img
@@ -127,14 +136,14 @@ export default function AnunciosCarousel() {
 
         {/* Indicadores (bolinhas) */}
         {anuncios.length > 1 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
+          <div className="flex justify-center gap-1.5 mt-2">
             {anuncios.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
                 onClick={() => goToIndex(idx)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  idx === currentIndex ? 'bg-white w-4' : 'bg-white/60'
+                className={`h-1.5 rounded-full transition-all ${
+                  idx === currentIndex ? 'bg-green-500 w-4' : 'bg-gray-300 w-1.5'
                 }`}
                 aria-label={`Ir para anuncio ${idx + 1}`}
               />

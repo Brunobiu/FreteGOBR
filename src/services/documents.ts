@@ -332,12 +332,21 @@ export async function getDocumentByType(
  * - Se já for uma URL (http/https), retorna como está.
  * - Se for um path de storage (privado), gera uma signed URL temporária.
  * - Se for null/undefined, retorna null.
+ * - Se for path com extensao incompativel com imagem, retorna null sem chamar a API
+ *   (evita 400 ruidoso no console por dado legado/inconsistente).
  */
 export async function resolveProfilePhotoUrl(
   pathOrUrl: string | null | undefined
 ): Promise<string | null> {
   if (!pathOrUrl) return null;
   if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  // Foto de perfil deve ser imagem. Se o path apontar para PDF/outros formatos
+  // (dado legado inconsistente), não tentamos buscar para evitar 400 no console.
+  const ext = pathOrUrl.split('.').pop()?.toLowerCase() ?? '';
+  const allowedImageExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif', 'heic', 'heif'];
+  if (ext && !allowedImageExt.includes(ext)) {
+    return null;
+  }
   try {
     const { data, error } = await supabase.storage
       .from('documents')
