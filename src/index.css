@@ -218,3 +218,13 @@ body {
 .animate-pulse-slow {
   animation: pulseSlow 2s ease-in-out infinite;
 }
+
+
+/* Esconde scrollbar mas mantem scroll funcional (usado em carrossel horizontal) */
+.scrollbar-hide {
+  -ms-overflow-style: none; /* IE/Edge */
+  scrollbar-width: none;    /* Firefox */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;            /* Chrome/Safari */
+}
