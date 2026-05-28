@@ -986,6 +986,73 @@ export default function MotoristaPerfilPage() {
               </span>
             </div>
 
+            {/* Foto de perfil do motorista */}
+            <div className="flex items-center gap-4 mb-4 pb-4 border-b border-gray-100">
+              <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
+                {documents.profile_photo?.url ? (
+                  <img
+                    src={documents.profile_photo.url}
+                    alt="Foto"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path
+                      fillRule="evenodd"
+                      d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 mb-1">Foto de perfil</p>
+                <p className="text-[11px] text-gray-500 mb-2">
+                  Aparece para os embarcadores no chat e nas notificações.
+                </p>
+                <label
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium cursor-pointer ${
+                    uploadingDoc === 'profile_photo'
+                      ? 'bg-gray-200 text-gray-500 cursor-wait'
+                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                  }`}
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"
+                    />
+                  </svg>
+                  {uploadingDoc === 'profile_photo'
+                    ? 'Enviando...'
+                    : documents.profile_photo
+                      ? 'Trocar foto'
+                      : 'Enviar foto'}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={uploadingDoc === 'profile_photo'}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        await handleDocUpload('profile_photo', file);
+                        await refreshUser();
+                      }
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Nome *</label>
@@ -1526,9 +1593,7 @@ export default function MotoristaPerfilPage() {
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
-                  Capacidade (toneladas)
-                </label>
+                <label className="block text-xs text-gray-600 mb-1">Capacidade (toneladas)</label>
                 <input
                   type="text"
                   inputMode="numeric"

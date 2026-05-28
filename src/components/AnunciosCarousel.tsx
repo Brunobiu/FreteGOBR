@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { listActiveAnuncios, type Anuncio } from '../services/anuncios';
 
-const AUTO_SLIDE_MS = 3000;
+const AUTO_SLIDE_MS = 6000;
 const PAUSE_AFTER_INTERACTION_MS = 10000;
 
 /**

@@ -10,11 +10,7 @@ import { getTotalUnreadCount } from '../services/chatFrete';
 import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
-import {
-  getNotifications,
-  markNotificationAsRead,
-  type Notification,
-} from '../services/notifications';
+import NotificationsModal from './NotificationsModal';
 
 export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,6 +18,11 @@ export default function AppHeader() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
+  const [gpsMenuOpen, setGpsMenuOpen] = useState(false);
+  const [gpsDisabled, setGpsDisabled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('fretego-gps-disabled') === '1';
+  });
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [vehicleName, setVehicleName] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number | null>(null);
@@ -38,11 +39,13 @@ export default function AppHeader() {
   const geo = useGeolocation();
   const isLocated = geo.status === 'success' && !!geo.point;
   const cityName = isLocated && geo.address ? geo.address.split(',')[0].trim().slice(0, 20) : null;
-  const locationLabel = isLocated
-    ? `${cityName || 'Localizado'}${temperature != null ? ` · ${Math.round(temperature)}°C` : ''}`
-    : geo.status === 'denied' || geo.status === 'error' || geo.status === 'insecure'
-      ? 'Erro'
-      : 'Sem GPS';
+  const locationLabel = gpsDisabled
+    ? 'GPS off'
+    : isLocated
+      ? `${cityName || 'Localizado'}${temperature != null ? ` · ${Math.round(temperature)}°C` : ''}`
+      : geo.status === 'denied' || geo.status === 'error' || geo.status === 'insecure'
+        ? 'Erro'
+        : 'Sem GPS';
 
   // Busca temperatura atual via Open-Meteo (free, sem chave)
   useEffect(() => {
@@ -68,12 +71,18 @@ export default function AppHeader() {
   }, [isLocated, geo.point?.latitude, geo.point?.longitude]);
 
   // Solicita localizacao automaticamente quando usuario logado
+  // Respeita o toggle gpsDisabled (persistido em localStorage).
   useEffect(() => {
+    if (gpsDisabled) {
+      // Se foi desativada explicitamente, limpa qualquer localizacao em memoria
+      geo.clearLocation();
+      return;
+    }
     if (isAuthenticated && geo.status === 'idle') {
       geo.requestLocation();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [isAuthenticated, gpsDisabled]);
 
   // Carrega o nome da empresa quando o usuário é embarcador
   useEffect(() => {
@@ -293,21 +302,159 @@ export default function AppHeader() {
             {/* Direita: localizacao + sino + entrar */}
             <div className="flex items-center gap-2 ml-auto z-10 flex-shrink-0">
               {isAuthenticated && (
-                <button
-                  type="button"
-                  onClick={() => geo.requestLocation()}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
-                  title={isLocated ? 'GPS ativo' : 'Clique para ativar localização'}
-                >
-                  <span
-                    className={`w-2 h-2 rounded-full ${isLocated ? 'bg-green-500 animate-pulse' : 'bg-red-500 animate-pulse-slow'}`}
-                  />
-                  <span
-                    className={`text-[11px] font-medium ${isLocated ? 'text-green-700' : 'text-red-600'}`}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setGpsMenuOpen((v) => !v)}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-50 border border-gray-200 hover:bg-gray-100 transition-colors"
+                    title={
+                      gpsDisabled
+                        ? 'Localização desativada'
+                        : isLocated
+                          ? 'GPS ativo'
+                          : 'Localização indisponível'
+                    }
+                    aria-haspopup="menu"
+                    aria-expanded={gpsMenuOpen}
                   >
-                    {locationLabel}
-                  </span>
-                </button>
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        gpsDisabled
+                          ? 'bg-gray-400'
+                          : isLocated
+                            ? 'bg-green-500 animate-pulse'
+                            : 'bg-red-500 animate-pulse-slow'
+                      }`}
+                    />
+                    <span
+                      className={`text-[11px] font-medium ${
+                        gpsDisabled
+                          ? 'text-gray-500'
+                          : isLocated
+                            ? 'text-green-700'
+                            : 'text-red-600'
+                      }`}
+                    >
+                      {locationLabel}
+                    </span>
+                  </button>
+
+                  {gpsMenuOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setGpsMenuOpen(false)} />
+                      <div
+                        className="absolute right-0 mt-2 w-60 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50"
+                        role="menu"
+                      >
+                        <div className="px-3 py-2 border-b border-gray-100">
+                          <p className="text-[10px] uppercase tracking-wider text-gray-500">
+                            Localização
+                          </p>
+                          <p className="text-xs text-gray-800 font-medium mt-0.5">
+                            {gpsDisabled
+                              ? 'Desativada'
+                              : isLocated
+                                ? `${cityName || 'Localizado'}${
+                                    temperature != null ? ` · ${Math.round(temperature)}°C` : ''
+                                  }`
+                                : geo.status === 'denied'
+                                  ? 'Bloqueada pelo navegador'
+                                  : geo.status === 'insecure'
+                                    ? 'Requer HTTPS'
+                                    : geo.status === 'loading'
+                                      ? 'Localizando...'
+                                      : 'Indisponível'}
+                          </p>
+                        </div>
+
+                        {gpsDisabled ? (
+                          <button
+                            onClick={() => {
+                              localStorage.removeItem('fretego-gps-disabled');
+                              setGpsDisabled(false);
+                              setGpsMenuOpen(false);
+                            }}
+                            className="flex items-center w-full px-3 py-2 text-xs text-green-700 hover:bg-gray-50"
+                            role="menuitem"
+                          >
+                            <svg
+                              className="w-4 h-4 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                            </svg>
+                            Ativar localização
+                          </button>
+                        ) : (
+                          <>
+                            {!isLocated && (
+                              <button
+                                onClick={() => {
+                                  setGpsMenuOpen(false);
+                                  geo.requestLocation();
+                                }}
+                                className="flex items-center w-full px-3 py-2 text-xs text-blue-700 hover:bg-gray-50"
+                                role="menuitem"
+                              >
+                                <svg
+                                  className="w-4 h-4 mr-2"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                  />
+                                </svg>
+                                Tentar novamente
+                              </button>
+                            )}
+                            <button
+                              onClick={() => {
+                                localStorage.setItem('fretego-gps-disabled', '1');
+                                setGpsDisabled(true);
+                                setGpsMenuOpen(false);
+                              }}
+                              className="flex items-center w-full px-3 py-2 text-xs text-red-600 hover:bg-gray-50"
+                              role="menuitem"
+                            >
+                              <svg
+                                className="w-4 h-4 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L21 21M5.636 5.636L3 3"
+                                />
+                              </svg>
+                              Desativar localização
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
 
               {isAuthenticated && user ? (
@@ -350,11 +497,11 @@ export default function AppHeader() {
 
       <FreteCalculator isOpen={calcOpen} onClose={() => setCalcOpen(false)} />
 
-      {drawerOpen && (
-        <SideDrawer
+      {drawerOpen && user && (
+        <NotificationsModal
+          open={drawerOpen}
           onClose={() => setDrawerOpen(false)}
-          chatUnread={chatUnread}
-          notifUnread={notifUnread}
+          userId={user.id}
         />
       )}
     </>
@@ -362,204 +509,6 @@ export default function AppHeader() {
 }
 
 // ─── Drawer lateral ─────────────────────────────────────────────────────────
-
-interface SideDrawerProps {
-  onClose: () => void;
-  chatUnread: number;
-  notifUnread: number;
-}
-
-function SideDrawer({ onClose, chatUnread, notifUnread }: SideDrawerProps) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-  const [tab, setTab] = useState<'menu' | 'notif'>('menu');
-  const [notifs, setNotifs] = useState<Notification[]>([]);
-  const [loadingNotifs, setLoadingNotifs] = useState(false);
-
-  // Trava o scroll
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'unset';
-    };
-  }, []);
-
-  // Carrega notificações ao abrir a aba
-  useEffect(() => {
-    if (tab !== 'notif' || !user) return;
-    setLoadingNotifs(true);
-    getNotifications(user.id, 20)
-      .then(setNotifs)
-      .catch(() => {})
-      .finally(() => setLoadingNotifs(false));
-  }, [tab, user]);
-
-  const handleNotifClick = async (n: Notification) => {
-    if (!n.readAt) {
-      try {
-        await markNotificationAsRead(n.id);
-      } catch {
-        /* ignore */
-      }
-      window.dispatchEvent(new Event('fretego-notifications-refresh'));
-    }
-    onClose();
-    if (n.link) navigate(n.link);
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60]">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <aside className="fixed top-0 left-0 h-full w-[85%] max-w-sm bg-white shadow-2xl flex flex-col animate-slide-in-left">
-        {/* Topo */}
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <img src="/logo.png" alt="FreteGO" className="h-8 w-auto object-contain" />
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-700"
-            aria-label="Fechar menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200">
-          <button
-            onClick={() => setTab('menu')}
-            className={`flex-1 py-2 text-sm font-medium transition-colors ${
-              tab === 'menu'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Atalhos
-          </button>
-          <button
-            onClick={() => setTab('notif')}
-            className={`flex-1 py-2 text-sm font-medium transition-colors relative ${
-              tab === 'notif'
-                ? 'text-blue-600 border-b-2 border-blue-600'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Notificações
-            {notifUnread > 0 && (
-              <span className="absolute top-1 right-2 min-w-[16px] h-4 px-1 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                {notifUnread > 9 ? '9+' : notifUnread}
-              </span>
-            )}
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {tab === 'menu' ? (
-            <div className="py-2">
-              <DrawerItem
-                icon={<BellIcon />}
-                label="Notificações"
-                badge={notifUnread + chatUnread}
-                onClick={() => setTab('notif')}
-              />
-            </div>
-          ) : (
-            <div>
-              {loadingNotifs ? (
-                <p className="text-center text-sm text-gray-500 py-8">Carregando...</p>
-              ) : notifs.length === 0 ? (
-                <p className="text-center text-sm text-gray-500 py-8">Nenhuma notificação.</p>
-              ) : (
-                notifs.map((n) => (
-                  <button
-                    key={n.id}
-                    onClick={() => handleNotifClick(n)}
-                    className={`w-full text-left px-4 py-3 border-b border-gray-100 hover:bg-gray-50 ${
-                      !n.readAt ? 'bg-blue-50' : ''
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {!n.readAt && (
-                        <span className="mt-1.5 w-2 h-2 bg-blue-500 rounded-full shrink-0" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-800">{n.title}</p>
-                        <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-gray-400 mt-1">
-                          {new Date(n.createdAt).toLocaleString('pt-BR', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-              <button
-                onClick={() => {
-                  onClose();
-                  navigate('/notificacoes');
-                }}
-                className="w-full px-4 py-2.5 text-center text-xs font-semibold text-blue-600 hover:bg-blue-50 border-t border-gray-200"
-              >
-                Ver todas as notificações →
-              </button>
-            </div>
-          )}
-        </div>
-      </aside>
-    </div>
-  );
-}
-
-function DrawerItem({
-  icon,
-  label,
-  badge,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  badge?: number;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-    >
-      <span className="text-gray-500 shrink-0">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {!!badge && badge > 0 && (
-        <span className="min-w-[18px] h-5 px-1.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-          {badge > 9 ? '9+' : badge}
-        </span>
-      )}
-    </button>
-  );
-}
-
-// ─── Ícones ─────────────────────────────────────────────────────────────────
-
-const BellIcon = () => (
-  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth={2}
-      d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-    />
-  </svg>
-);
 
 const ProfileIcon = () => (
   <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

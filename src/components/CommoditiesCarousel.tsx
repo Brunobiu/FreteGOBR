@@ -54,7 +54,7 @@ export default function CommoditiesCarousel({
         <div className="flex gap-3 overflow-x-hidden">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col items-center gap-1.5 shrink-0">
-              <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl bg-gray-200 animate-pulse" />
+              <div className="w-16 h-16 sm:w-14 sm:h-14 rounded-2xl bg-gray-200 animate-pulse" />
               <div className="w-12 h-2.5 rounded bg-gray-200 animate-pulse" />
             </div>
           ))}
@@ -71,7 +71,7 @@ export default function CommoditiesCarousel({
       {title && <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">{title}</h2>}
 
       <div
-        className="flex gap-3 overflow-x-auto pb-1 sm:-mx-4 sm:px-4 snap-x snap-mandatory scrollbar-hide"
+        className="flex gap-3 sm:gap-2 overflow-x-auto pb-1 sm:-mx-4 sm:px-4 pr-8 sm:pr-12 snap-x scrollbar-hide"
         role="listbox"
         aria-label="Categorias de commodities"
       >
@@ -84,11 +84,11 @@ export default function CommoditiesCarousel({
               onClick={() => onSelect?.(c)}
               role="option"
               aria-selected={isSelected}
-              className="flex flex-col items-center gap-1.5 shrink-0 snap-start group focus:outline-none"
+              className="flex flex-col items-center gap-1 sm:gap-0.5 shrink-0 snap-start group focus:outline-none"
               title={c.name}
             >
               <div
-                className={`w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden transition-all
+                className={`w-16 h-16 sm:w-14 sm:h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center overflow-hidden transition-all
                   ${
                     isSelected
                       ? 'ring-2 ring-green-500 border border-green-500'
@@ -112,7 +112,7 @@ export default function CommoditiesCarousel({
                 )}
               </div>
               <span
-                className={`text-[11px] sm:text-xs font-medium text-center w-16 sm:w-[72px] truncate
+                className={`text-[11px] sm:text-[10px] font-medium text-center w-16 sm:w-14 truncate
                   ${isSelected ? 'text-green-700' : 'text-gray-700'}`}
               >
                 {c.name}

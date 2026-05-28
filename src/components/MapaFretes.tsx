@@ -16,6 +16,9 @@ interface MapaFretesProps {
   onFreteClick: (frete: Frete) => void;
   geolocationStatus: GeolocationStatus;
   onRequestLocation: () => void;
+  /** Quando true, o mapa preenche o container pai (uso em modal) e oculta
+   *  o botao de expandir/recolher interno. */
+  fullHeight?: boolean;
 }
 
 const BR_CENTER: [number, number] = [-14.235, -51.9253];
@@ -127,6 +130,7 @@ export default function MapaFretes({
   onFreteClick,
   geolocationStatus,
   onRequestLocation,
+  fullHeight = false,
 }: MapaFretesProps) {
   const [expanded, setExpanded] = useState(false);
   const [radiusMenuOpen, setRadiusMenuOpen] = useState(false);
@@ -168,7 +172,7 @@ export default function MapaFretes({
   }, [selectedRouteFrete]);
 
   // Mapa fininho — quase metade da altura anterior
-  const heightClass = expanded ? 'h-[60vh]' : 'h-[90px] md:h-[110px]';
+  const heightClass = fullHeight ? 'h-full' : expanded ? 'h-[60vh]' : 'h-[90px] md:h-[110px]';
   const showBanner =
     geolocationStatus === 'denied' ||
     geolocationStatus === 'error' ||
@@ -197,9 +201,9 @@ export default function MapaFretes({
   const zoom = motoristaPoint ? 8 : 4;
 
   return (
-    <div className="mb-3">
+    <div className={fullHeight ? 'h-full' : 'mb-3'}>
       <div
-        className={`relative w-full rounded-md overflow-hidden border border-gray-200 ${heightClass}`}
+        className={`relative w-full ${fullHeight ? '' : 'rounded-md'} overflow-hidden ${fullHeight ? '' : 'border border-gray-200'} ${heightClass}`}
         style={{ zIndex: 0 }}
       >
         <MapContainer
@@ -297,45 +301,49 @@ export default function MapaFretes({
           <MapInvalidateOnResize trigger={expanded} />
         </MapContainer>
 
-        {/* Botão de raio (canto superior esquerdo) */}
-        <div className="absolute top-1 left-1 z-[400]">
-          <button
-            type="button"
-            onClick={() => setRadiusMenuOpen((v) => !v)}
-            className="px-2 py-1 bg-white/95 border border-gray-300 rounded text-[11px] font-medium hover:bg-white shadow-sm"
-          >
-            Raio: {radiusKm} km {radiusMenuOpen ? '▴' : '▾'}
-          </button>
-          {radiusMenuOpen && (
-            <div className="mt-1 flex flex-col bg-white border border-gray-300 rounded shadow-md overflow-hidden">
-              {RADIUS_OPTIONS_KM.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => {
-                    onRadiusChange(r);
-                    setRadiusMenuOpen(false);
-                  }}
-                  className={`px-3 py-1 text-[11px] text-left whitespace-nowrap ${
-                    r === radiusKm ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  {r} km
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Botão de raio (canto superior esquerdo) - oculto em fullHeight pois a toolbar ja tem */}
+        {!fullHeight && (
+          <div className="absolute top-1 left-1 z-[400]">
+            <button
+              type="button"
+              onClick={() => setRadiusMenuOpen((v) => !v)}
+              className="px-2 py-1 bg-white/95 border border-gray-300 rounded text-[11px] font-medium hover:bg-white shadow-sm"
+            >
+              Raio: {radiusKm} km {radiusMenuOpen ? '▴' : '▾'}
+            </button>
+            {radiusMenuOpen && (
+              <div className="mt-1 flex flex-col bg-white border border-gray-300 rounded shadow-md overflow-hidden">
+                {RADIUS_OPTIONS_KM.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      onRadiusChange(r);
+                      setRadiusMenuOpen(false);
+                    }}
+                    className={`px-3 py-1 text-[11px] text-left whitespace-nowrap ${
+                      r === radiusKm ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {r} km
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Botão expandir/recolher (canto superior direito) */}
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'Recolher mapa' : 'Expandir mapa'}
-          className="absolute top-1 right-1 z-[400] px-2 py-1 bg-white/95 border border-gray-300 rounded text-[11px] hover:bg-white shadow-sm"
-        >
-          {expanded ? '⤡ recolher' : '⤢ expandir'}
-        </button>
+        {!fullHeight && (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            aria-label={expanded ? 'Recolher mapa' : 'Expandir mapa'}
+            className="absolute top-1 right-1 z-[400] px-2 py-1 bg-white/95 border border-gray-300 rounded text-[11px] hover:bg-white shadow-sm"
+          >
+            {expanded ? '⤡ recolher' : '⤢ expandir'}
+          </button>
+        )}
 
         {/* Card de informação da rota selecionada */}
         {selectedRouteFrete &&

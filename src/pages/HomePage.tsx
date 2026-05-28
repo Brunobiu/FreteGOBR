@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getActiveFretes,
@@ -36,12 +36,7 @@ import {
 } from '../utils/geoDistance';
 
 // Lazy import: leaflet + react-leaflet só caem no chunk dos motoristas.
-const MapaFretes = lazy(() => import('../components/MapaFretes'));
-import MapaFretesBoundary from '../components/MapaFretesBoundary';
-
-function MapaSkeleton() {
-  return <div className="w-full h-[90px] md:h-[110px] rounded-md bg-gray-100 animate-pulse mb-3" />;
-}
+import MapaToolbar from '../components/MapaToolbar';
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -281,21 +276,36 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Mapa fixo para motorista (lazy) */}
+        {/* Toolbar do mapa para motorista (mapa abre em modal) */}
         {isMotorista && (
-          <MapaFretesBoundary>
-            <Suspense fallback={<MapaSkeleton />}>
-              <MapaFretes
-                fretes={visibleFretes}
-                motoristaPoint={motoristaPoint}
-                radiusKm={radiusKm}
-                onRadiusChange={handleRadiusChange}
-                onFreteClick={handleFreteClick}
-                geolocationStatus={geo.status}
-                onRequestLocation={geo.requestLocation}
-              />
-            </Suspense>
-          </MapaFretesBoundary>
+          <MapaToolbar
+            fretes={visibleFretes}
+            motoristaPoint={motoristaPoint}
+            radiusKm={radiusKm}
+            onRadiusChange={handleRadiusChange}
+            onFreteClick={handleFreteClick}
+            geolocationStatus={geo.status}
+            onRequestLocation={geo.requestLocation}
+            middleSlot={
+              user && calcLoaded ? (
+                <DieselDashboardInput
+                  userId={user.id}
+                  initialValue={motoristaCalc?.dieselPrice ?? null}
+                  onSaved={(p) =>
+                    setMotoristaCalc((prev) =>
+                      prev
+                        ? { ...prev, dieselPrice: p }
+                        : { kmPerLiter: null, dieselPrice: p, cargoCapacityTon: null }
+                    )
+                  }
+                  onError={(msg) => {
+                    setToast(msg);
+                    setTimeout(() => setToast(null), 3000);
+                  }}
+                />
+              ) : null
+            }
+          />
         )}
 
         {showCalcBanner && (
@@ -321,41 +331,19 @@ export default function HomePage() {
             {/* Carrossel de categorias de commodities (gerenciado pelo admin) */}
             <CommoditiesCarousel />
 
-            {/* Filtro desativado por enquanto - sera reativado em versao futura
-            <div className="sticky top-12 sm:top-14 z-30 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 mb-3 bg-gray-100/90 backdrop-blur-sm">
-              <FreteFiltersComponent
-                onFilterChange={handleFilterChange}
-                totalResults={visibleFretes.length}
-                compact
-              />
-            </div>
-            */}
-
-            {/* Header do motorista: Fretes Disponiveis + Diesel */}
+            {/* Header do motorista: Fretes Disponiveis + Filtro */}
             <div className="flex items-center mb-3 gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-semibold text-gray-800">
                 Fretes Disponíveis
               </h1>
               <span className="text-xs text-gray-500">({visibleFretes.length})</span>
-              {user && calcLoaded && (
-                <div className="ml-auto">
-                  <DieselDashboardInput
-                    userId={user.id}
-                    initialValue={motoristaCalc?.dieselPrice ?? null}
-                    onSaved={(p) =>
-                      setMotoristaCalc((prev) =>
-                        prev
-                          ? { ...prev, dieselPrice: p }
-                          : { kmPerLiter: null, dieselPrice: p, cargoCapacityTon: null }
-                      )
-                    }
-                    onError={(msg) => {
-                      setToast(msg);
-                      setTimeout(() => setToast(null), 3000);
-                    }}
-                  />
-                </div>
-              )}
+              <div className="ml-auto">
+                <FreteFiltersComponent
+                  onFilterChange={handleFilterChange}
+                  totalResults={visibleFretes.length}
+                  compact
+                />
+              </div>
             </div>
           </>
         ) : (
