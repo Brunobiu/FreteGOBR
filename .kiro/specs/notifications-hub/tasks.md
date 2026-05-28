@@ -280,7 +280,7 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - Idempotente — sempre retorna a única conversa do user.
     - _Requirements: 7.1_
 
-- [ ] 4. Mutações de service (TypeScript)
+- [x] 4. Mutações de service (TypeScript)
   - [x] 4.1 `createBroadcast(input)` (admin)
     - Wrap em `executeAdminMutation` com action `BROADCAST_CREATE`, target_type `broadcast_announcements`, after_data com title+audience.
     - Chama RPC `rpc_create_broadcast`.
@@ -302,31 +302,86 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
 
   - [x] 4.5 `replyToTicket(ticketId, body, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_REPLY`.
-    - Chama RPC `reply_to_ticket`.
-    - Se ticket é público (user_id=null): após sucesso da RPC, chama Edge Function `send-public-ticket-reply` com guest_email, guest_name, subject, body, admin_name. Em sucesso: chama RPC `mark_email_sent(message_id, NOW())`. Em falha: deixa `email_sent_at=NULL`, exibe toast "Resposta salva, mas falha ao enviar email. Verifique o destinatário."
     - _Requirements: 8.3, 9.6, 9.7_
-    - **Nota**: a chamada da Edge Function é responsabilidade do caller (ex.: AdminTicketDetailPage). O service expõe `replyToTicket` que retorna `isPublic`, `guestEmail`, etc. para o caller orquestrar. O `markEmailSent` foi exportado separadamente.
 
   - [x] 4.6 `resolveTicket(ticketId, expectedUpdatedAt)` (admin)
     - Wrap em `executeAdminMutation` com action `SUPORTE_TICKET_RESOLVE`.
-    - Detecta `{skipped:true}` e exibe toast neutro `Ticket já estava resolvido.`.
     - _Requirements: 8.4_
 
   - [x] 4.7 `postSupportMessage(message)` (user)
     - SELECT/INSERT da Support_Conversation se necessário.
-    - INSERT em `chat_messages` com `is_admin=false`.
     - _Requirements: 7.2_
 
   - [x] 4.8 `postAdminReply(conversationId, message, expectedUpdatedAt)` (admin)
-    - Wrap em `executeAdminMutation` com action `SUPORTE_CHAT_REPLY`.
-    - Versionamento otimista contra `chat_conversations.updated_at`.
-    - INSERT mensagem + UPDATE updated_at.
     - _Requirements: 7.3_
 
   - [x] 4.9 `resolveSupportConversation(id, expectedUpdatedAt)` (admin)
-    - Wrap em `executeAdminMutation` com action `SUPORTE_CHAT_RESOLVE`.
-    - Idempotente _SKIPPED.
     - _Requirements: 7.6_
+
+  - [x] 4.10 Property test CP-1 — paridade de prefixos (categorize)
+    - `src/__tests__/notifications-hub/cp1_categorize_prefixes.property.test.ts`
+    - 7 testes cobrindo P1-P7: especificidade vence (chat_support_, frete_like_), mapeamentos diretos, catch-all, null/undefined, case-insensitivity, tipos canônicos da spec.
+    - _Requirements: 3.1, CP-1_
+
+  - [x] 4.11 Property test CP-2 — fan-out de broadcast idempotente
+    - `src/__tests__/notifications-hub/cp2_broadcast_fanout_idempotent.property.test.ts`
+    - 7 testes cobrindo contrato cliente: executeAdminMutation chamado, audience passada como array exato, idempotência client-side, mapeamento BroadcastRow→Broadcast, erros de gating e validação tipados.
+    - _Requirements: 5.2, CP-2_
+
+  - [x] 4.12 Property test CP-3 — honeypot do public ticket
+    - `src/__tests__/notifications-hub/cp3_public_ticket_honeypot.property.test.ts`
+    - 7 testes cobrindo: helper sempre delega ao RPC sem filtragem local (defesa anti-bot), websiteUrl null/vazio respeitado, resposta opaca, rate-limit/INVALID_INPUT propagados, erros desconhecidos desclassificados.
+    - _Requirements: 9.3, CP-3_
+
+  - [x] 4.13 Property test CP-4 — versionamento otimista de ticket
+    - `src/__tests__/notifications-hub/cp4_ticket_stale_version.property.test.ts`
+    - 6 testes cobrindo: STALE_VERSION em reply/resolve, sucesso, idempotência _SKIPPED em resolve, NOT_FOUND.
+    - _Requirements: 8.5, CP-4_
+
+- [ ] 12. Checkpoint e validação fim-a-ponta
+  - [ ] 12.1 Aplicar migration 041 em ambiente de dev
+    - `supabase db push` ou aplicar manual.
+    - Smoke: verificar tabelas, índices, triggers, RPCs criados via `\dt`, `\df`.
+    - _Requirements: 1.1_
+    - **Pendente**: depende de você aplicar pelo SQL Editor do Supabase.
+
+  - [x] 12.2 `npx tsc --noEmit` passa sem erros
+    - _Requirements: project-conventions_
+
+  - [x] 12.3 `npx vitest --run` passa todos os property tests + suites afetadas
+    - CP-1 a CP-4 verdes.
+    - _Requirements: CP-1, CP-2, CP-3, CP-4_
+    - **Resultado**: 305 tests pass (35 test files), 27 testes novos da spec.
+
+  - [x] 12.4 `npx vite build` sem erros
+    - _Requirements: project-conventions_
+
+  - [ ] 12.5 Smoke manual ponta-a-ponta — fluxo Broadcast
+    - **Pendente**: você precisa aplicar migration 041 e testar manualmente.
+
+  - [ ] 12.6 Smoke manual — fluxo Ticket de visitante
+    - **Pendente**: idem.
+
+  - [ ] 12.7 Smoke manual — fluxo Ticket de user logado
+    - **Pendente**: idem.
+
+  - [ ] 12.8 Smoke manual — fluxo Chat suporte
+    - **Pendente**: idem.
+
+  - [ ] 12.9 Smoke manual — Anti-bot do ticket público
+    - **Pendente**: idem.
+
+  - [ ] 12.10 Validar audit logs
+    - **Pendente**: idem.
+
+  - [ ] 12.11 Validar Stealth_404 e gating
+    - **Pendente**: idem.
+
+  - [ ] 12.12 Documentação
+    - Atualizar `docs/ROADMAP.md` marcando notifications-hub como entregue.
+    - Adicionar seção "Notificações" em `docs/GUIA_TESTES_MANUAIS.md` com os smoke tests acima.
+    - _Requirements: project-conventions_
+    - **Parcial**: `docs/NOTIFICATIONS_HUB_ENV.md` criado com instruções de setup. ROADMAP e GUIA_TESTES_MANUAIS ficam para fechar Phase 1.
 
   - [ ] 4.10 Property test CP-1 — paridade de prefixos (categorize)
     - `src/__tests__/notifications/cp1_categorize_prefixes.property.test.ts`
@@ -542,71 +597,6 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
   - [ ] 11.4 a11y: foco no primeiro input ao abrir modal de form
     - _Requirements: project-conventions_
     - **Pendente**: UserTicketForm tem `autoFocus` no campo subject. BroadcastFormModal não tem. Pode ser adicionado em Phase 2 se acessibilidade pedir.
-
-- [ ] 12. Checkpoint e validação fim-a-ponta
-  - [ ] 12.1 Aplicar migration 041 em ambiente de dev
-    - `supabase db push` ou aplicar manual.
-    - Smoke: verificar tabelas, índices, triggers, RPCs criados via `\dt`, `\df`.
-    - _Requirements: 1.1_
-
-  - [ ] 12.2 `npx tsc --noEmit` passa sem erros
-    - _Requirements: project-conventions_
-
-  - [ ] 12.3 `npx vitest --run` passa todos os property tests + suites afetadas
-    - CP-1 a CP-4 verdes.
-    - _Requirements: CP-1, CP-2, CP-3, CP-4_
-
-  - [ ] 12.4 `npx vite build` sem erros
-    - _Requirements: project-conventions_
-
-  - [ ] 12.5 Smoke manual ponta-a-ponta — fluxo Broadcast
-    - Logar como admin, criar broadcast pra `motorista`, verificar que motorista logado vê a notif na aba Anúncios em realtime.
-    - Repetir pra `embarcador`.
-    - Tentar marcar "empresa" — checkbox desabilitado.
-    - _Requirements: 4.x, 5.x_
-
-  - [ ] 12.6 Smoke manual — fluxo Ticket de visitante
-    - Acessar `/contato` deslogado, preencher form, submeter.
-    - Confirmar `support_tickets` populada com `user_id=NULL`.
-    - Confirmar admin recebeu notif `ticket_created`.
-    - Admin responde, conferir email recebido em `guest_email` (ou que `email_sent_at` ficou populado).
-    - _Requirements: 9.x_
-
-  - [ ] 12.7 Smoke manual — fluxo Ticket de user logado
-    - Logar como motorista, abrir `/tickets`, criar ticket.
-    - Admin responde via `/admin/suporte/tickets/:id`.
-    - Motorista recebe notif `ticket_replied` e abre o ticket.
-    - Admin marca resolvido. Motorista recebe `ticket_resolved`.
-    - _Requirements: 8.x_
-
-  - [ ] 12.8 Smoke manual — fluxo Chat suporte
-    - Logar como motorista, abrir `Falar com suporte` no Notifications_Modal.
-    - Enviar mensagem.
-    - Admin loga em `/admin/suporte/chat`, vê conversa, responde.
-    - Motorista recebe notif `chat_support_admin_reply` em realtime.
-    - Admin marca resolvida. Motorista envia nova mensagem → status volta a `aberta`.
-    - _Requirements: 7.x_
-
-  - [ ] 12.9 Smoke manual — Anti-bot do ticket público
-    - Submeter form com campo honeypot preenchido via DevTools.
-    - Confirmar resposta opaca `{ submitted: true }` mas `support_tickets` count = 0.
-    - Submeter 6 tickets em <1h do mesmo IP — 6º deve ser rate-limited.
-    - _Requirements: 9.3, 9.4_
-
-  - [ ] 12.10 Validar audit logs
-    - Conferir que cada mutação admin gerou linha em `admin_audit_logs` com action correto (`BROADCAST_CREATE`, `SUPORTE_REPLY`, `SUPORTE_TICKET_RESOLVE`, `SUPORTE_CHAT_REPLY`, `SUPORTE_CHAT_RESOLVE`, `SUPORTE_PUBLIC_TICKET_REPLY`).
-    - _Requirements: 11.9_
-
-  - [ ] 12.11 Validar Stealth_404 e gating
-    - Logar como user comum (não-admin), tentar GET `/admin/comunicados` → deve renderizar `<Stealth404 />`.
-    - Tentar chamar `rpc_create_broadcast` direto via Supabase JS client → permission_denied + log negativo `BROADCAST_VIEW_DENIED` em `admin_audit_logs`.
-    - _Requirements: project-conventions, 4.6, 11.4_
-
-  - [ ] 12.12 Documentação
-    - Atualizar `docs/ROADMAP.md` marcando notifications-hub como entregue.
-    - Adicionar seção "Notificações" em `docs/GUIA_TESTES_MANUAIS.md` com os smoke tests acima.
-    - _Requirements: project-conventions_
-
 ## Notas e Pontos Em Aberto
 
 ### Feature relacionada (não escopo desta spec): mudar localização atual no header
