@@ -13,7 +13,22 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e `adm
 - Toda mutação passa por `executeAdminMutation`; idempotência via `_SKIPPED` log dentro da RPC.
 - Versionamento otimista via `updated_at` + `STALE_VERSION`.
 
+> **STATUS (29/05/2026)** — backend (epics 1–4) + UI MVP (epics 5–8)
+> entregues e em produção:
+> - `FinanceiroListPage` (lista paginada + filtros status/data + paginação 10/50/100)
+> - `FinanceiroConfiguracoesPage` (comissão flat + até 5 faixas escalonadas)
+> - `FinanceiroDetailPage` (valores, partes, marcar pago, estornar — idempotência CP-2 + STALE_VERSION)
+> - Rotas plugadas em `AdminLayoutRoute` na ordem correta + item no Sidebar.
+>
+> A UI foi consolidada em 3 páginas em vez de extrair cada subcomponente
+> (FinanceiroTable, MiniDashboard, FilterPopover...) — funcionalmente
+> equivalente, mais simples de manter. Itens não cobertos no MVP:
+> mini-dashboard de 4 cards, export CSV, upload de comprovante,
+> combobox searchable de embarcador/motorista, histórico de auditoria
+> no detalhe. Esses são incrementos, não bloqueiam o uso.
+
 ## Tasks
+
 
 - [ ] 1. Migration 037 e contratos base de banco
   - [x] 1.1 Criar `supabase/migrations/037_admin_financeiro.sql`
