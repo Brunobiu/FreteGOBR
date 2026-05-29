@@ -7,6 +7,7 @@ import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
 import FreteChatWidget from './components/FreteChatWidget';
+import NativeBackButton from './components/NativeBackButton';
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -47,6 +48,7 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <NativeBackButton />
       <NotificationToast />
       <FreteChatWidget />
       <Routes>

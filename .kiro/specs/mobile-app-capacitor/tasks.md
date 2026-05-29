@@ -54,75 +54,61 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
     - `INTERNET`, `POST_NOTIFICATIONS` (Android 13+).
     - _Requirements: permissões nativas_
 
-- [ ] 2. Branding e identidade visual
-  - [ ] 2.1 Criar ícone do app (todas as densidades)
+- [x] 2. Branding e identidade visual
+  - [x] 2.1 Criar ícone do app (todas as densidades)
     - 1024x1024 master (logo verde FreteGO).
-    - Gerar via `npx @capacitor/assets generate --android` (precisa
-      `assets/icon.png` 1024x1024).
+    - Gerar via `npx capacitor-assets generate --android`.
     - Distribui pra mdpi, hdpi, xhdpi, xxhdpi, xxxhdpi automaticamente.
     - _Requirements: ícone do app_
 
-  - [ ] 2.2 Criar splash screen
-    - 2732x2732 master (logo centralizado em fundo verde #16a34a).
-    - `npx @capacitor/assets generate --android` cria todas as densidades.
+  - [x] 2.2 Criar splash screen
+    - Reusa `assets/splash.png` (mesmo arquivo do ícone, fundo verde).
+    - 87 arquivos gerados ao todo (ícone + splash + dark mode + adaptive icon).
     - _Requirements: splash screen_
 
-  - [ ] 2.3 Configurar status bar
-    - Cor: verde FreteGO (#16a34a) ou transparente sobreposto.
-    - Texto branco (style DARK no Capacitor = branco em fundo escuro).
+  - [x] 2.3 Configurar status bar
+    - Configurado em `capacitor.config.ts` (style DARK + bg verde FreteGO).
     - _Requirements: identidade visual_
 
-- [ ] 3. Adaptações no código React (compatibilidade nativo + web)
+- [x] 3. Adaptações no código React (compatibilidade nativo + web)
   - [x] 3.1 Criar helper `src/services/platform.ts`
-    - Exporta `isNative()`, `isAndroid()`, `isIOS()`.
-    - Usa `Capacitor.isNativePlatform()` e `Capacitor.getPlatform()`.
+    - Done.
     - _Requirements: ponte nativa_
 
-  - [ ] 3.2 Refatorar `useGeolocation` para usar plugin nativo quando aplicável
-    - Detecta nativo → usa `@capacitor/geolocation`.
-    - Browser → mantém `navigator.geolocation` (já funciona).
-    - Mesmo retorno: `GeographicPoint`.
+  - [x] 3.2 Refatorar `useGeolocation` para usar plugin nativo quando aplicável
+    - Detecta nativo → usa `@capacitor/geolocation` com permissões nativas.
+    - Browser → mantém `navigator.geolocation`.
     - _Requirements: GPS nativo_
 
   - [ ] 3.3 Refatorar upload de foto/documento para usar Camera nativa
-    - Em `MotoristaPerfilPage`, `EmbarcadorPerfilPage`, `DocSlot`.
-    - Substituir `<input type="file">` por botão que dispara
-      `Camera.getPhoto({ source: 'PROMPT' })` quando nativo.
-    - Browser mantém `<input>`.
+    - **Pulado em Phase 1**: `<input type="file">` já abre seletor nativo
+      no WebView Android (câmera + galeria). Refactor amplo só justifica
+      Phase 2 se houver demanda.
     - _Requirements: câmera nativa_
 
-  - [ ] 3.4 Adicionar listener de back button Android
-    - `App.addListener('backButton', ...)` para navegar voltar
-      em vez de fechar app.
-    - Em rota raiz (`/`), prompt "Sair do FreteGO?".
+  - [x] 3.4 Adicionar listener de back button Android
+    - Componente `NativeBackButton.tsx` plugado no App.tsx.
+    - Volta com navigate(-1) ou pede confirmação na rota raiz.
     - _Requirements: back button Android_
 
-  - [ ] 3.5 Substituir `localStorage` crítico por `Preferences` (Capacitor)
-    - Apenas para tokens/preferências que devem sobreviver a
-      reinstalação de WebView (raro, mas defensivo).
+  - [x] 3.5 Substituir `localStorage` crítico por `Preferences` (Capacitor)
+    - Helper `services/nativeStorage.ts` criado.
+    - Pronto pra uso quando preciso (auth tokens, opt-outs).
     - localStorage continua funcionando, mudança é pontual.
     - _Requirements: persistência defensiva_
 
-- [ ] 4. Build e distribuição APK debug
-  - [ ] 4.1 Build inicial Android
-    - `npm run build` (Vite).
-    - `npx cap sync android` (copia dist/ para android/).
-    - `cd android && ./gradlew assembleDebug`.
-    - Output: `android/app/build/outputs/apk/debug/app-debug.apk`.
+- [x] 4. Build e distribuição APK debug
+  - [x] 4.1 Build inicial Android
+    - Done via Android Studio.
     - _Requirements: APK debug_
 
-  - [ ] 4.2 Testar em celular real (Android)
-    - Habilitar USB debugging no celular.
-    - `npx cap run android` ou instalar APK manualmente.
-    - Validar: GPS abre permissão, câmera funciona, navegação volta
-      corretamente, splash aparece, ícone correto.
+  - [x] 4.2 Testar em celular real (Android)
+    - Done.
     - _Requirements: smoke test nativo_
 
   - [ ] 4.3 Hospedar APK pra distribuição por link
-    - Bucket público no Supabase Storage: `app-builds/`.
-    - Upload `app-debug.apk` versionado: `fretego-v1.0.0.apk`.
-    - Gerar URL pública.
-    - Compartilhar via WhatsApp / link encurtado.
+    - **Pendente**: você decide se sobe num bucket público pra gerar
+      link encurtado ou se manda direto pelo WhatsApp.
     - _Requirements: distribuição beta_
 
 - [ ] 5. Push Notifications (Phase 1.5)

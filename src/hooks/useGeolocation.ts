@@ -14,14 +14,10 @@
 import { useState, useCallback } from 'react';
 import type { GeographicPoint } from '../types';
 import { reverseGeocode } from '../services/geolocation';
+import { isNative } from '../services/platform';
+import { Geolocation } from '@capacitor/geolocation';
 
-export type GeolocationStatus =
-  | 'idle'
-  | 'loading'
-  | 'success'
-  | 'denied'
-  | 'error'
-  | 'insecure';
+export type GeolocationStatus = 'idle' | 'loading' | 'success' | 'denied' | 'error' | 'insecure';
 
 export interface GeolocationState {
   point: GeographicPoint | null;
@@ -47,12 +43,59 @@ export function useGeolocation() {
   });
 
   /**
-   * Solicita localização via browser Geolocation API.
-   * Em contexto inseguro (HTTP em IP de rede), retorna 'insecure'.
-   * Em permissão já negada (Permissions API), retorna 'denied' direto
-   * sem disparar getCurrentPosition (que ficaria silencioso).
+   * Solicita localização. Em app nativo (Capacitor), usa o plugin
+   * @capacitor/geolocation que pede permissão ao SO e tem GPS de
+   * alta precisão. No browser, usa navigator.geolocation com fallbacks.
    */
   const requestLocation = useCallback(async () => {
+    // Caminho nativo: Android/iOS via Capacitor
+    if (isNative()) {
+      setState((prev) => ({ ...prev, status: 'loading', error: null }));
+      try {
+        // Pede permissão se ainda não foi dada (no-op se já foi)
+        const perm = await Geolocation.requestPermissions({ permissions: ['location'] });
+        if (perm.location === 'denied') {
+          setState({
+            point: null,
+            address: null,
+            status: 'denied',
+            error: 'Permissão de localização negada. Habilite nas configurações do app.',
+          });
+          return;
+        }
+
+        const pos = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+        const point: GeographicPoint = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+        try {
+          const address = await reverseGeocode(point);
+          setState({ point, address, status: 'success', error: null });
+        } catch {
+          setState({ point, address: null, status: 'success', error: null });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : '';
+        const isDenied =
+          msg.toLowerCase().includes('denied') || msg.toLowerCase().includes('permission');
+        setState({
+          point: null,
+          address: null,
+          status: isDenied ? 'denied' : 'error',
+          error: isDenied
+            ? 'Permissão de localização negada. Habilite nas configurações do app.'
+            : 'Não foi possível obter sua localização. Verifique se o GPS está ativo.',
+        });
+      }
+      return;
+    }
+
+    // Caminho web: navigator.geolocation
     if (!isSecureContextOk()) {
       setState({
         point: null,
