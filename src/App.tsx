@@ -8,6 +8,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
 import FreteChatWidget from './components/FreteChatWidget';
 import NativeBackButton from './components/NativeBackButton';
+import NativePushBootstrap from './components/NativePushBootstrap';
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -49,6 +50,7 @@ function App() {
   return (
     <BrowserRouter>
       <NativeBackButton />
+      <NativePushBootstrap />
       <NotificationToast />
       <FreteChatWidget />
       <Routes>

@@ -87,9 +87,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.setItem(REFRESH_TOKEN_KEY, authResponse.refreshToken);
     localStorage.setItem(USER_KEY, JSON.stringify(authResponse.user));
     setUser(authResponse.user);
+    // Registra para push notifications no app nativo (no-op no browser).
+    // Fire-and-forget — falha de push nao bloqueia login.
+    void import('../services/pushNotifications').then(({ registerForPush }) => {
+      registerForPush().catch((err) => {
+        console.warn('[auth] registerForPush falhou', err);
+      });
+    });
   };
 
   const clearAuthData = () => {
+    // Remove token de push antes de limpar credenciais
+    void import('../services/pushNotifications').then(({ unregisterPush }) => {
+      unregisterPush().catch(() => {
+        /* ignore */
+      });
+    });
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

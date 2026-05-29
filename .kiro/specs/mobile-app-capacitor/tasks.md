@@ -111,40 +111,52 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
       link encurtado ou se manda direto pelo WhatsApp.
     - _Requirements: distribuição beta_
 
-- [ ] 5. Push Notifications (Phase 1.5)
-  - [ ] 5.1 Migration: tabela `device_tokens`
-    - Colunas: id, user_id, token, platform, app_version, created_at, last_seen_at.
-    - UNIQUE (user_id, token).
-    - RLS: SELECT/INSERT/UPDATE só do próprio user.
+- [x] 5. Push Notifications (Phase 1.5)
+  - [x] 5.1 Migration: tabela `device_tokens`
+    - Migration `042_device_tokens.sql` criada (idempotente).
+    - Colunas: id, user_id, token, platform, app_version, device_model,
+      created_at, updated_at, last_seen_at.
+    - UNIQUE (user_id, token); índice em (user_id) e (token).
+    - RLS: user só vê/mexe nos próprios tokens; service_role bypass.
+    - RPCs `register_device_token` e `unregister_device_token`
+      (SECURITY DEFINER + RLS gating + audit-friendly upsert).
+    - Trigger `notifications_dispatch_push_after_insert` chama Edge
+      Function via `pg_net.http_post`.
     - _Requirements: registro de tokens_
 
-  - [ ] 5.2 Service `src/services/pushNotifications.ts`
-    - `registerForPush()`: pede permissão, registra token, envia pra
-      Supabase via insert em `device_tokens`.
-    - `unregisterPush()`: remove token ao logout.
-    - Listener `pushNotificationReceived` (foreground).
-    - Listener `pushNotificationActionPerformed` (tap → navigate).
+  - [x] 5.2 Service `src/services/pushNotifications.ts`
+    - `registerForPush()`: pede permissão Android 13+, registra no FCM,
+      persiste token via RPC `register_device_token`.
+    - `unregisterPush()`: chama RPC `unregister_device_token` no logout.
+    - `setupPushListeners({ onTap, onForegroundReceived })` plugado
+      via `<NativePushBootstrap />` em `App.tsx`.
+    - Plugado no `useAuth.tsx`: `saveAuthData` registra,
+      `clearAuthData` desregistra (fire-and-forget).
     - _Requirements: client de push_
 
-  - [ ] 5.3 Setup Firebase Cloud Messaging (FCM)
+  - [ ] 5.3 Setup Firebase Cloud Messaging (FCM) — **manual do usuário**
     - Criar projeto Firebase em console.firebase.google.com.
     - Adicionar app Android com applicationId `br.com.fretego.app`.
     - Baixar `google-services.json`, colocar em `android/app/`.
-    - Gerar Server Key (legacy) ou OAuth2 token (HTTP v1).
+    - Service Account JSON: Firebase Console → Settings → Service
+      Accounts → Generate new private key.
     - _Requirements: FCM Android_
 
-  - [ ] 5.4 Edge Function `send-push-notification`
-    - Trigger: chamada quando insere em `notifications`.
-    - Lê `device_tokens` do `user_id` destinatário.
-    - Dispara request pro FCM (HTTP v1) com title, body, data.
-    - Para iOS futuro: integra APN via mesmo payload.
+  - [x] 5.4 Edge Function `send-push-notification`
+    - `supabase/functions/send-push-notification/index.ts` criada.
+    - OAuth2 FCM HTTP v1 com service account (JWT signing in-Deno).
+    - Cleanup automático de tokens inválidos (UNREGISTERED, NotRegistered).
+    - Suporta Android e Web (iOS Phase 2).
+    - **Pendente do usuário**: deploy + env vars (`FCM_PROJECT_ID`,
+      `FCM_SERVICE_ACCOUNT_JSON`).
     - _Requirements: dispatcher de push_
 
-  - [ ] 5.5 Trigger SQL: `notifications_dispatch_push_after_insert`
-    - `AFTER INSERT ON notifications` chama Edge Function via
-      `pg_net.http_post` com headers de service role.
-    - Ignora notificações de tipos não-push (ex: ticket_resolved
-      não precisa push se for muito barulhento — config futuro).
+  - [x] 5.5 Trigger SQL: `notifications_dispatch_push_after_insert`
+    - Implementado dentro da migration 042.
+    - `AFTER INSERT ON notifications` → `pg_net.http_post` para a
+      Edge Function com service_role key.
+    - Settings via `app.settings.edge_url` e `app.settings.service_role_key`.
+    - **Pendente do usuário**: configurar settings + aplicar migration.
     - _Requirements: trigger automático_
 
 - [ ] 6. Phase 1.B — Play Store
