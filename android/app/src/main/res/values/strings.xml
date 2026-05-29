@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FreteGO</string>
+    <string name="title_activity_main">FreteGO</string>
+    <string name="package_name">br.com.fretego.app</string>
+    <string name="custom_url_scheme">br.com.fretego.app</string>
+</resources>

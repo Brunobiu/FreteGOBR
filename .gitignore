@@ -36,3 +36,33 @@ Credencial/
 
 # Pasta com credenciais locais
 Credencial/
+
+
+# Capacitor / Mobile
+android/.gradle/
+android/.idea/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+android/*.iml
+android/app/*.iml
+android/app/release/
+android/app/debug/
+android/keystore.properties
+android/**/google-services.json
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/Pods/
+ios/App/build/
+ios/App/.gradle/
+
+# Capacitor build outputs
+*.apk
+*.aab
+*.ipa
+*.keystore
+
+# Capacitor sync (regenerados)
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/
