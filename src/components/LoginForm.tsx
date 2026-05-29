@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -106,7 +107,11 @@ export function LoginForm({
     return (
       <div className="w-full max-w-xs md:max-w-sm flex flex-col items-center min-h-screen md:min-h-0 justify-between md:justify-center py-6 md:py-0">
         {/* Logo no topo */}
-        <img src="/logo.png" alt="FreteGO" className="w-60 h-20 md:w-52 md:h-52 object-contain mt-4 md:mt-0" />
+        <img
+          src="/logo.png"
+          alt="FreteGO"
+          className="w-60 h-20 md:w-52 md:h-52 object-contain mt-4 md:mt-0"
+        />
 
         {/* Conteudo centralizado */}
         <div className="flex flex-col items-center flex-1 justify-center md:flex-none md:mt-4 -mt-10">
@@ -143,13 +148,27 @@ export function LoginForm({
                 onClick={onRegisterClick}
                 className="flex items-center justify-center gap-2 text-xs md:text-sm font-semibold text-gray-500 hover:text-green-600 transition-colors"
               >
-                <svg className="w-3.5 h-3.5 md:w-4 md:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  className="w-3.5 h-3.5 md:w-4 md:h-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
                   <polyline points="10 17 15 12 10 7" />
                   <line x1="15" y1="12" x2="3" y2="12" />
                 </svg>
                 Criar uma conta
               </button>
+              <Link
+                to="/contato"
+                className="mt-3 text-[11px] md:text-xs text-gray-400 hover:text-green-600 transition-colors"
+              >
+                Fale conosco
+              </Link>
             </div>
           )}
         </div>
@@ -172,13 +191,20 @@ export function LoginForm({
 
   // ==================== FORMULARIO ====================
   return (
-    <div className={`w-full md:max-w-4xl md:min-h-[480px] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:border md:border-gray-200 ${showForm ? 'animate-fadeIn' : ''}`}>
-      <div className={`w-full flex flex-col md:flex-row ${selectedProfile === 'motorista' ? 'md:flex-row-reverse' : ''}`}>
-
+    <div
+      className={`w-full md:max-w-4xl md:min-h-[480px] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:border md:border-gray-200 ${showForm ? 'animate-fadeIn' : ''}`}
+    >
+      <div
+        className={`w-full flex flex-col md:flex-row ${selectedProfile === 'motorista' ? 'md:flex-row-reverse' : ''}`}
+      >
         {/* Lado do formulario — fundo branco/cinza claro */}
         <div className="w-full md:w-1/2 flex flex-col items-center justify-center px-4 py-6 md:p-10 md:bg-gray-50">
           {/* Logo */}
-          <img src="/logo.png" alt="FreteGO" className="w-44 h-14 md:w-36 md:h-36 object-contain mb-3 md:mb-4" />
+          <img
+            src="/logo.png"
+            alt="FreteGO"
+            className="w-44 h-14 md:w-36 md:h-36 object-contain mb-3 md:mb-4"
+          />
 
           <h2 className="text-base md:text-lg font-bold text-gray-800 mb-1 text-center">
             Bem-vindo, {selectedProfile === 'embarcador' ? 'Embarcador' : 'Motorista'}!
@@ -191,7 +217,11 @@ export function LoginForm({
             </div>
           )}
 
-          <form onSubmit={handleSubmit(handleFormSubmit)} className="w-full max-w-xs space-y-3" autoComplete="off">
+          <form
+            onSubmit={handleSubmit(handleFormSubmit)}
+            className="w-full max-w-xs space-y-3"
+            autoComplete="off"
+          >
             <input
               ref={honeypotRef}
               type="text"
@@ -199,7 +229,14 @@ export function LoginForm({
               autoComplete="off"
               tabIndex={-1}
               aria-hidden="true"
-              style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1px', height: '1px', opacity: 0 }}
+              style={{
+                position: 'absolute',
+                left: '-9999px',
+                top: '-9999px',
+                width: '1px',
+                height: '1px',
+                opacity: 0,
+              }}
             />
 
             <div>
@@ -208,7 +245,10 @@ export function LoginForm({
                 placeholder="WhatsApp..."
                 autoComplete="one-time-code"
                 {...register('phone')}
-                onChange={(e) => { e.target.value = formatPhone(e.target.value); register('phone').onChange(e); }}
+                onChange={(e) => {
+                  e.target.value = formatPhone(e.target.value);
+                  register('phone').onChange(e);
+                }}
                 maxLength={17}
                 disabled={isLoading}
                 className={`w-full px-3.5 py-3 bg-white border border-gray-200 md:border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none text-sm font-medium shadow-sm ${errors.phone ? 'ring-2 ring-red-400 border-red-300' : ''}`}
@@ -224,7 +264,9 @@ export function LoginForm({
                 disabled={isLoading}
                 className={`w-full px-3.5 py-3 bg-white border border-gray-200 md:border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none text-sm font-medium shadow-sm ${errors.password ? 'ring-2 ring-red-400 border-red-300' : ''}`}
               />
-              {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>}
+              {errors.password && (
+                <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
+              )}
             </div>
 
             {error && (
@@ -242,11 +284,18 @@ export function LoginForm({
             </button>
 
             <div className="flex items-center justify-between pt-1">
-              <button type="button" className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors">
+              <button
+                type="button"
+                className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+              >
                 Esqueci minha senha
               </button>
               {onRegisterClick && (
-                <button type="button" onClick={onRegisterClick} className="text-xs font-semibold text-green-600 hover:text-green-700 transition-colors">
+                <button
+                  type="button"
+                  onClick={onRegisterClick}
+                  className="text-xs font-semibold text-green-600 hover:text-green-700 transition-colors"
+                >
                   Criar conta
                 </button>
               )}
@@ -255,11 +304,21 @@ export function LoginForm({
 
           <button
             type="button"
-            onClick={() => { setSelectedProfile(null); setShowForm(false); }}
+            onClick={() => {
+              setSelectedProfile(null);
+              setShowForm(false);
+            }}
             className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors"
           >
             ← Voltar
           </button>
+
+          <Link
+            to="/contato"
+            className="mt-2 text-[11px] text-gray-400 hover:text-green-600 transition-colors"
+          >
+            Fale conosco
+          </Link>
         </div>
 
         {/* Lado da imagem (so desktop) — imagem limpa, sem blur, sem texto */}

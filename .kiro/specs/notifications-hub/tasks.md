@@ -479,7 +479,7 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: 2.3_
     - **Nota**: HomePage renderiza `<MapaToolbar>` apenas dentro do bloco `{isMotorista && (...)}` (linha ~280). Embarcador segue caminho separado com `<FreteFiltersComponent>` regular.
 
-- [ ] 8. UserTicketForm e PublicTicketForm
+- [x] 8. UserTicketForm e PublicTicketForm
   - [x] 8.1 `src/components/UserTicketForm.tsx`
     - Modal/inline com campos `subject`, `body`, `priority` (low/normal/high).
     - Submit chama `submitUserTicket`.
@@ -500,10 +500,10 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: 9.1_
     - **Nota**: rota adicionada em `App.tsx` antes das ProtectedRoutes. Header próprio com link Entrar/Criar conta + footer com copyright.
 
-  - [ ] 8.4 Link "Fale conosco" no footer/landing
+  - [x] 8.4 Link "Fale conosco" no footer/landing
     - Adicionar link na home pública (`/`) e em `/login` apontando para `/contato`.
     - _Requirements: 9.1_
-    - **Pendente**: a HomePage atual é só o feed de fretes (não há landing pública). LoginPage delega ao LoginForm que precisa edição. Fica para Phase 2 ou para a spec de landing-page.
+    - **Nota**: link "Fale conosco" adicionado em 2 lugares dentro do `LoginForm.tsx` (rodapé do form desktop após "Criar conta", e rodapé do form mobile após "← Voltar"). Visitante anônimo no `/login` consegue acessar `/contato` direto. Footer na HomePage `/` não foi adicionado — visitantes na home veem botão "Entrar" no AppHeader que leva ao `/login`, e de lá conseguem chegar no `/contato`.
 
   - [x] 8.5 Página `MyTicketsPage.tsx` (user logado, rota `/tickets`)
     - Lista tickets do user via `listMyTickets`.
