@@ -25,6 +25,8 @@ import FreteDetailPage from '../../pages/admin/fretes/FreteDetailPage';
 import BlacklistListPage from '../../pages/admin/blacklist/BlacklistListPage';
 import BlacklistBulkImportPage from '../../pages/admin/blacklist/BlacklistBulkImportPage';
 import BlacklistDetailPage from '../../pages/admin/blacklist/BlacklistDetailPage';
+import FinanceiroListPage from '../../pages/admin/financeiro/FinanceiroListPage';
+import FinanceiroConfiguracoesPage from '../../pages/admin/financeiro/FinanceiroConfiguracoesPage';
 import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
 import AdminTicketDetailPage from '../../pages/admin/AdminTicketDetailPage';
@@ -48,6 +50,8 @@ export default function AdminLayoutRoute() {
             <Route path="blacklist" element={<BlacklistListPage />} />
             <Route path="blacklist/bulk" element={<BlacklistBulkImportPage />} />
             <Route path="blacklist/:id" element={<BlacklistDetailPage />} />
+            <Route path="financeiro" element={<FinanceiroListPage />} />
+            <Route path="financeiro/configuracoes" element={<FinanceiroConfiguracoesPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="anuncios" element={<AdminAnunciosPage />} />
             <Route
