@@ -51,6 +51,10 @@ android/app/release/
 android/app/debug/
 android/keystore.properties
 android/**/google-services.json
+# Firebase service account / admin SDK keys (qualquer JSON com esse padrao)
+**/firebase-adminsdk-*.json
+**/*-firebase-adminsdk-*.json
+firebase-service-account.json
 ios/App/App.xcworkspace/xcuserdata/
 ios/App/Pods/
 ios/App/build/
