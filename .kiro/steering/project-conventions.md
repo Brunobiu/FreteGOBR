@@ -124,7 +124,11 @@ Sempre incremental, sem buracos:
 - 034 admin-notify-user
 - 035 admin-blacklist
 - 036 admin-dashboard
-- 037 admin-financeiro (próxima)
+- 037 admin-financeiro
+- 039 commodity-categories / 040 commodity-icons-5mb
+- 041 notifications-hub
+- 042 device-tokens / 042b push-config-via-vault
+- 043 chat-support-admin-rls (próxima livre: 044)
 
 ## Logins de teste
 

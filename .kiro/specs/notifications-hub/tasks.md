@@ -197,10 +197,12 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - Audit log `SUPORTE_CHAT_RESOLVE`.
     - _Requirements: 7.6_
 
-  - [ ] 1.23 Atualizar policies de `chat_conversations` e `chat_messages` para admin
-    - Garantir que admin com `SUPORTE_VIEW` SELECTa todas as conversas/mensagens.
-    - Garantir que admin com `SUPORTE_REPLY` faz INSERT em `chat_messages` com `is_admin=true`.
-    - Não quebrar policies existentes para o usuário comum.
+  - [x] 1.23 Atualizar policies de `chat_conversations` e `chat_messages` para admin
+    - Migration `043_chat_support_admin_rls.sql` criada (+ rollback).
+    - Admin com `SUPORTE_VIEW` SELECTa todas; `SUPORTE_REPLY` faz INSERT
+      com `is_admin=true`. Fallback legado `user_type='admin'` preservado.
+    - Policy do usuário comum (dono da conversa) preservada.
+    - **Pendente do usuário**: aplicar migration 043 no SQL Editor.
     - _Requirements: 7.4, 7.5, 11.7_
     - **Pendente**: a migration 041 não estendeu policies de `chat_conversations`/`chat_messages` para admin SUPORTE_VIEW. Precisa de migration adicional 042 ou ajuste nas policies existentes.
 
@@ -383,28 +385,28 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: project-conventions_
     - **Parcial**: `docs/NOTIFICATIONS_HUB_ENV.md` criado com instruções de setup. ROADMAP e GUIA_TESTES_MANUAIS ficam para fechar Phase 1.
 
-  - [ ] 4.10 Property test CP-1 — paridade de prefixos (categorize)
-    - `src/__tests__/notifications/cp1_categorize_prefixes.property.test.ts`
+  - [x] 4.10 Property test CP-1 — paridade de prefixos (categorize)
+    - `src/__tests__/notifications-hub/cp1_categorize_prefixes.property.test.ts` (verde).
     - fast-check: para cada prefixo conhecido + sufixo arbitrário, `categorizeNotification` retorna a categoria documentada.
     - Para qualquer string que não casa com nenhum prefixo, retorna `'atividades'`.
     - Property: `chat_support_*` é classificado como Mensagens, **não** Tickets (especificidade vence).
     - Property: `frete_like_*` é Atividades, **não** Anúncios.
     - _Requirements: 3.1, CP-1_
 
-  - [ ] 4.11 Property test CP-2 — fan-out de broadcast idempotente
-    - `src/__tests__/admin/notifications/cp2_broadcast_fanout_idempotent.property.test.ts`
+  - [x] 4.11 Property test CP-2 — fan-out de broadcast idempotente
+    - `src/__tests__/notifications-hub/cp2_broadcast_fanout_idempotent.property.test.ts` (verde).
     - Mock supabase com tabela em memória.
     - Property: criar broadcast e disparar fan-out N vezes (N ∈ [1,5]) ⇒ count de notifications por user resultante = 1.
     - Property: índice único parcial deduplicado garante idempotência mesmo se trigger reentrar.
     - _Requirements: 5.2, CP-2_
 
-  - [ ] 4.12 Property test CP-3 — honeypot do public ticket
-    - `src/__tests__/notifications/cp3_public_ticket_honeypot.property.test.ts`
+  - [x] 4.12 Property test CP-3 — honeypot do public ticket
+    - `src/__tests__/notifications-hub/cp3_public_ticket_honeypot.property.test.ts` (verde).
     - fast-check: para qualquer `website_url` não-vazio (`fc.string({ minLength:1, maxLength:200 })`), `submitPublicTicket` retorna `{submitted:true}` mas `support_tickets` count permanece 0 e `support_ticket_attempts.bot_detected=true`.
     - _Requirements: 9.3, CP-3_
 
-  - [ ] 4.13 Property test CP-4 — versionamento otimista de ticket
-    - `src/__tests__/admin/notifications/cp4_ticket_stale_version.property.test.ts`
+  - [x] 4.13 Property test CP-4 — versionamento otimista de ticket
+    - `src/__tests__/notifications-hub/cp4_ticket_stale_version.property.test.ts` (verde).
     - fast-check: gerar par `(real_updated_at, stale_updated_at)` distintos. `replyToTicket(id, body, stale)` ⇒ STALE_VERSION. `replyToTicket(id, body, real)` ⇒ sucesso.
     - _Requirements: 8.5, CP-4_
 
@@ -594,9 +596,10 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md`, `admi
     - _Requirements: project-conventions_
     - **Nota**: NotificationsModal, BroadcastFormModal, AdminTicketDetailPage e AdminSupportChatPage têm `aria-label` em botões críticos. Coverage não exaustiva mas suficiente para Phase 1.
 
-  - [ ] 11.4 a11y: foco no primeiro input ao abrir modal de form
+  - [x] 11.4 a11y: foco no primeiro input ao abrir modal de form
     - _Requirements: project-conventions_
-    - **Pendente**: UserTicketForm tem `autoFocus` no campo subject. BroadcastFormModal não tem. Pode ser adicionado em Phase 2 se acessibilidade pedir.
+    - **Done**: UserTicketForm tem `autoFocus` no campo subject;
+      BroadcastFormModal agora foca o campo Título via ref ao abrir.
 ## Notas e Pontos Em Aberto
 
 ### Feature relacionada (não escopo desta spec): mudar localização atual no header

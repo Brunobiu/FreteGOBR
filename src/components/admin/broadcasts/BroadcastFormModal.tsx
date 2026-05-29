@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   createBroadcast,
   previewBroadcastRecipients,
@@ -40,6 +40,7 @@ export default function BroadcastFormModal({ open, onClose, onSuccess }: Broadca
   const [estimatedRecipients, setEstimatedRecipients] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const titleRef = useRef<HTMLInputElement>(null);
 
   // Reset ao abrir
   useEffect(() => {
@@ -51,6 +52,8 @@ export default function BroadcastFormModal({ open, onClose, onSuccess }: Broadca
       setStep('form');
       setEstimatedRecipients(null);
       setError(null);
+      // a11y: foca o primeiro input ao abrir o modal
+      setTimeout(() => titleRef.current?.focus(), 50);
     }
   }, [open]);
 
@@ -137,6 +140,7 @@ export default function BroadcastFormModal({ open, onClose, onSuccess }: Broadca
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Título</label>
                 <input
+                  ref={titleRef}
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
