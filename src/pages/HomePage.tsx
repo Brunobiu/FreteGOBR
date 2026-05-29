@@ -21,6 +21,7 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
 import { getLikedFreteIds } from '../services/likes';
 import WelcomeLoading from '../components/WelcomeLoading';
@@ -85,6 +86,9 @@ export default function HomePage() {
   // Geolocalização (apenas usada no ramo motorista, mas chamamos
   // sempre — useGeolocation começa em 'idle' até requestLocation()).
   const geo = useGeolocation();
+  // Localizacao efetiva: respeita override manual quando definido,
+  // caso contrario usa GPS. Reage ao evento global de mudanca.
+  const effectiveLoc = useEffectiveLocation();
 
   // Dispara request de localização uma vez quando o usuário é motorista.
   useEffect(() => {
@@ -234,8 +238,8 @@ export default function HomePage() {
     }
   };
 
-  // Ponto do motorista (apenas quando geolocalização sucesso)
-  const motoristaPoint = geo.status === 'success' && geo.point ? geo.point : null;
+  // Ponto do motorista (override manual sobrepoe GPS).
+  const motoristaPoint = effectiveLoc.point;
 
   // Lista filtrada por raio para o ramo motorista; intacta caso contrário.
   // Se motorista nao tem GPS (motoristaPoint null), mostra todos os fretes

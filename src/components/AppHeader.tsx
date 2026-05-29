@@ -11,6 +11,13 @@ import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
 import NotificationsModal from './NotificationsModal';
+import LocationOverrideModal from './LocationOverrideModal';
+import {
+  LOCATION_OVERRIDE_EVENT,
+  clearLocationOverride,
+  readLocationOverride,
+  type LocationOverride,
+} from '../utils/locationOverride';
 
 export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -19,6 +26,10 @@ export default function AppHeader() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [gpsMenuOpen, setGpsMenuOpen] = useState(false);
+  const [locOverrideOpen, setLocOverrideOpen] = useState(false);
+  const [locOverride, setLocOverride] = useState<LocationOverride | null>(() =>
+    typeof window === 'undefined' ? null : readLocationOverride()
+  );
   const [gpsDisabled, setGpsDisabled] = useState(() => {
     if (typeof window === 'undefined') return false;
     return localStorage.getItem('fretego-gps-disabled') === '1';
@@ -39,13 +50,16 @@ export default function AppHeader() {
   const geo = useGeolocation();
   const isLocated = geo.status === 'success' && !!geo.point;
   const cityName = isLocated && geo.address ? geo.address.split(',')[0].trim().slice(0, 20) : null;
-  const locationLabel = gpsDisabled
-    ? 'GPS off'
-    : isLocated
-      ? `${cityName || 'Localizado'}${temperature != null ? ` · ${Math.round(temperature)}°C` : ''}`
-      : geo.status === 'denied' || geo.status === 'error' || geo.status === 'insecure'
-        ? 'Erro'
-        : 'Sem GPS';
+  const overrideCity = locOverride ? locOverride.label.split(',')[0].trim().slice(0, 20) : null;
+  const locationLabel = locOverride
+    ? `Manual: ${overrideCity || locOverride.label.slice(0, 20)}`
+    : gpsDisabled
+      ? 'GPS off'
+      : isLocated
+        ? `${cityName || 'Localizado'}${temperature != null ? ` · ${Math.round(temperature)}°C` : ''}`
+        : geo.status === 'denied' || geo.status === 'error' || geo.status === 'insecure'
+          ? 'Erro'
+          : 'Sem GPS';
 
   // Busca temperatura atual via Open-Meteo (free, sem chave)
   useEffect(() => {
@@ -153,6 +167,17 @@ export default function AppHeader() {
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sincroniza override quando muda em outro componente/aba
+  useEffect(() => {
+    const sync = () => setLocOverride(readLocationOverride());
+    window.addEventListener(LOCATION_OVERRIDE_EVENT, sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener(LOCATION_OVERRIDE_EVENT, sync);
+      window.removeEventListener('storage', sync);
+    };
   }, []);
 
   // Carrega contagens de não-lidas
@@ -319,20 +344,24 @@ export default function AppHeader() {
                   >
                     <span
                       className={`w-2 h-2 rounded-full ${
-                        gpsDisabled
-                          ? 'bg-gray-400'
-                          : isLocated
-                            ? 'bg-green-500 animate-pulse'
-                            : 'bg-red-500 animate-pulse-slow'
+                        locOverride
+                          ? 'bg-blue-500 animate-pulse'
+                          : gpsDisabled
+                            ? 'bg-gray-400'
+                            : isLocated
+                              ? 'bg-green-500 animate-pulse'
+                              : 'bg-red-500 animate-pulse-slow'
                       }`}
                     />
                     <span
                       className={`text-[11px] font-medium ${
-                        gpsDisabled
-                          ? 'text-gray-500'
-                          : isLocated
-                            ? 'text-green-700'
-                            : 'text-red-600'
+                        locOverride
+                          ? 'text-blue-700'
+                          : gpsDisabled
+                            ? 'text-gray-500'
+                            : isLocated
+                              ? 'text-green-700'
+                              : 'text-red-600'
                       }`}
                     >
                       {locationLabel}
@@ -351,21 +380,75 @@ export default function AppHeader() {
                             Localização
                           </p>
                           <p className="text-xs text-gray-800 font-medium mt-0.5">
-                            {gpsDisabled
-                              ? 'Desativada'
-                              : isLocated
-                                ? `${cityName || 'Localizado'}${
-                                    temperature != null ? ` · ${Math.round(temperature)}°C` : ''
-                                  }`
-                                : geo.status === 'denied'
-                                  ? 'Bloqueada pelo navegador'
-                                  : geo.status === 'insecure'
-                                    ? 'Requer HTTPS'
-                                    : geo.status === 'loading'
-                                      ? 'Localizando...'
-                                      : 'Indisponível'}
+                            {locOverride
+                              ? `Manual · ${locOverride.label}`
+                              : gpsDisabled
+                                ? 'Desativada'
+                                : isLocated
+                                  ? `${cityName || 'Localizado'}${
+                                      temperature != null ? ` · ${Math.round(temperature)}°C` : ''
+                                    }`
+                                  : geo.status === 'denied'
+                                    ? 'Bloqueada pelo navegador'
+                                    : geo.status === 'insecure'
+                                      ? 'Requer HTTPS'
+                                      : geo.status === 'loading'
+                                        ? 'Localizando...'
+                                        : 'Indisponível'}
                           </p>
                         </div>
+
+                        {/* Mudar localizacao manualmente — disponivel sempre */}
+                        <button
+                          onClick={() => {
+                            setGpsMenuOpen(false);
+                            setLocOverrideOpen(true);
+                          }}
+                          className="flex items-center w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50 border-b border-gray-100"
+                          role="menuitem"
+                        >
+                          <svg
+                            className="w-4 h-4 mr-2 text-blue-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
+                            />
+                          </svg>
+                          {locOverride ? 'Trocar localização manual' : 'Mudar localização'}
+                        </button>
+
+                        {locOverride && (
+                          <button
+                            onClick={() => {
+                              clearLocationOverride();
+                              setLocOverride(null);
+                              setGpsMenuOpen(false);
+                            }}
+                            className="flex items-center w-full px-3 py-2 text-xs text-blue-700 hover:bg-gray-50 border-b border-gray-100"
+                            role="menuitem"
+                          >
+                            <svg
+                              className="w-4 h-4 mr-2"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
+                              />
+                            </svg>
+                            Voltar ao GPS automático
+                          </button>
+                        )}
 
                         {gpsDisabled ? (
                           <button
@@ -504,6 +587,12 @@ export default function AppHeader() {
           userId={user.id}
         />
       )}
+
+      <LocationOverrideModal
+        open={locOverrideOpen}
+        onClose={() => setLocOverrideOpen(false)}
+        onSelected={(o) => setLocOverride(o)}
+      />
     </>
   );
 }
