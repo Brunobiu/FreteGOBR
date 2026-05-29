@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { listBroadcasts, type Broadcast, BroadcastError } from '../../services/admin/broadcasts';
-import BroadcastFormModal from '../../components/admin/broadcasts/BroadcastFormModal';
-import { useAdminPermission } from '../../hooks/useAdminPermission';
+import { listBroadcasts, type Broadcast, BroadcastError } from '../../../services/admin/broadcasts';
+import BroadcastFormModal from '../broadcasts/BroadcastFormModal';
+import { useAdminPermission } from '../../../hooks/useAdminPermission';
 
 const PAGE_SIZE_OPTIONS = [10, 50, 100];
 
@@ -18,12 +18,12 @@ const AUDIENCE_BADGE: Record<string, string> = {
 };
 
 /**
- * Página admin `/admin/comunicados` para gerenciar Broadcasts.
+ * Painel admin de Comunicados — usado dentro da AdminAnunciosPage como
+ * a 3ª aba (junto de Anúncios e Categorias).
  *
- * Permissão: FINANCEIRO_EDIT (mesma do módulo Anúncios — admin que gerencia
- * banners também gerencia comunicados).
+ * Permissão: `FINANCEIRO_EDIT` (mesma do módulo Anúncios).
  */
-export default function AdminBroadcastPage() {
+export default function AdminBroadcastPanel() {
   const { allowed: canEdit } = useAdminPermission('FINANCEIRO_EDIT');
   const [items, setItems] = useState<Broadcast[]>([]);
   const [total, setTotal] = useState(0);
@@ -58,14 +58,11 @@ export default function AdminBroadcastPage() {
   }, [page, pageSize]);
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6 gap-2 flex-wrap">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-100">Comunicados</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            Envie avisos para motoristas, embarcadores e empresas.
-          </p>
-        </div>
+    <div>
+      <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
+        <p className="text-sm text-gray-400">
+          Avisos enviados aos usuários (motoristas, embarcadores, empresas).
+        </p>
         {canEdit && (
           <button
             onClick={() => setModalOpen(true)}
@@ -77,7 +74,7 @@ export default function AdminBroadcastPage() {
       </div>
 
       {error && (
-        <div className="mb-4 p-3 bg-red-900/30 border border-red-500/30 rounded-lg text-sm text-red-300">
+        <div className="mb-3 p-3 bg-red-900/30 border border-red-500/30 rounded-lg text-sm text-red-300">
           {error}
         </div>
       )}
@@ -138,7 +135,6 @@ export default function AdminBroadcastPage() {
           </table>
         )}
 
-        {/* Paginação */}
         {!loading && items.length > 0 && (
           <div className="flex items-center justify-between px-3 py-2 border-t border-gray-700 bg-gray-900/40 text-xs text-gray-400">
             <div className="flex items-center gap-2">

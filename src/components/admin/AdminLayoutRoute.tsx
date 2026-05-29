@@ -6,7 +6,7 @@
  * + AdminShell).
  */
 
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { AdminProvider } from './AdminProvider';
 import AdminGuard from './AdminGuard';
 import AdminShell from './AdminShell';
@@ -26,7 +26,6 @@ import BlacklistListPage from '../../pages/admin/blacklist/BlacklistListPage';
 import BlacklistBulkImportPage from '../../pages/admin/blacklist/BlacklistBulkImportPage';
 import BlacklistDetailPage from '../../pages/admin/blacklist/BlacklistDetailPage';
 import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
-import AdminBroadcastPage from '../../pages/admin/AdminBroadcastPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
 import AdminTicketDetailPage from '../../pages/admin/AdminTicketDetailPage';
 import AdminSupportChatPage from '../../pages/admin/AdminSupportChatPage';
@@ -51,7 +50,10 @@ export default function AdminLayoutRoute() {
             <Route path="blacklist/:id" element={<BlacklistDetailPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="anuncios" element={<AdminAnunciosPage />} />
-            <Route path="comunicados" element={<AdminBroadcastPage />} />
+            <Route
+              path="comunicados"
+              element={<Navigate to="/admin/anuncios?tab=comunicados" replace />}
+            />
             <Route path="suporte/tickets" element={<AdminTicketsPage />} />
             <Route path="suporte/tickets/:id" element={<AdminTicketDetailPage />} />
             <Route path="suporte/chat" element={<AdminSupportChatPage />} />
