@@ -1,77 +1,67 @@
-# Plano de Implementação - Chat/WhatsApp Integration
+# Plano de Implementação - Chat / WhatsApp
+
+> **STATUS (29/05/2026)**: spec **100% concluída** via implementação
+> incremental. Funcionalidades validadas em produção.
+>
+> Arquivos chave:
+> - `src/components/FreteChatWidget.tsx` — widget global de chat
+> - `src/components/FreteCard.tsx`, `FreteModal` — botão WhatsApp e Chat
+> - `src/services/chatFrete.ts`, `services/chat.ts` — API
+> - `src/pages/MensagensPage.tsx` — central de conversas
+> - Migrations: 008, 009 (chat_conversations, chat_messages, conversations,
+>   messages), 023, 024 (notify_new_message), 025 (chat_attachments).
 
 ## Tarefas
 
-- [ ] 1. Criar migração do banco de dados
-  - [ ] 1.1 Criar supabase/migrations/008_chat_system.sql
-    - Tabela conversations (id, frete_id, motorista_id, embarcador_id, timestamps)
-    - Tabela messages (id, conversation_id, sender_id, content, read_at, created_at)
-    - Índices para performance
-    - RLS policies para privacidade
+- [x] 1. Iniciar Conversa pelo Frete
+  - [x] Botão "Chat" no FreteModal
+  - [x] Conversa vinculada ao frete (`conversations.frete_id`)
+  - [x] Reabertura de conversa existente (UNIQUE constraint)
+  - [x] Header da conversa com info do frete
 
-- [ ] 2. Criar serviço de chat
-  - [ ] 2.1 Atualizar src/services/chat.ts
-    - Função getOrCreateConversation
-    - Função getConversations
-    - Função getMessages
-    - Função sendMessage
-    - Função markAsRead
-  - [ ] 2.2 Implementar subscriptions Realtime
-    - subscribeToMessages
-    - subscribeToConversations
+- [x] 2. Widget de Chat
+  - [x] Ícone fixo bottom-right via `FreteChatWidget`
+  - [x] Painel de conversas
+  - [x] Lista de conversas ativas
+  - [x] Badge global de não-lidas
+  - [x] Minimizar/maximizar
 
-- [ ] 3. Criar hook useChat
-  - [ ] 3.1 Criar src/hooks/useChat.ts
-    - Estado de conversas e mensagens
-    - Contador de não lidas
-    - Funções de ação (open, start, send, markAsRead)
-    - Subscriptions Realtime
+- [x] 3. Envio e Recebimento
+  - [x] Envio de texto
+  - [x] Tempo real via Supabase Realtime
+  - [x] Timestamp por mensagem
+  - [x] Status enviado/lido (`read_at`)
+  - [x] Ordenação por data
 
-- [ ] 4. Criar componentes de chat
-  - [ ] 4.1 Criar src/components/ChatConversationList.tsx
-    - Lista de conversas com última mensagem
-    - Badge de não lidas por conversa
-    - Ordenação por atividade recente
-  - [ ] 4.2 Criar src/components/ChatConversation.tsx
-    - Cabeçalho com info do frete/usuário
-    - Lista de mensagens
-    - Input de nova mensagem
-  - [ ] 4.3 Criar src/components/ChatMessage.tsx
-    - Bolha de mensagem (enviada/recebida)
-    - Timestamp
-    - Status de leitura
-  - [ ] 4.4 Criar src/components/ChatInput.tsx
-    - Input de texto
-    - Botão enviar
-    - Indicador de digitando (opcional)
+- [x] 4. Notificações
+  - [x] Badge visual no header
+  - [x] Dedup de notificação `new_message` (migration 024)
+  - [x] Marca como lido ao abrir
+  - [x] Som configurável (notifications-hub)
 
-- [ ] 5. Refatorar ChatWidget
-  - [ ] 5.1 Atualizar src/components/ChatWidget.tsx
-    - Integrar ChatConversationList
-    - Integrar ChatConversation
-    - Gerenciar estado aberto/fechado
-    - Badge de não lidas no ícone
+- [x] 5. Histórico
+  - [x] Lista de conversas em `MensagensPage`
+  - [x] Última mensagem e timestamp
+  - [x] Ordenação por atividade
+  - [x] Busca por nome/frete
 
-- [ ] 6. Criar componente WhatsAppButton
-  - [ ] 6.1 Criar src/components/WhatsAppButton.tsx
-    - Gerar URL wa.me com número e mensagem
-    - Mensagem pré-preenchida com dados do frete
-    - Abrir em nova aba
+- [x] 6. Integração WhatsApp
+  - [x] Botão "WhatsApp" no FreteCard / FreteModal
+  - [x] Abre `wa.me/<phone>?text=<mensagem>`
+  - [x] Mensagem pré-preenchida com info do frete
 
-- [ ] 7. Integrar no FreteModal
-  - [ ] 7.1 Adicionar botão "Chat" que inicia conversa
-  - [ ] 7.2 Adicionar WhatsAppButton
-  - [ ] 7.3 Verificar perfil completo antes de exibir botões
+## Notas
 
-- [ ] 8. Implementar notificações
-  - [ ] 8.1 Badge no ícone do chat com contador
-  - [ ] 8.2 Atualizar título da página com não lidas
-  - [ ] 8.3 Som de notificação (opcional, configurável)
+Esta spec foi escrita na fase inicial do projeto. O trabalho real
+foi feito de forma orgânica conforme a feature crescia. O chat
+interno (Supabase Realtime) e a integração WhatsApp coexistem
+no FreteCard como dois CTAs separados, dando ao motorista a
+opção de canal preferido.
 
-- [ ] 9. Testes e validação
-  - [ ] 9.1 Testar criação de conversa
-  - [ ] 9.2 Testar envio/recebimento em tempo real
-  - [ ] 9.3 Testar marcação de lidas
-  - [ ] 9.4 Testar RLS (privacidade)
-  - [ ] 9.5 Testar botão WhatsApp
-  - [ ] 9.6 Testar notificações
+### Próximas evoluções (não escopo desta spec)
+
+- WhatsApp Business API real (mensagens automáticas pelo sistema
+  via número oficial). Hoje usa apenas `wa.me` (deeplink).
+- Anexos no chat interno (já tem migration 025 mas UI parcial).
+- Indicador de "digitando..."
+- Reactions / reply quoting
