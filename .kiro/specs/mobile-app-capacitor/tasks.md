@@ -134,12 +134,13 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
       `clearAuthData` desregistra (fire-and-forget).
     - _Requirements: client de push_
 
-  - [ ] 5.3 Setup Firebase Cloud Messaging (FCM) — **manual do usuário**
-    - Criar projeto Firebase em console.firebase.google.com.
-    - Adicionar app Android com applicationId `br.com.fretego.app`.
-    - Baixar `google-services.json`, colocar em `android/app/`.
-    - Service Account JSON: Firebase Console → Settings → Service
-      Accounts → Generate new private key.
+  - [x] 5.3 Setup Firebase Cloud Messaging (FCM)
+    - Projeto Firebase `fretego-2164b` criado.
+    - App Android registrado com applicationId `br.com.fretego.app`.
+    - `google-services.json` em `android/app/` (gitignored).
+    - Service Account em `Credencial/firebase-service-account.json`
+      (gitignored).
+    - APK rebuildado com Firebase embutido.
     - _Requirements: FCM Android_
 
   - [x] 5.4 Edge Function `send-push-notification`
@@ -147,17 +148,33 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
     - OAuth2 FCM HTTP v1 com service account (JWT signing in-Deno).
     - Cleanup automático de tokens inválidos (UNREGISTERED, NotRegistered).
     - Suporta Android e Web (iOS Phase 2).
-    - **Pendente do usuário**: deploy + env vars (`FCM_PROJECT_ID`,
-      `FCM_SERVICE_ACCOUNT_JSON`).
+    - **Deployed** com Verify JWT desligado.
+    - 2 secrets configurados: `FCM_PROJECT_ID`=`fretego-2164b` e
+      `FCM_SERVICE_ACCOUNT_JSON`.
     - _Requirements: dispatcher de push_
 
   - [x] 5.5 Trigger SQL: `notifications_dispatch_push_after_insert`
-    - Implementado dentro da migration 042.
+    - Migration 042 + 042b aplicadas.
     - `AFTER INSERT ON notifications` → `pg_net.http_post` para a
       Edge Function com service_role key.
-    - Settings via `app.settings.edge_url` e `app.settings.service_role_key`.
-    - **Pendente do usuário**: configurar settings + aplicar migration.
+    - Configs via Supabase Vault: `edge_url` e `service_role_key`.
+    - Vault confirmado com 2 secrets corretos (length 8 e 16).
     - _Requirements: trigger automático_
+
+  - [ ] 5.6 **PAUSA** — Smoke test E2E em celular real
+    - **Status**: pipeline montado mas push não chegou no celular no
+      teste manual final. Hipóteses não verificadas:
+      1. Token expirado / app não re-registra ao reabrir
+      2. Notification channel padrão muito silencioso no Android
+      3. App sendo morto pelo sistema antes de receber
+      4. Timing de `registerForPush()` antes de `auth.uid()` ficar pronto
+    - **Próximo passo quando voltar**: olhar logs da Edge Function
+      `send-push-notification` no Supabase Dashboard, e instrumentar
+      `registerForPush()` com toast/log visível pra debugar timing.
+    - **Decisão**: postergado pra fase de pré-lançamento Play Store
+      (item 6.x). Push real não bloqueia uso do app — sino + email
+      cobrem bem o user na web. Voltar quando tiver tração.
+    - _Requirements: validação fim-a-fim_
 
 - [ ] 6. Phase 1.B — Play Store
   - [ ] 6.1 Criar conta Google Play Console
@@ -279,12 +296,41 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
 
 ## Notas
 
+### Estado atual (29/05/2026 — pausado pra retomar com tração)
+
+**Funcionalidades validadas no APK debug:**
+- ✅ App nativo Android instalável (83 MB, debug build)
+- ✅ App shell remoto apontando pra `https://www.fretegobr.com.br`
+- ✅ GPS nativo funcionando via plugin `@capacitor/geolocation`
+- ✅ Câmera/galeria via `<input type="file">` nativo
+- ✅ Back button Android com confirmação na rota raiz
+- ✅ Splash screen + status bar verde FreteGO
+- ✅ Login + sessão persistida (com delay de ~4s no boot, esperado)
+- ✅ Notificação chega no sino do header (web + app)
+- ✅ Notification rows criadas no banco quando há mensagem nova
+
+**Pipeline de push 95% montado mas smoke test não passou:**
+- Tabela `device_tokens` com RLS, RPCs e trigger ✅
+- Edge Function `send-push-notification` deployed ✅
+- Firebase Project + google-services.json embutido no APK ✅
+- Service Account + secrets no Vault ✅
+- Toggle "Verify JWT" desligado ✅
+- ❌ Push real não chegou no celular no teste manual
+
+**Quando retomar (item 5.6):**
+1. Olhar logs da Edge Function durante teste real
+2. Validar `last_seen_at` em `device_tokens` ao reabrir o app
+3. Provavelmente é coisa pequena (notification channel,
+   timing de registro de token, ou Android matando o processo)
+4. Considerar Web Push pra users que não usam o APK
+
 ### Não escopo desta spec
 
 - Modo offline com cache local (Phase 3).
 - Login biométrico (Phase 3).
 - Compartilhamento nativo de fretes (Phase 3).
 - Live Activities iOS / Ongoing Notifications Android (Phase 3).
+- Cache local de auth pra remover delay de 4s no boot do app.
 
 ### Bloqueadores externos
 
@@ -296,7 +342,7 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e
 ### Dependências do que já está pronto
 
 - App web atual deve continuar funcional via HTTPS no Vercel
-  (já está).
+  (já está em `https://www.fretegobr.com.br`).
 - Login funcionando no browser (já está).
 - Sino de notificações (já está).
 - GPS via browser (já está, plugin nativo só substitui).

@@ -20,9 +20,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
 
   server: {
-    // Phase 1: app shell aponta para produção Vercel.
-    url: 'https://fretego.com.br',
-    cleartext: false, // só HTTPS
+    // Phase 1: app shell aponta para producao Vercel.
+    url: 'https://www.fretegobr.com.br',
+    cleartext: false, // so HTTPS
     androidScheme: 'https',
   },
 
