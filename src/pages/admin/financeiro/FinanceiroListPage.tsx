@@ -15,11 +15,14 @@ import {
   DEFAULT_REPASSE_FILTERS,
   FINANCEIRO_ERROR_MESSAGES,
   FinanceiroError,
+  exportRepasseCSV,
   formatBRL,
   formatDate,
+  getSummary,
   listRepasses,
   parseFiltersFromQuery,
   serializeFiltersToQuery,
+  type FinanceiroSummary,
   type ListRepassesResult,
   type RepasseFilters,
   type RepasseStatus,
@@ -53,9 +56,11 @@ export default function FinanceiroListPage() {
   );
 
   const [data, setData] = useState<ListRepassesResult | null>(null);
+  const [summary, setSummary] = useState<FinanceiroSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!canView) return;
@@ -79,6 +84,22 @@ export default function FinanceiroListPage() {
     };
   }, [canView, filters]);
 
+  // Mini-dashboard (degradação parcial: falha não bloqueia a lista)
+  useEffect(() => {
+    if (!canView) return;
+    let cancelled = false;
+    getSummary(filters.period_from ?? null, filters.period_to ?? null)
+      .then((s) => {
+        if (!cancelled) setSummary(s);
+      })
+      .catch(() => {
+        if (!cancelled) setSummary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [canView, filters.period_from, filters.period_to]);
+
   if (!canView) {
     // Stealth_404: usuário sem permissão vê 404 padrão
     return (
@@ -96,6 +117,28 @@ export default function FinanceiroListPage() {
 
   const goToPage = (newOffset: number) => {
     setSearchParams(serializeFiltersToQuery({ ...filters, offset: newOffset }));
+  };
+
+  const handleExportCSV = async () => {
+    setExporting(true);
+    try {
+      const { csv, filename } = await exportRepasseCSV(filters);
+      // BOM já incluído pelo service; download via blob
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const code = err instanceof FinanceiroError ? err.code : 'UNKNOWN';
+      setError(FINANCEIRO_ERROR_MESSAGES[code] ?? 'Erro ao exportar CSV.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const total = data?.total ?? 0;
@@ -136,8 +179,45 @@ export default function FinanceiroListPage() {
               Configurar comissao
             </Link>
           )}
+          <button
+            onClick={handleExportCSV}
+            disabled={exporting || total === 0}
+            className="text-xs px-2.5 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Exportar CSV"
+          >
+            {exporting ? 'Exportando...' : '↓ CSV'}
+          </button>
         </div>
       </div>
+
+      {/* Mini-dashboard de KPIs */}
+      {summary && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          <KpiCard label="Receita do periodo" value={formatBRL(summary.receita_mes)} tone="green" />
+          <KpiCard
+            label="Pendentes"
+            value={formatBRL(summary.pendentes.total)}
+            sub={`${summary.pendentes.count} repasse(s)`}
+            tone="yellow"
+          />
+          <KpiCard
+            label="Pagos no periodo"
+            value={formatBRL(summary.pagos_mes.total)}
+            sub={`${summary.pagos_mes.count} repasse(s)`}
+            tone="blue"
+          />
+          <KpiCard
+            label="Maior devedor"
+            value={
+              summary.top_embarcador_devedor
+                ? formatBRL(summary.top_embarcador_devedor.total_pendente)
+                : '—'
+            }
+            sub={summary.top_embarcador_devedor?.name ?? 'Sem pendencias'}
+            tone="gray"
+          />
+        </div>
+      )}
 
       {/* Filtros popover */}
       {showFilters && (
@@ -333,6 +413,38 @@ export default function FinanceiroListPage() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── KpiCard ─────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  tone: 'green' | 'yellow' | 'blue' | 'gray';
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    green: 'border-l-green-500',
+    yellow: 'border-l-yellow-500',
+    blue: 'border-l-blue-500',
+    gray: 'border-l-gray-400',
+  };
+  return (
+    <div
+      className={`bg-white border border-gray-200 border-l-4 ${toneClasses[tone]} rounded p-3`}
+      role="region"
+      aria-label={`${label}: ${value}`}
+    >
+      <p className="text-[10px] uppercase tracking-wider text-gray-500">{label}</p>
+      <p className="text-base sm:text-lg font-semibold text-gray-800 mt-0.5 truncate">{value}</p>
+      {sub && <p className="text-[11px] text-gray-500 truncate mt-0.5">{sub}</p>}
     </div>
   );
 }
