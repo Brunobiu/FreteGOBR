@@ -11,6 +11,7 @@
 
 import { supabase } from './supabase';
 import { validatePassword } from '../utils/passwordValidation';
+import { computeTrialEndsAt } from '../utils/trialStatus';
 import type { RegisterData, LoginCredentials, AuthResponse, User } from '../types';
 
 // Generic error message for anti-enumeration
@@ -18,6 +19,45 @@ const GENERIC_AUTH_ERROR = 'Credenciais inválidas';
 
 // Minimum response time to prevent timing attacks (ms)
 const MIN_RESPONSE_TIME = 500;
+
+/**
+ * Mensagem canônica de duplicidade no cadastro (anti-fraude).
+ *
+ * Ao contrário do login (que usa anti-enumeration genérico), o Requirement 8
+ * (8.2–8.4) pede explicitamente uma mensagem específica de duplicidade no
+ * cadastro. Mantemos exatamente o texto canônico solicitado.
+ */
+export const DUPLICATE_IDENTIFIER_MESSAGE = 'Este CPF/telefone/e-mail já está cadastrado.';
+
+/**
+ * Pré-check de disponibilidade de identificador (anti-fraude — UX).
+ *
+ * Espelha o padrão fail-open do `checkBlacklistGate`: chama a RPC
+ * `is_identifier_available(p_type, p_value)` e, em caso de erro de rede/RPC,
+ * NÃO bloqueia o cadastro (retorna `true` = disponível). O trigger
+ * `users_antifraud_duplicate_block` (BEFORE INSERT em `users`) é a barreira
+ * final/autoritativa de atomicidade.
+ *
+ * @returns `true` quando o identificador está disponível (ou em fail-open);
+ *          `false` somente quando a RPC indica explicitamente indisponível.
+ */
+async function isIdentifierAvailable(
+  pType: 'phone' | 'cpf' | 'email',
+  pValue: string
+): Promise<boolean> {
+  try {
+    const { data: available, error } = await supabase.rpc('is_identifier_available', {
+      p_type: pType,
+      p_value: pValue,
+    });
+    // Fail-open em falha de infraestrutura: o trigger é a autoridade.
+    if (error) return true;
+    return available !== false;
+  } catch {
+    // Fail-open em erro de rede.
+    return true;
+  }
+}
 
 /**
  * Custom error class for authentication errors
@@ -57,6 +97,32 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
   }
 
   try {
+    // Anti-fraude (UX/pré-check) — Requirements 8.1–8.4:
+    // Antes de criar qualquer registro (e antes mesmo do signUp em Auth para não
+    // gerar usuário órfão), verificamos a disponibilidade de cada identificador
+    // informado via `is_identifier_available`. `phone` é sempre verificado;
+    // `cpf`/`email` são verificados apenas quando presentes no payload (leitura
+    // defensiva, pois o RegisterData atual não os expõe). NÃO verificamos o
+    // e-mail sintético `{phone}@example.com`, que nunca é persistido em
+    // `users.email`. Em falha de infra, `isIdentifierAvailable` é fail-open; o
+    // trigger `users_antifraud_duplicate_block` é a autoridade final (Req 8.5).
+    const optionalIdentifiers = data as Partial<{ cpf: string; email: string }>;
+    const identifiersToCheck: Array<{ type: 'phone' | 'cpf' | 'email'; value: string }> = [
+      { type: 'phone', value: data.phone },
+    ];
+    if (optionalIdentifiers.cpf && optionalIdentifiers.cpf.trim() !== '') {
+      identifiersToCheck.push({ type: 'cpf', value: optionalIdentifiers.cpf });
+    }
+    if (optionalIdentifiers.email && optionalIdentifiers.email.trim() !== '') {
+      identifiersToCheck.push({ type: 'email', value: optionalIdentifiers.email });
+    }
+    for (const identifier of identifiersToCheck) {
+      const available = await isIdentifierAvailable(identifier.type, identifier.value);
+      if (!available) {
+        throw new AuthError(DUPLICATE_IDENTIFIER_MESSAGE, 'DUPLICATE_IDENTIFIER', 409);
+      }
+    }
+
     // Register with Supabase Auth using phone as email format
     // Note: Supabase requires email format, so we use phone@example.com
     const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -84,6 +150,29 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       throw new AuthError('Falha ao criar conta. Tente novamente.', 'REGISTRATION_FAILED', 500);
     }
 
+    // Helper de rollback compensatório para falhas após o signUp em Auth.
+    // Como o Supabase JS não expõe transações multi-tabela, executamos a
+    // operação inversa (delete em users) e signOut para evitar um usuário
+    // órfão capaz de logar. Parametrizável para também mapear o erro do
+    // trigger anti-fraude (duplicidade) à mensagem canônica (Req 8.5).
+    const compensateUserRollback = async (
+      cause: string,
+      code: string = 'DATABASE_ERROR',
+      statusCode: number = 500
+    ): Promise<never> => {
+      try {
+        await supabase.from('users').delete().eq('id', authData.user!.id);
+      } catch {
+        // best effort
+      }
+      try {
+        await supabase.auth.signOut();
+      } catch {
+        // best effort
+      }
+      throw new AuthError(cause, code, statusCode);
+    };
+
     // Create user record in users table
     // Importante: NÃO salvamos o email sintético `{phone}@example.com` em
     // `users.email`. Esse email é usado só pelo Supabase Auth para login;
@@ -98,6 +187,14 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
     if (dbError) {
       console.error('Database error:', dbError);
+      // Anti-fraude (autoridade) — Requirements 8.2–8.5: o trigger
+      // `users_antifraud_duplicate_block` aborta o INSERT com
+      // `duplicate_identifier:<campo>`. Mapeamos qualquer variante para a
+      // mensagem canônica e executamos o rollback compensatório (delete em
+      // users + signOut) para não deixar usuário órfão em auth.users.
+      if (dbError.message.includes('duplicate_identifier')) {
+        await compensateUserRollback(DUPLICATE_IDENTIFIER_MESSAGE, 'DUPLICATE_IDENTIFIER', 409);
+      }
       // Rollback do usuário em Auth: não temos privilégio para deletar
       // de auth.users via client, mas garantimos signOut para limpar token.
       try {
@@ -111,24 +208,6 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
         500
       );
     }
-
-    // Helper de rollback compensatório para falhas em motoristas/embarcadores.
-    // Como o Supabase JS não expõe transações multi-tabela, executamos a
-    // operação inversa (delete em users) e signOut para evitar um usuário
-    // órfão capaz de logar.
-    const compensateUserRollback = async (cause: string): Promise<never> => {
-      try {
-        await supabase.from('users').delete().eq('id', authData.user!.id);
-      } catch {
-        // best effort
-      }
-      try {
-        await supabase.auth.signOut();
-      } catch {
-        // best effort
-      }
-      throw new AuthError(cause, 'DATABASE_ERROR', 500);
-    };
 
     // Create type-specific record (motorista or embarcador)
     if (data.userType === 'motorista') {
@@ -161,6 +240,16 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       isActive: true,
       createdAt: new Date(authData.user.created_at),
       updatedAt: new Date(authData.user.updated_at || authData.user.created_at),
+      // Espelha os defaults aplicados pelo trigger `users_set_trial_defaults`
+      // (Migration 044): motorista recebe trial de 30 dias a partir de
+      // created_at; demais tipos não têm trial. Status inicial `trial`,
+      // não-assinante.
+      trialEndsAt:
+        data.userType === 'motorista'
+          ? computeTrialEndsAt(new Date(authData.user.created_at))
+          : null,
+      subscriptionStatus: 'trial',
+      isSubscribed: false,
     };
 
     return {
@@ -245,6 +334,9 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
       lastActivityAt: userData.last_activity_at ? new Date(userData.last_activity_at) : undefined,
       createdAt: new Date(userData.created_at),
       updatedAt: new Date(userData.updated_at),
+      trialEndsAt: userData.trial_ends_at ? new Date(userData.trial_ends_at) : null,
+      subscriptionStatus: userData.subscription_status ?? undefined,
+      isSubscribed: userData.is_subscribed ?? undefined,
     };
 
     return {
@@ -346,6 +438,9 @@ export async function refreshToken(refreshToken: string): Promise<AuthResponse> 
       lastActivityAt: userData.last_activity_at ? new Date(userData.last_activity_at) : undefined,
       createdAt: new Date(userData.created_at),
       updatedAt: new Date(userData.updated_at),
+      trialEndsAt: userData.trial_ends_at ? new Date(userData.trial_ends_at) : null,
+      subscriptionStatus: userData.subscription_status ?? undefined,
+      isSubscribed: userData.is_subscribed ?? undefined,
     };
 
     return {
@@ -400,6 +495,9 @@ export async function getCurrentUser(): Promise<User | null> {
       lastActivityAt: userData.last_activity_at ? new Date(userData.last_activity_at) : undefined,
       createdAt: new Date(userData.created_at),
       updatedAt: new Date(userData.updated_at),
+      trialEndsAt: userData.trial_ends_at ? new Date(userData.trial_ends_at) : null,
+      subscriptionStatus: userData.subscription_status ?? undefined,
+      isSubscribed: userData.is_subscribed ?? undefined,
     };
   } catch (error) {
     return null;

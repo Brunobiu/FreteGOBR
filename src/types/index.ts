@@ -1,6 +1,10 @@
 // Core types for FreteGO application
 // These will be expanded as we implement features
 
+// Reusa o tipo do núcleo puro de trial como fonte única de verdade.
+// `trialStatus.ts` não importa deste módulo, então não há ciclo de imports.
+import type { SubscriptionStatus } from '../utils/trialStatus';
+
 export type UserType = 'motorista' | 'embarcador' | 'admin';
 
 export interface User {
@@ -15,6 +19,12 @@ export interface User {
   lastActivityAt?: Date;
   createdAt: Date;
   updatedAt: Date;
+  // Campos de trial (opcionais para retrocompatibilidade com caches antigos
+  // de `fretego_user` que não os possuem). Mapeados de `trial_ends_at`,
+  // `subscription_status` e `is_subscribed` da tabela `users`.
+  trialEndsAt?: Date | null;
+  subscriptionStatus?: SubscriptionStatus;
+  isSubscribed?: boolean;
 }
 
 export interface GeographicPoint {

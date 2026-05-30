@@ -12,6 +12,7 @@ import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
 import NotificationsModal from './NotificationsModal';
 import LocationOverrideModal from './LocationOverrideModal';
+import TrialBadge from './TrialBadge';
 import {
   LOCATION_OVERRIDE_EVENT,
   clearLocationOverride,
@@ -539,6 +540,8 @@ export default function AppHeader() {
                   )}
                 </div>
               )}
+
+              <TrialBadge />
 
               {isAuthenticated && user ? (
                 <button

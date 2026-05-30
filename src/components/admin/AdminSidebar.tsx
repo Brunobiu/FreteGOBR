@@ -48,6 +48,12 @@ const ITEMS: MenuItem[] = [
     permission: 'FINANCEIRO_VIEW',
   },
   {
+    to: '/admin/trial',
+    label: 'Trial',
+    icon: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+    permission: 'USER_VIEW',
+  },
+  {
     to: '/admin/blacklist',
     label: 'Blacklist',
     icon: 'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636',

@@ -31,6 +31,21 @@ const TYPING_TIMEOUT_MS = 3000;
  * - Tiquinhos de leitura (✓✓ cinza = enviada / azul = lida).
  * - Indicador "digitando..." em tempo real via broadcast do Supabase.
  * - Tela inicial vazia com fundo temático até o usuário escolher uma conversa.
+ *
+ * Continuidade de chat para motorista com trial expirado (Req 5.7, 6.2):
+ * `/mensagens` é INTENCIONALMENTE acessível a motorista bloqueado — esta rota
+ * NÃO recebe `TrialGate`/`MotoristaProtectedRoute` (ver `App.tsx`, onde usa
+ * apenas `ProtectedRoute`). O bloqueio "duro" (`TrialExpiredPage`) aplica-se ao
+ * feed de fretes (HomePage) e às telas de descoberta/assistente, não ao chat.
+ *
+ * A continuidade é AUTORITATIVA no servidor: a RLS de `conversations`/`messages`
+ * (+ `fretes`) só retorna as conversas dos fretes em andamento do próprio
+ * motorista (um `conversations` só existe quando há contato sobre um frete
+ * específico). Este componente apenas reflete o que o servidor permite —
+ * `getUserConversations`/`getFreteMessages`/`sendFreteMessage` operam sobre
+ * tabelas protegidas por RLS e não chamam nenhum RPC de feed/novo-aceite
+ * (`getActiveFretes`, `toggle_frete_like`) que negaria a um motorista bloqueado.
+ * NÃO duplicar a lógica de continuidade aqui — a fonte de verdade é a RLS.
  */
 export default function MensagensPage() {
   useDocumentTitle('Mensagens');
@@ -129,9 +144,7 @@ export default function MensagensPage() {
               ...conv,
               lastMessage: preview || conv.lastMessage,
               unreadCount:
-                isFromMe || isActive
-                  ? conv.unreadCount ?? 0
-                  : (conv.unreadCount ?? 0) + 1,
+                isFromMe || isActive ? (conv.unreadCount ?? 0) : (conv.unreadCount ?? 0) + 1,
             };
             // Move pro topo
             const next = [updated, ...prev.filter((_, i) => i !== idx)];
@@ -185,7 +198,7 @@ export default function MensagensPage() {
         if (peerInfo) {
           const photoSrc =
             peerInfo.userType === 'embarcador'
-              ? peerInfo.companyLogo ?? peerInfo.profilePhoto
+              ? (peerInfo.companyLogo ?? peerInfo.profilePhoto)
               : peerInfo.profilePhoto;
           if (photoSrc) {
             const resolved = await resolveProfilePhotoUrl(photoSrc);
@@ -427,9 +440,7 @@ export default function MensagensPage() {
     if (recording) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mime = MediaRecorder.isTypeSupported('audio/webm')
-        ? 'audio/webm'
-        : 'audio/mp4';
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
       const recorder = new MediaRecorder(stream, { mimeType: mime });
       recordedChunksRef.current = [];
       recorder.ondataavailable = (e) => {
@@ -544,8 +555,18 @@ export default function MensagensPage() {
               ) : conversations.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
-                    <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    <svg
+                      className="w-6 h-6 text-gray-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
                     </svg>
                   </div>
                   <p className="text-sm font-medium text-gray-700">Nenhuma mensagem ainda</p>
@@ -650,8 +671,18 @@ export default function MensagensPage() {
                       className="md:hidden text-gray-500 hover:text-gray-800"
                       aria-label="Voltar"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 19l-7-7 7-7"
+                        />
                       </svg>
                     </button>
 
@@ -709,7 +740,12 @@ export default function MensagensPage() {
                       aria-label="Fechar conversa"
                       title="Fechar conversa"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1068,8 +1104,14 @@ function TypingDots() {
   return (
     <span className="inline-flex items-center gap-1">
       <span className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot" />
-      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot" style={{ animationDelay: '0.15s' }} />
-      <span className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot" style={{ animationDelay: '0.3s' }} />
+      <span
+        className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"
+        style={{ animationDelay: '0.15s' }}
+      />
+      <span
+        className="w-1.5 h-1.5 bg-gray-400 rounded-full typing-dot"
+        style={{ animationDelay: '0.3s' }}
+      />
     </span>
   );
 }

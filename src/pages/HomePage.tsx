@@ -8,6 +8,7 @@ import {
 } from '../services/fretes';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
+import TrialExpiredPage from './TrialExpiredPage';
 import MotoristaBottomNav from '../components/MotoristaBottomNav';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
@@ -20,6 +21,7 @@ import { useViewPreference } from '../hooks/useViewPreference';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
+import { useTrialStatus } from '../hooks/useTrialStatus';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
@@ -82,6 +84,13 @@ export default function HomePage() {
   const [likedFreteIds, setLikedFreteIds] = useState<Set<string>>(new Set());
 
   const isMotorista = user?.userType === 'motorista';
+
+  // Bloqueio de trial (Req 5.6): motorista com trial expirado e sem assinatura
+  // tem o feed de fretes substituído pela TrialExpiredPage. A autoridade do
+  // estado é o servidor (RLS); aqui é apenas a UX imediata, usando a MESMA
+  // fonte do hook (useAuth) já consumida por useTrialStatus.
+  const { isExpired } = useTrialStatus();
+  const isMotoristaBloqueado = isMotorista && isExpired;
 
   // Geolocalização (apenas usada no ramo motorista, mas chamamos
   // sempre — useGeolocation começa em 'idle' até requestLocation()).
@@ -186,6 +195,9 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    // Motorista bloqueado (trial expirado): NÃO dispara o fetch do feed.
+    // A TrialExpiredPage é renderizada no lugar do feed (Req 5.6).
+    if (isMotoristaBloqueado) return;
     loadFretes({});
     const channel = supabase
       .channel('fretes-realtime')
@@ -202,7 +214,7 @@ export default function HomePage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadFretes]);
+  }, [loadFretes, isMotoristaBloqueado]);
 
   // Abre modal de um frete específico se o assistente IA tiver pedido.
   useEffect(() => {
@@ -257,6 +269,14 @@ export default function HomePage() {
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
+
+  // Bloqueio de trial (Req 5.6): substitui o feed pela TrialExpiredPage.
+  // Posicionado após todos os hooks (regras de hooks) e antes do render do
+  // feed. O fetch de fretes já foi short-circuitado no useEffect acima, então
+  // getActiveFretes nunca é chamado neste caminho.
+  if (isMotoristaBloqueado) {
+    return <TrialExpiredPage />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">

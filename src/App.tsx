@@ -3,6 +3,7 @@ import { lazy, Suspense } from 'react';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
@@ -156,11 +157,11 @@ function App() {
         <Route
           path="/assistente"
           element={
-            <ProtectedRoute>
+            <MotoristaProtectedRoute>
               <LazyRoute>
                 <AssistentePage />
               </LazyRoute>
-            </ProtectedRoute>
+            </MotoristaProtectedRoute>
           }
         />
         <Route
