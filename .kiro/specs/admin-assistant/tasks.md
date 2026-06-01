@@ -138,7 +138,7 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e `adm
     - Vitest + Testing Library: cada mecanismo enfileira um draft do tipo correto; endpoint de ingestão excluído do wrapper.
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 3. Assistant_Service — tipos e helpers puros (`src/services/admin/assistant.ts`)
+- [x] 3. Assistant_Service — tipos e helpers puros (`src/services/admin/assistant.ts`)
   - [x] 3.1 Tipos e domínios fechados
     - `AiProvider`, `ChatRole`, `CriticalEventType`, `Severity`, reuso de `ErrorType`; interfaces `AssistantConfigView`, `ConfigPatch`, `ConfigResult`, `AssistantStatus`, `ConversationSummary`, `ChatMessage`, `Highlight`, `CriticalEvent`, `SendResult`, `DetectedEvent`.
     - _Requirements: 5.5, 7.1, 9.2_
@@ -209,17 +209,17 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e `adm
     - **Property 10:** `normalizeHistory` ordena mensagens de forma não-decrescente por `created_at`. `numRuns: 100`.
     - **Validates: Requirements 5.7**
 
-  - [ ] 3.16 Property test CP-23 (mensagem automática descreve o quê/onde/sugestão)
+  - [x] 3.16 Property test CP-23 (mensagem automática descreve o quê/onde/sugestão)
     - `src/__tests__/admin/assistant/cp23CriticalMessage.property.test.ts`. Tag `// Feature: admin-assistant, Property 23`.
     - **Property 23:** `buildCriticalMessage(event)` inclui o que aconteceu, `scope` e sugestão; pura, sem remediação. `numRuns: 100`.
     - **Validates: Requirements 12.4**
 
-  - [ ] 3.17 Property test CP-24 (deduplicação idempotente)
+  - [x] 3.17 Property test CP-24 (deduplicação idempotente)
     - `src/__tests__/admin/assistant/cp24Dedup.property.test.ts`. Tag `// Feature: admin-assistant, Property 24`.
     - **Property 24:** `dedupNewEvents(already, batch)` nunca retorna `dedup_key` já em `already`; `dedup(dedup(x)) === dedup(x)`. `numRuns: 100`.
     - **Validates: Requirements 12.7**
 
-  - [ ] 3.18 Property test CP-25 (WhatsApp_Dispatcher no-op com toggle off)
+  - [x] 3.18 Property test CP-25 (WhatsApp_Dispatcher no-op com toggle off)
     - `src/__tests__/admin/assistant/cp25WhatsappNoop.property.test.ts`. Tag `// Feature: admin-assistant, Property 25`.
     - **Property 25:** `whatsappDispatch(event, { whatsappToggle: false })` retorna `{ sent: false }` sem realizar envio. `numRuns: 100`.
     - **Validates: Requirements 13.3, 13.4**
