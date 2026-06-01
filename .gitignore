@@ -70,3 +70,9 @@ ios/App/.gradle/
 android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 android/capacitor-cordova-android-plugins/
+
+# Supabase CLI temporary state (generated locally; never commit)
+supabase/.temp/
+
+# Local build artifacts/outputs (ad-hoc captures)
+build_out.txt

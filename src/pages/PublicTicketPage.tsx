@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PublicTicketForm from '../components/PublicTicketForm';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { usePixel } from '../components/marketing/pixelContext';
 
 /**
  * Página pública `/contato` para visitantes anônimos enviarem tickets de
@@ -9,6 +10,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
  */
 export default function PublicTicketPage() {
   useDocumentTitle('Contato — FreteGO');
+  const { trackEvent } = usePixel();
 
   return (
     <div className="min-h-screen bg-gray-100 flex flex-col">
@@ -39,7 +41,13 @@ export default function PublicTicketPage() {
 
       <main className="flex-1 flex items-center justify-center px-4 py-8">
         <div className="bg-white rounded-xl shadow-md p-6 sm:p-8 w-full max-w-md">
-          <PublicTicketForm withHeader />
+          {/*
+            Dispara o Tracked_Event `lead` (browser) na conclusao do contato
+            publico. O `event_id` e gerado uma unica vez por ocorrencia (CP-4);
+            a porta de consentimento (CP-5) e aplicada dentro do Pixel_Loader.
+            O disparo server-side (CAPI) com o MESMO event_id e fiado na 7.5.
+          */}
+          <PublicTicketForm withHeader onSuccess={() => trackEvent('lead')} />
 
           <div className="mt-6 pt-6 border-t border-gray-200 text-center text-xs text-gray-500">
             <p>

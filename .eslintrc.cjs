@@ -14,5 +14,12 @@ module.exports = {
       'warn',
       { allowConstantExport: true },
     ],
+    // Permite argumentos prefixados com `_` (convencao do projeto para
+    // marcar argumentos deliberadamente nao usados em assinaturas de
+    // interface/stubs). Variaveis nao usadas continuam sinalizadas.
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+    ],
   },
 }

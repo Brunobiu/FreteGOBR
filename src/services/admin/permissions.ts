@@ -40,6 +40,14 @@ export const ADMIN_ACTIONS = [
   'ADMIN_ROLE_GRANT',
   'ADMIN_ROLE_REVOKE',
   'DASHBOARD_VIEW',
+  'ASSISTANT_VIEW',
+  'ASSISTANT_EDIT',
+  // Modulo Marketing (admin-marketing, migration 048). Concedidas a
+  // SUPER_ADMIN (via wildcard) e ADMIN (via allow-all menos ADMIN_DENY).
+  // NAO entram em ADMIN_DENY nem nos *_PERMS de SUPORTE/FINANCEIRO/MODERADOR:
+  // negacao por construcao para esses papeis (Req 2.1-2.4).
+  'MARKETING_VIEW',
+  'MARKETING_EDIT',
 ] as const;
 
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
@@ -78,6 +86,10 @@ const ADMIN_DENY: ReadonlySet<AdminAction> = new Set<AdminAction>([
   'USER_DELETE',
   'ADMIN_ROLE_GRANT',
   'ADMIN_ROLE_REVOKE',
+  // Modulo Assistente e exclusivo do dono (SUPER_ADMIN). Negar ao ADMIN
+  // garante que o ramo allow-all do ADMIN nao conceda essas acoes.
+  'ASSISTANT_VIEW',
+  'ASSISTANT_EDIT',
 ]);
 
 export const Permission_Matrix: Readonly<Record<AdminRole, (a: AdminAction) => boolean>> = {

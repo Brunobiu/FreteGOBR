@@ -30,9 +30,13 @@ import FinanceiroConfiguracoesPage from '../../pages/admin/financeiro/Financeiro
 import FinanceiroDetailPage from '../../pages/admin/financeiro/FinanceiroDetailPage';
 import TrialListPage from '../../pages/admin/trial/TrialListPage';
 import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
+import AdminWhatsAppPage from '../../pages/admin/AdminWhatsAppPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
 import AdminTicketDetailPage from '../../pages/admin/AdminTicketDetailPage';
 import AdminSupportChatPage from '../../pages/admin/AdminSupportChatPage';
+import AssistantPage from '../../pages/admin/assistant/AssistantPage';
+import MarketingMetricsPage from '../../pages/admin/marketing/MarketingMetricsPage';
+import MarketingConfigPage from '../../pages/admin/marketing/MarketingConfigPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -56,8 +60,11 @@ export default function AdminLayoutRoute() {
             <Route path="financeiro/configuracoes" element={<FinanceiroConfiguracoesPage />} />
             <Route path="financeiro/:id" element={<FinanceiroDetailPage />} />
             <Route path="trial" element={<TrialListPage />} />
+            <Route path="marketing" element={<MarketingMetricsPage />} />
+            <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="anuncios" element={<AdminAnunciosPage />} />
+            <Route path="whatsapp" element={<AdminWhatsAppPage />} />
             <Route
               path="comunicados"
               element={<Navigate to="/admin/anuncios?tab=comunicados" replace />}
@@ -65,6 +72,7 @@ export default function AdminLayoutRoute() {
             <Route path="suporte/tickets" element={<AdminTicketsPage />} />
             <Route path="suporte/tickets/:id" element={<AdminTicketDetailPage />} />
             <Route path="suporte/chat" element={<AdminSupportChatPage />} />
+            <Route path="assistant" element={<AssistantPage />} />
             <Route path="perfil" element={<AdminProfilePage />} />
           </Route>
         </Route>

@@ -7,9 +7,13 @@ import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import HomePage from './pages/HomePage';
 import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
-import FreteChatWidget from './components/FreteChatWidget';
 import NativeBackButton from './components/NativeBackButton';
 import NativePushBootstrap from './components/NativePushBootstrap';
+import { PixelProvider } from './components/marketing/PixelProvider';
+
+// Widget flutuante global: não é crítico para o primeiro paint, então
+// carrega depois (defer) para não pesar o bundle inicial.
+const FreteChatWidget = lazy(() => import('./components/FreteChatWidget'));
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
@@ -50,190 +54,194 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
-      <NativeBackButton />
-      <NativePushBootstrap />
-      <NotificationToast />
-      <FreteChatWidget />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route
-          path="/contato"
-          element={
-            <LazyRoute>
-              <PublicTicketPage />
-            </LazyRoute>
-          }
-        />
-        <Route
-          path="/perfil/motorista"
-          element={
-            <ProtectedRoute>
+      <PixelProvider>
+        <NativeBackButton />
+        <NativePushBootstrap />
+        <NotificationToast />
+        <Suspense fallback={null}>
+          <FreteChatWidget />
+        </Suspense>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route
+            path="/contato"
+            element={
               <LazyRoute>
-                <MotoristaPerfilPage />
+                <PublicTicketPage />
               </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/motorista/plano"
-          element={
-            <ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil/motorista"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <MotoristaPerfilPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/plano"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <MotoristaPlanPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/embarcador"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <EmbarcadorPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil/embarcador"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <EmbarcadorPerfilPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/embarcador/plano"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <EmbarcadorPlanPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/*"
+            element={
               <LazyRoute>
-                <MotoristaPlanPage />
+                <AdminLayoutRoute />
               </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/embarcador"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <EmbarcadorPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/perfil/embarcador"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <EmbarcadorPerfilPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/embarcador/plano"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <EmbarcadorPlanPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/admin/*"
-          element={
-            <LazyRoute>
-              <AdminLayoutRoute />
-            </LazyRoute>
-          }
-        />
-        <Route
-          path="/configuracoes"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <ConfiguracoesPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/mensagens"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <MensagensPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/notificacoes"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <NotificacoesPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/assistente"
-          element={
-            <MotoristaProtectedRoute>
-              <LazyRoute>
-                <AssistentePage />
-              </LazyRoute>
-            </MotoristaProtectedRoute>
-          }
-        />
-        <Route
-          path="/tickets"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <MyTicketsPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tickets/novo"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <NewTicketPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/tickets/:id"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <MyTicketDetailPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/suporte/chat"
-          element={
-            <ProtectedRoute>
-              <LazyRoute>
-                <SupportChatPage />
-              </LazyRoute>
-            </ProtectedRoute>
-          }
-        />
+            }
+          />
+          <Route
+            path="/configuracoes"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <ConfiguracoesPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/mensagens"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <MensagensPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/notificacoes"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <NotificacoesPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/assistente"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <AssistentePage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <MyTicketsPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets/novo"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <NewTicketPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tickets/:id"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <MyTicketDetailPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/suporte/chat"
+            element={
+              <ProtectedRoute>
+                <LazyRoute>
+                  <SupportChatPage />
+                </LazyRoute>
+              </ProtectedRoute>
+            }
+          />
 
-        {/* Honeypot routes - armadilhas para detectar scanners */}
-        <Route
-          path="/admin-legacy"
-          element={
-            <LazyRoute>
-              <HoneypotPage />
-            </LazyRoute>
-          }
-        />
-        <Route
-          path="/wp-admin"
-          element={
-            <LazyRoute>
-              <HoneypotPage />
-            </LazyRoute>
-          }
-        />
-        <Route
-          path="/administrator"
-          element={
-            <LazyRoute>
-              <HoneypotPage />
-            </LazyRoute>
-          }
-        />
+          {/* Honeypot routes - armadilhas para detectar scanners */}
+          <Route
+            path="/admin-legacy"
+            element={
+              <LazyRoute>
+                <HoneypotPage />
+              </LazyRoute>
+            }
+          />
+          <Route
+            path="/wp-admin"
+            element={
+              <LazyRoute>
+                <HoneypotPage />
+              </LazyRoute>
+            }
+          />
+          <Route
+            path="/administrator"
+            element={
+              <LazyRoute>
+                <HoneypotPage />
+              </LazyRoute>
+            }
+          />
 
-        {/* Catch-all global: 404 padrao do app */}
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* Catch-all global: 404 padrao do app */}
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </PixelProvider>
     </BrowserRouter>
   );
 }

@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { usePixel } from '../components/marketing/pixelContext';
 import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
@@ -10,10 +10,20 @@ export function RegisterPage() {
   useDocumentTitle('Criar Conta');
   const navigate = useNavigate();
   const { register } = useAuth();
-  const [_imageError] = useState(false);
+  const { trackBusinessEvent } = usePixel();
 
   const handleRegister = async (data: RegisterData) => {
     await register(data);
+
+    // Tracked_Event de negocio (CP-4): cadastro concluido. Gera o event_id uma
+    // unica vez e propaga o MESMO id ao Pixel (browser) e ao CAPI (server). O
+    // motorista emite `motorista_registration`; o embarcador,
+    // `embarcador_registration` (Req 10.4, 10.5). Telefone como PII (a Edge
+    // hasheia — CP-6); o e-mail nao e enviado por ser sintetico no Auth.
+    const eventName =
+      data.userType === 'motorista' ? 'motorista_registration' : 'embarcador_registration';
+    trackBusinessEvent(eventName, { phone: data.phone });
+
     try {
       await supabase.auth.signOut();
     } catch {

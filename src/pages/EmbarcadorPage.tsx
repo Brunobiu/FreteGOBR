@@ -21,10 +21,12 @@ import {
   type EmbarcadorOnboardingProgress,
 } from '../services/embarcador';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { usePixel } from '../components/marketing/pixelContext';
 
 export default function EmbarcadorPage() {
   useDocumentTitle('Embarcador');
   const { user } = useAuth();
+  const { trackBusinessEvent } = usePixel();
   const [fretes, setFretes] = useState<Frete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +98,21 @@ export default function EmbarcadorPage() {
 
   const handleCreateFrete = async (data: CreateFreteData) => {
     await createFrete(data);
+
+    // Tracked_Event de negocio (CP-4): frete publicado com sucesso. So chega
+    // aqui no caminho de SUCESSO — se `createFrete` lanca, o await rejeita e o
+    // disparo nunca ocorre. `trackBusinessEvent` gera o event_id UMA unica vez
+    // e propaga o MESMO id ao Pixel (browser, gated por consentimento — CP-5) e
+    // a Edge meta-capi-forward (server, fire-and-forget) (Req 10.6, 10.7). A PII
+    // disponivel do embarcador autenticado (email/telefone/user_id) vai SOMENTE
+    // ao canal CAPI — a Edge hasheia em SHA-256 (CP-6); nada de PII em claro no
+    // Pixel.
+    trackBusinessEvent('frete_published', {
+      email: user?.email ?? null,
+      phone: user?.phone ?? null,
+      userId: user?.id ?? null,
+    });
+
     setIsFormOpen(false);
     await loadFretes();
   };
