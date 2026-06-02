@@ -269,7 +269,7 @@ Convenções herdadas (não redocumentar — ver `project-conventions.md` e `adm
     - `logAdminAction` com `action='FINANCIAL_EXPORTED'`, `after={ filters, row_count, truncated }`.
     - _Requirements: 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 9.10_
 
-  - [~] 4.6 Property test CP-1 OBRIGATÓRIA (paridade comissão TS↔SQL↔trigger)
+  - [ ] 4.6 Property test CP-1 OBRIGATÓRIA (paridade comissão TS↔SQL↔trigger)
     - `src/__tests__/admin/financeiro/cp1_commission_parity.property.test.ts` + helper `sql-mirror.ts`.
     - 3 sub-propriedades:
       - **P1 (determinismo TS):** `computeCommission(v, s) === computeCommission(v, s)`.
