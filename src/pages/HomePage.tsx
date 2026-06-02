@@ -21,7 +21,6 @@ import { useIsMobile } from '../hooks/useIsMobile';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
 import { useTrialStatus } from '../hooks/useTrialStatus';
-import { useGeolocation } from '../hooks/useGeolocation';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
 import { getLikedFreteIds } from '../services/likes';
@@ -105,17 +104,20 @@ export default function HomePage() {
   const { isExpired } = useTrialStatus();
   const isMotoristaBloqueado = isMotorista && isExpired;
 
-  // Geolocalização (apenas usada no ramo motorista, mas chamamos
-  // sempre — useGeolocation começa em 'idle' até requestLocation()).
-  const geo = useGeolocation();
-  // Localizacao efetiva: respeita override manual quando definido,
-  // caso contrario usa GPS. Reage ao evento global de mudanca.
+  // Geolocalizacao do motorista. Antes haviam DUAS instancias do hook
+  // useGeolocation (uma direta + outra dentro de useEffectiveLocation),
+  // cada uma com estado proprio. So a externa recebia requestLocation;
+  // a interna ficava em 'idle' e o `effectiveLoc.point` saia null,
+  // fazendo filterFretesByRadius retornar a lista inteira sem filtrar
+  // pelo raio escolhido. Agora usamos APENAS useEffectiveLocation e
+  // disparamos o requestLocation dele — assim o ponto efetivo (override
+  // manual ou GPS) sempre fica em sincronia com o estado do filtro.
   const effectiveLoc = useEffectiveLocation();
 
   // Dispara request de localização uma vez quando o usuário é motorista.
   useEffect(() => {
     if (!isMotorista) return;
-    geo.requestLocation();
+    effectiveLoc.requestLocation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMotorista]);
 
@@ -332,8 +334,8 @@ export default function HomePage() {
             radiusKm={radiusKm}
             onRadiusChange={handleRadiusChange}
             onFreteClick={handleFreteClick}
-            geolocationStatus={geo.status}
-            onRequestLocation={geo.requestLocation}
+            geolocationStatus={effectiveLoc.geoStatus}
+            onRequestLocation={effectiveLoc.requestLocation}
             middleSlot={
               user && calcLoaded ? (
                 <DieselDashboardInput
