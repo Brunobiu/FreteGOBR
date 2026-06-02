@@ -101,9 +101,10 @@ export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta
 
 /**
  * Modelo padrao do Gemini quando a config nao informa um. Modelo gratuito
- * com tier amplo, suficiente para o caso de uso conversacional do painel.
+ * atual com tier amplo. `gemini-1.5-flash` foi deprecated em 2025 (404 em
+ * keys novas); `gemini-2.5-flash` e a substituicao recomendada pelo Google.
  */
-export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
 /**
  * Limite de tokens da resposta. Espelha CLAUDE_MAX_TOKENS para paridade

@@ -106,7 +106,7 @@ const CLAUDE_MAX_TOKENS = 1024;
 // ===================== Constantes do Gemini ================================
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_MAX_TOKENS = 1024;
 
 // ===================== ClaudeClient (funcional) ============================
@@ -370,6 +370,34 @@ class NotImplementedClient implements AiProviderClient {
  * configurado como Active_Provider (Req 8.4). `claude` retorna o cliente
  * funcional (com o `model` lido da config); os demais retornam o stub.
  */
+/**
+ * Devolve o `model` correto para o provider ativo. Se a config tiver um valor
+ * que claramente nao pertence ao provider (ex.: o default do Claude depois de
+ * uma troca para Gemini), retorna `undefined` para o cliente cair no proprio
+ * default (DEFAULT_<PROVIDER>_MODEL). Heuristica simples por prefixo do nome
+ * do modelo:
+ *   - claude => 'claude-*'
+ *   - gemini => 'gemini-*'
+ *   - grok   => 'grok-*'
+ *   - llama  => 'llama-*' / 'meta-llama-*'
+ */
+function pickModelForProvider(provider: AiProvider, model: string | undefined): string | undefined {
+  if (typeof model !== 'string' || model.length === 0) return undefined;
+  const lower = model.toLowerCase();
+  switch (provider) {
+    case 'claude':
+      return lower.startsWith('claude-') ? model : undefined;
+    case 'gemini':
+      return lower.startsWith('gemini-') ? model : undefined;
+    case 'grok':
+      return lower.startsWith('grok-') ? model : undefined;
+    case 'llama':
+      return lower.startsWith('llama-') || lower.startsWith('meta-llama-') ? model : undefined;
+    default:
+      return undefined;
+  }
+}
+
 function selectProviderClient(provider: AiProvider, model?: string): AiProviderClient {
   switch (provider) {
     case 'claude':
@@ -922,7 +950,12 @@ serve(async (req) => {
   };
 
   // 4. Seleciona o cliente do Active_Provider (Provider_Abstraction).
-  const client = selectProviderClient(activeProvider, model);
+  //    Isolamento por prefixo de modelo: se o `model` salvo na config nao
+  //    pertence ao provider ativo (ex.: usuario trocou de claude->gemini sem
+  //    atualizar `model`), usamos o default do proprio cliente. Sem isso, a
+  //    Gemini API retorna 404 ao receber `claude-3-5-sonnet-latest` etc.
+  const modelForActive = pickModelForProvider(activeProvider, model);
+  const client = selectProviderClient(activeProvider, modelForActive);
 
   // 5. Le a chave SO quando o provider exige (stubs nao tocam segredos).
   let apiKey = '';
@@ -938,6 +971,17 @@ serve(async (req) => {
   // 6. Invoca o provider. Falha do Claude => `provider_call_failed` tipado,
   //    sem fallback (Req 8.3). Stubs => `provider_not_implemented` (Req 8.5).
   const result = await client.invoke(input, apiKey);
+
+  // Loga falhas SEM expor segredo: apenas o codigo de erro tipado, o provider,
+  // o `detail` (HTTP status / shape) e o modelo configurado. Util para
+  // diagnosticar nos logs do dashboard sem reimplantar a funcao.
+  if (!result.ok) {
+    console.warn(
+      `[assistant-ai] provider call failed provider=${result.provider} ` +
+        `error=${result.error} detail=${result.detail ?? 'none'} ` +
+        `model=${modelForActive ?? 'default'}`
+    );
+  }
 
   // O resultado tipado segue para o Assistant_Service; falhas de provider
   // retornam 200 com `{ ok: false, error }` (o service interpreta). Nenhum
