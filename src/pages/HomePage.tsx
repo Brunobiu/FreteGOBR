@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import {
   getActiveFretes,
@@ -13,7 +13,6 @@ import MotoristaBottomNav from '../components/MotoristaBottomNav';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
 import FreteFiltersComponent from '../components/FreteFilters';
-import InteractiveMap from '../components/InteractiveMap';
 import FreteTable from '../components/FreteTable';
 import ViewToggle from '../components/ViewToggle';
 import DieselDashboardInput from '../components/DieselDashboardInput';
@@ -29,6 +28,7 @@ import { getLikedFreteIds } from '../services/likes';
 import WelcomeLoading from '../components/WelcomeLoading';
 import AnunciosCarousel from '../components/AnunciosCarousel';
 import CommoditiesCarousel from '../components/CommoditiesCarousel';
+import LocationHintBalloon from '../components/LocationHintBalloon';
 import {
   RADIUS_DEFAULT_KM,
   RADIUS_STORAGE_KEY,
@@ -38,8 +38,14 @@ import {
   type RadiusOption,
 } from '../utils/geoDistance';
 
-// Lazy import: leaflet + react-leaflet só caem no chunk dos motoristas.
+// Lazy import: leaflet + react-leaflet só caem no chunk quando o embarcador/
+// visitante abre o mapa ("Ver mapa"). Mantém o leaflet fora do bundle inicial.
 import MapaToolbar from '../components/MapaToolbar';
+
+// Lazy: InteractiveMap puxa leaflet/react-leaflet. Só carrega quando showMap
+// fica true (botão "Ver mapa" do embarcador). O motorista usa MapaToolbar,
+// que já lazy-carrega o próprio mapa.
+const InteractiveMap = lazy(() => import('../components/InteractiveMap'));
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -82,6 +88,13 @@ export default function HomePage() {
 
   // Conjunto de fretes que o motorista já curtiu — hidrata os corações.
   const [likedFreteIds, setLikedFreteIds] = useState<Set<string>>(new Set());
+
+  // Balao flutuante de localizacao (motorista sem GPS). Comeca como `true`
+  // e auto-some apos 10s ou quando o motorista clica no X. NAO persiste
+  // dismiss — a cada refresh volta a aparecer enquanto a localizacao
+  // continuar indisponivel. O sistema so funciona bem com GPS, entao a
+  // UI insiste nesse aviso ate o motorista resolver.
+  const [locationHintVisible, setLocationHintVisible] = useState(true);
 
   const isMotorista = user?.userType === 'motorista';
 
@@ -282,6 +295,17 @@ export default function HomePage() {
     <div className="min-h-screen bg-gray-100">
       <AppHeader />
 
+      {/* Balao flutuante de localizacao (motorista sem GPS).
+          Aparece logo apos o header, ancorado no canto superior direito
+          com setinha apontando pro pill de localizacao. Nao bloqueia
+          interacao (overlay com pointer-events: none). */}
+      {isMotorista && !isMotoristaBloqueado && !motoristaPoint && (
+        <LocationHintBalloon
+          visible={locationHintVisible}
+          onDismiss={() => setLocationHintVisible(false)}
+        />
+      )}
+
       <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 pb-24 md:pb-4">
         {/* Header (apenas para embarcador/desktop) */}
         {!isMotorista && (
@@ -379,7 +403,18 @@ export default function HomePage() {
 
         {showMap && !isMotorista && (
           <div className="mb-6">
-            <InteractiveMap fretes={fretes} onFreteClick={handleFreteClick} height="400px" />
+            <Suspense
+              fallback={
+                <div
+                  className="flex items-center justify-center bg-white border border-gray-200 rounded-lg text-sm text-gray-400"
+                  style={{ height: '400px' }}
+                >
+                  Carregando mapa...
+                </div>
+              }
+            >
+              <InteractiveMap fretes={fretes} onFreteClick={handleFreteClick} height="400px" />
+            </Suspense>
           </div>
         )}
 
@@ -415,6 +450,7 @@ export default function HomePage() {
                   showLikeButton={isMotorista}
                   initialLiked={likedFreteIds.has(frete.id)}
                   onLikeToggle={handleLikeToggle}
+                  hideStatus
                 />
               ))}
             </div>

@@ -8,6 +8,7 @@ import { getOrCreateFreteConversation } from '../services/chatFrete';
 import type { MotoristaCalcContext } from '../services/motorista';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
 import { googleMapsUrl } from '../utils/coordParser';
+import FreteMiniMap from './FreteMiniMap';
 
 const REQUIRED_DOCS = [
   'cpf',
@@ -44,10 +45,52 @@ export default function FreteModal({
   const navigate = useNavigate();
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const [checkingProfile, setCheckingProfile] = useState(false);
-  const [embarcadorName, setEmbarcadorName] = useState<string>('');
+  const [embarcadorProfile, setEmbarcadorProfile] = useState<{
+    companyName: string;
+    companyLogoUrl: string | null;
+    userName: string | null;
+    branchState: string | null;
+    branchCity: string | null;
+  } | null>(null);
+  const embarcadorName = embarcadorProfile?.companyName ?? '';
 
+  // Animação de entrada/saída. `mounted` controla a presença no DOM
+  // (delayed unmount); `visible` controla a transição CSS de
+  // translate/opacity. No mobile o painel sobe de baixo (translate-y-full →
+  // translate-y-0); no desktop continua centralizado com leve fade/scale.
+  const [mounted, setMounted] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const ANIM_MS = 300;
+
+  // Quando isOpen muda para true: monta e na próxima frame ativa visible
+  // (dispara a transição CSS). Quando muda para false: desativa visible e
+  // remove do DOM apenas após ANIM_MS, deixando a saída animar até o fim.
   useEffect(() => {
     if (isOpen) {
+      setMounted(true);
+      // requestAnimationFrame garante que o navegador aplica o estado
+      // inicial (translate-y-full) antes de transicionar para visible.
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setVisible(false);
+    const t = window.setTimeout(() => setMounted(false), ANIM_MS);
+    return () => window.clearTimeout(t);
+  }, [isOpen]);
+
+  // ESC fecha o modal (acessibilidade): só ativo enquanto montado e visível,
+  // não interfere quando o modal está oculto.
+  useEffect(() => {
+    if (!mounted) return;
+    const handler = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [mounted, onClose]);
+
+  useEffect(() => {
+    if (mounted) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -55,7 +98,7 @@ export default function FreteModal({
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isOpen]);
+  }, [mounted]);
 
   // Verifica perfil completo quando motorista logado abre o modal
   useEffect(() => {
@@ -75,13 +118,20 @@ export default function FreteModal({
     if (isOpen && frete) {
       getEmbarcadorProfile(frete.embarcadorId)
         .then((p) => {
-          if (p) setEmbarcadorName(p.companyName || '');
+          if (p)
+            setEmbarcadorProfile({
+              companyName: p.companyName || '',
+              companyLogoUrl: p.companyLogoUrl ?? null,
+              userName: p.userName ?? null,
+              branchState: p.branchState ?? null,
+              branchCity: p.branchCity ?? null,
+            });
         })
         .catch(() => {});
     }
   }, [isOpen, isAuthenticated, user, frete]);
 
-  if (!isOpen || !frete) return null;
+  if (!mounted || !frete) return null;
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -148,8 +198,7 @@ export default function FreteModal({
     motoristaCalc.dieselPrice !== null &&
     motoristaCalc.dieselPrice >= 0;
 
-  const isPerTon =
-    frete.priceCalculation === 'toneladas' || frete.priceCalculation === 'quilos';
+  const isPerTon = frete.priceCalculation === 'toneladas' || frete.priceCalculation === 'quilos';
   const cap = motoristaCalc?.cargoCapacityTon ?? null;
   const effectivePerTon = isPerTon && cap !== null && cap > 0;
 
@@ -166,13 +215,43 @@ export default function FreteModal({
       : null;
 
   return (
-    <div className="fixed inset-0 z-[9999] overflow-y-auto">
-      <div className="fixed inset-0 bg-black bg-opacity-75" onClick={onClose} />
+    <div role="dialog" aria-modal="true" className="fixed inset-0 z-[9999] overflow-hidden">
+      {/* Backdrop com fade. */}
+      <div
+        onClick={onClose}
+        className={`fixed inset-0 bg-black transition-opacity duration-300 ease-out ${
+          visible ? 'opacity-75' : 'opacity-0'
+        }`}
+      />
 
-      <div className="flex min-h-full items-center justify-center p-2 sm:p-4">
-        <div className="relative bg-white rounded-lg max-w-2xl w-full border border-gray-200 shadow-xl">
+      {/*
+        Container do painel.
+        - Mobile (<md): ancorado ao bottom (`items-end`); o painel anima
+          translate-y (sobe de baixo) e tem cantos arredondados só em cima.
+        - Desktop (md+): centralizado com fade/scale leve.
+      */}
+      <div className="fixed inset-0 flex items-end md:items-center justify-center pointer-events-none">
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`relative bg-white border border-gray-200 shadow-xl pointer-events-auto
+            w-full md:max-w-2xl
+            max-h-[90vh] md:max-h-[85vh] overflow-y-auto
+            rounded-t-2xl md:rounded-lg
+            transform transition duration-300 ease-out
+            ${
+              visible
+                ? 'translate-y-0 opacity-100 md:scale-100'
+                : 'translate-y-full opacity-0 md:translate-y-4 md:scale-95'
+            }`}
+        >
+          {/* Handle de arrasto visual (apenas mobile, indica bottom sheet). */}
+          <div className="md:hidden flex justify-center pt-2 pb-1">
+            <span className="block h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
+          </div>
+
           <button
             onClick={onClose}
+            type="button"
             aria-label="Fechar"
             className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 z-10"
           >
@@ -187,9 +266,64 @@ export default function FreteModal({
           </button>
 
           <div className="p-3 sm:p-4">
-            <h2 className="text-sm sm:text-base font-bold text-gray-800 mb-2 pr-7">
-              Detalhes do Frete
-            </h2>
+            {/* Cabecalho do embarcador (quem postou): logo da empresa a
+                esquerda e tres linhas a direita — nome da pessoa, nome da
+                empresa e filial (UF · Cidade). Hierarquia visual compacta:
+                pessoa em destaque sutil, empresa em texto menor, filial em
+                rotulo discreto. Aparece apenas quando ja temos o profile. */}
+            {embarcadorProfile && (
+              <div className="mb-3 pb-3 border-b border-gray-100 flex items-center gap-3">
+                <div
+                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center"
+                  aria-hidden="true"
+                >
+                  {embarcadorProfile.companyLogoUrl ? (
+                    <img
+                      src={embarcadorProfile.companyLogoUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-500">
+                      {(embarcadorProfile.companyName || '?').charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 leading-tight">
+                  {embarcadorProfile.userName && (
+                    <p className="text-xs font-semibold text-gray-800 truncate">
+                      {embarcadorProfile.userName}
+                    </p>
+                  )}
+                  {embarcadorProfile.companyName && (
+                    <p className="text-[11px] text-gray-600 truncate">
+                      {embarcadorProfile.companyName}
+                    </p>
+                  )}
+                  {(embarcadorProfile.branchState || embarcadorProfile.branchCity) && (
+                    <p className="text-[10px] text-gray-400 truncate">
+                      <span className="text-gray-500">Filial: </span>
+                      {[embarcadorProfile.branchCity, embarcadorProfile.branchState?.toUpperCase()]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <h2 className="sr-only">Detalhes do Frete</h2>
+
+            {/* Mini-mapa da rota origem -> destino. Substitui visualmente o
+                titulo "Detalhes do Frete" (mantido apenas para leitores de
+                tela). Cada frete tem o seu — ao trocar de frete, o componente
+                refaz o fetch da rota OSRM e reenquadra. */}
+            <div className="mb-3">
+              <FreteMiniMap frete={frete} />
+            </div>
 
             {/* Origem → Destino com detalhes embutidos */}
             <div className="grid grid-cols-2 gap-2 mb-2">
@@ -203,26 +337,27 @@ export default function FreteModal({
                     📍 {frete.originDetail}
                   </p>
                 )}
-                {frete.originPinnedLat !== undefined &&
-                  frete.originPinnedLng !== undefined && (
-                    <a
-                      href={googleMapsUrl({
-                        latitude: frete.originPinnedLat,
-                        longitude: frete.originPinnedLng,
-                      })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-700 hover:text-blue-900 underline font-medium"
-                    >
-                      🗺 Abrir no Maps
-                    </a>
-                  )}
+                {frete.originPinnedLat !== undefined && frete.originPinnedLng !== undefined && (
+                  <a
+                    href={googleMapsUrl({
+                      latitude: frete.originPinnedLat,
+                      longitude: frete.originPinnedLng,
+                    })}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-700 hover:text-blue-900 underline font-medium"
+                  >
+                    🗺 Abrir no Maps
+                  </a>
+                )}
               </div>
               <div className="bg-orange-50 border border-orange-200 rounded p-2">
                 <p className="text-[10px] text-orange-700 font-semibold uppercase tracking-wide mb-0.5">
                   Destino
                 </p>
-                <p className="text-xs font-semibold text-gray-800 break-words">{frete.destination}</p>
+                <p className="text-xs font-semibold text-gray-800 break-words">
+                  {frete.destination}
+                </p>
                 {frete.destinationDetail && (
                   <p className="text-[11px] text-gray-700 mt-0.5 break-words">
                     📍 {frete.destinationDetail}
@@ -313,9 +448,7 @@ export default function FreteModal({
               <div className="bg-green-50 p-1.5 rounded border border-green-200">
                 <p className="text-[10px] text-green-700">Valor</p>
                 {isAuthenticated ? (
-                  <p className="text-green-700 font-bold text-xs">
-                    {formatCurrency(frete.value)}
-                  </p>
+                  <p className="text-green-700 font-bold text-xs">{formatCurrency(frete.value)}</p>
                 ) : (
                   <button
                     onClick={() => navigate('/login')}
@@ -334,7 +467,10 @@ export default function FreteModal({
               {frete.paymentMethods && (
                 <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
                   <p className="text-[10px] text-gray-500">Pagamento</p>
-                  <p className="text-xs text-gray-800 font-medium truncate" title={frete.paymentMethods}>
+                  <p
+                    className="text-xs text-gray-800 font-medium truncate"
+                    title={frete.paymentMethods}
+                  >
                     {frete.paymentMethods}
                   </p>
                 </div>
@@ -483,29 +619,27 @@ export default function FreteModal({
                   </button>
                 )}
 
-              {isAuthenticated &&
-                user?.userType === 'motorista' &&
-                profileComplete === true && (
-                  <button
-                    onClick={handleOpenChat}
-                    className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 flex items-center gap-1"
+              {isAuthenticated && user?.userType === 'motorista' && profileComplete === true && (
+                <button
+                  onClick={handleOpenChat}
+                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 flex items-center gap-1"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
                   >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                      />
-                    </svg>
-                    Chat
-                  </button>
-                )}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                    />
+                  </svg>
+                  Chat
+                </button>
+              )}
 
               {isAuthenticated && user?.userType === 'motorista' && checkingProfile && (
                 <button

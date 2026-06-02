@@ -15,6 +15,10 @@ export interface EmbarcadorProfile {
   totalRatings: number;
   branchState?: string | null;
   branchCity?: string | null;
+  /** URL publica do logo da empresa (`embarcadores.company_logo_url`). */
+  companyLogoUrl?: string | null;
+  /** Nome da pessoa fisica responsavel (vem de `users.name`). */
+  userName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,7 +51,7 @@ const MAX_LOGO_SIZE_BYTES = 2 * 1024 * 1024;
 export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorProfile | null> {
   const { data, error } = await supabase
     .from('embarcadores')
-    .select('*')
+    .select('*, users!inner(name)')
     .eq('id', userId)
     .maybeSingle();
 
@@ -57,6 +61,9 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
   }
 
   if (!data) return null;
+
+  // O join `users!inner(name)` traz `data.users` como objeto `{ name }`.
+  const usersJoin = (data as unknown as { users?: { name?: string } | null }).users ?? null;
 
   return {
     id: data.id,
@@ -68,6 +75,9 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
     totalRatings: data.total_ratings,
     branchState: (data as unknown as { branch_state?: string | null }).branch_state ?? null,
     branchCity: (data as unknown as { branch_city?: string | null }).branch_city ?? null,
+    companyLogoUrl:
+      (data as unknown as { company_logo_url?: string | null }).company_logo_url ?? null,
+    userName: usersJoin?.name ?? null,
     createdAt: new Date(data.created_at),
     updatedAt: new Date(data.updated_at),
   };

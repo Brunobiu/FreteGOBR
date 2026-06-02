@@ -44,7 +44,20 @@ export default function MapaToolbar({
 
   return (
     <>
-      <div className="mb-3 flex items-center gap-2 w-full">
+      {/*
+        Barra fixa logo abaixo do AppHeader (que e sticky com h-14/h-16).
+        Quando o motorista rola a lista de fretes, esse cabecalho de
+        controles (Diesel · Raio · Ver mapa) permanece visivel no topo.
+
+        Truques:
+         - `-mx-3 sm:-mx-4`: estende o background ate as bordas do <main>,
+           que tem px-3/sm:px-4. Sem isso, a barra ficaria flutuando com
+           gap nas laterais quando colada.
+         - `bg-gray-100`: mesma cor de fundo do <main>, para nao "vazar"
+           o conteudo da lista por baixo.
+         - `top-14 sm:top-16`: alinhado a altura do AppHeader.
+      */}
+      <div className="sticky top-14 sm:top-16 z-30 bg-gray-100 -mx-3 sm:-mx-4 px-3 sm:px-4 py-2 mb-3 flex items-center gap-2 w-auto border-b border-gray-200/60">
         {/* Diesel (slot do meio passa a ser primeiro) */}
         {middleSlot && <div className="flex-shrink-0">{middleSlot}</div>}
 
