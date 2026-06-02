@@ -52,7 +52,6 @@ export default function FreteModal({
     branchState: string | null;
     branchCity: string | null;
   } | null>(null);
-  const embarcadorName = embarcadorProfile?.companyName ?? '';
 
   // Animação de entrada/saída. `mounted` controla a presença no DOM
   // (delayed unmount); `visible` controla a transição CSS de
@@ -138,15 +137,6 @@ export default function FreteModal({
 
   const formatWeight = (weight: number) =>
     weight >= 1000 ? `${(weight / 1000).toFixed(2)} ton` : `${weight} kg`;
-
-  const formatDateTime = (date: Date) =>
-    new Date(date).toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
 
   const handleContratar = () => {
     if (!isAuthenticated) {
@@ -556,16 +546,6 @@ export default function FreteModal({
                 </div>
               </div>
             )}
-
-            {/* Postado por + data/hora */}
-            <div className="mb-3 text-[10px] text-gray-500 flex items-center justify-between flex-wrap gap-1">
-              {embarcadorName && (
-                <span>
-                  Postado por <span className="text-gray-700 font-medium">{embarcadorName}</span>
-                </span>
-              )}
-              <span>Frete postado em {formatDateTime(frete.createdAt)}</span>
-            </div>
 
             {/* Action Buttons */}
             <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
