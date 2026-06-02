@@ -91,6 +91,26 @@ export const DEFAULT_CLAUDE_MODEL = 'claude-3-5-sonnet-latest';
  */
 export const CLAUDE_MAX_TOKENS = 1024;
 
+// ===================== Constantes do Gemini =====================
+
+/**
+ * Endpoint base da Gemini API (v1beta). Aceita `:generateContent` por modelo;
+ * o `model` final e injetado pela Edge a partir da config.
+ */
+export const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+
+/**
+ * Modelo padrao do Gemini quando a config nao informa um. Modelo gratuito
+ * com tier amplo, suficiente para o caso de uso conversacional do painel.
+ */
+export const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
+
+/**
+ * Limite de tokens da resposta. Espelha CLAUDE_MAX_TOKENS para paridade
+ * de UX entre provedores.
+ */
+export const GEMINI_MAX_TOKENS = 1024;
+
 // ===================== ClaudeClient (funcional) =====================
 
 /**
@@ -208,6 +228,132 @@ function extractClaudeModel(data: unknown): string | null {
   return typeof model === 'string' ? model : null;
 }
 
+// ===================== GeminiClient (funcional) =====================
+
+/**
+ * Cliente funcional do Gemini (Google Generative Language API).
+ *
+ * Difere do Claude em tres pontos importantes:
+ *   1. Modelos de chat usam o endpoint `:generateContent` com a chave na
+ *      query string (`?key=...`) -- nao ha header dedicado para a API key.
+ *   2. O contrato de mensagens usa `contents: [{ role, parts: [{ text }] }]`
+ *      com `role` em `{ user, model }` (a propria Gemini chama o assistant
+ *      de "model"). Mensagens `system` do historico viram um bloco
+ *      `systemInstruction` separado, junto do contexto agregado.
+ *   3. A resposta agrega varios `candidates[].content.parts[].text`. Pegamos
+ *      o primeiro candidato e concatenamos seus parts.
+ *
+ * Em qualquer falha (chave ausente, resposta nao-OK, erro de rede ou payload
+ * inesperado) retorna erro tipado imediatamente, SEM fallback (Req 8.3).
+ */
+export class GeminiClient implements AiProviderClient {
+  public readonly id: AiProvider = 'gemini';
+
+  private readonly model: string;
+
+  constructor(model: string = DEFAULT_GEMINI_MODEL) {
+    this.model = model;
+  }
+
+  async invoke(input: AiInvokeInput, apiKey: string): Promise<AiInvokeResult> {
+    if (!apiKey) {
+      return { ok: false, error: 'missing_api_key', provider: 'gemini' };
+    }
+
+    try {
+      // Mapeia `assistant` -> `model` (papel esperado pela Gemini) e descarta
+      // `system` do historico (vai em `systemInstruction`, abaixo).
+      const contents = input.messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        }));
+
+      const url = `${GEMINI_API_BASE}/${encodeURIComponent(this.model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+      const response = await globalThis.fetch(url, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: input.context }] },
+          generationConfig: { maxOutputTokens: GEMINI_MAX_TOKENS },
+        }),
+      });
+
+      if (!response.ok) {
+        return {
+          ok: false,
+          error: 'provider_call_failed',
+          provider: 'gemini',
+          detail: `HTTP ${response.status}`,
+        };
+      }
+
+      const data: unknown = await response.json();
+      const content = extractGeminiText(data);
+      if (content === null) {
+        return {
+          ok: false,
+          error: 'provider_call_failed',
+          provider: 'gemini',
+          detail: 'unexpected_response_shape',
+        };
+      }
+
+      const model = extractGeminiModel(data) ?? this.model;
+      return { ok: true, content, model };
+    } catch (err) {
+      return {
+        ok: false,
+        error: 'provider_call_failed',
+        provider: 'gemini',
+        detail: err instanceof Error ? err.message : 'unknown_error',
+      };
+    }
+  }
+}
+
+/**
+ * Extrai o texto agregado dos `candidates[0].content.parts[].text` da
+ * resposta da Gemini. Retorna `null` quando o payload nao tem o formato
+ * esperado.
+ */
+function extractGeminiText(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const candidates = (data as { candidates?: unknown }).candidates;
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const first = candidates[0];
+  if (typeof first !== 'object' || first === null) return null;
+  const content = (first as { content?: unknown }).content;
+  if (typeof content !== 'object' || content === null) return null;
+  const parts = (content as { parts?: unknown }).parts;
+  if (!Array.isArray(parts)) return null;
+
+  const out: string[] = [];
+  for (const part of parts) {
+    if (
+      typeof part === 'object' &&
+      part !== null &&
+      typeof (part as { text?: unknown }).text === 'string'
+    ) {
+      out.push((part as { text: string }).text);
+    }
+  }
+  return out.join('');
+}
+
+/**
+ * Extrai o `modelVersion` retornado pela Gemini, quando presente.
+ */
+function extractGeminiModel(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const model = (data as { modelVersion?: unknown }).modelVersion;
+  return typeof model === 'string' ? model : null;
+}
+
 // ===================== Stubs estruturais (nao implementados) =====================
 
 /**
@@ -242,6 +388,7 @@ export function selectProviderClient(provider: AiProvider): AiProviderClient {
     case 'claude':
       return new ClaudeClient();
     case 'gemini':
+      return new GeminiClient();
     case 'grok':
     case 'llama':
       return new NotImplementedClient(provider);

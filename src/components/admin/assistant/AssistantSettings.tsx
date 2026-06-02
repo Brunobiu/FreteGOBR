@@ -36,7 +36,7 @@ import {
 /** Provedores no dominio fechado (Req 7.1) com rotulos pt-BR. */
 const PROVIDERS: ReadonlyArray<{ value: AiProvider; label: string; functional: boolean }> = [
   { value: 'claude', label: 'Claude (Anthropic)', functional: true },
-  { value: 'gemini', label: 'Gemini (Google)', functional: false },
+  { value: 'gemini', label: 'Gemini (Google)', functional: true },
   { value: 'grok', label: 'Grok (xAI)', functional: false },
   { value: 'llama', label: 'Llama (Meta)', functional: false },
 ];

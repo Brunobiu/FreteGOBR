@@ -5,9 +5,9 @@
  * Para todo AiProvider configurado como Active_Provider:
  *  - `selectProviderClient(provider)` retorna o cliente cujo `id` e igual a
  *    `provider` (Req 8.4);
- *  - o cliente de `claude` produz `{ ok: true }` (com `fetch` SIMULADO,
- *    Req 8.2);
- *  - os clientes de `gemini`/`grok`/`llama` produzem
+ *  - os clientes funcionais (`claude`, `gemini`) produzem `{ ok: true }`
+ *    (com `fetch` SIMULADO, Req 8.2);
+ *  - os clientes de `grok`/`llama` produzem
  *    `{ ok: false, error: 'provider_not_implemented' }` SEM referenciar
  *    nenhum segredo — nao chamam `fetch` e nao expoem a `apiKey` (Req 8.5).
  *
@@ -56,6 +56,33 @@ function makeClaudeResponse(): Response {
   } as unknown as Response;
 }
 
+// Resposta simulada da Google Generative Language (Gemini) generateContent
+// com candidates[0].content.parts[].text valido.
+function makeGeminiResponse(): Response {
+  return {
+    ok: true,
+    status: 200,
+    json: async () => ({
+      modelVersion: 'gemini-2.0-flash',
+      candidates: [
+        {
+          content: { parts: [{ text: 'resposta simulada do Gemini' }] },
+        },
+      ],
+    }),
+  } as unknown as Response;
+}
+
+// Despacha a resposta correta com base na URL recebida pelo fetch (a Edge
+// chama endpoints distintos para Anthropic e Gemini).
+function dispatchSimulatedFetch(input: RequestInfo | URL): Response {
+  const url = typeof input === 'string' ? input : (input as URL).toString();
+  if (url.includes('generativelanguage.googleapis.com')) {
+    return makeGeminiResponse();
+  }
+  return makeClaudeResponse();
+}
+
 // ----- Mock de fetch (hoist-safe: spy exposto em globalThis) -----
 
 let fetchSpy: ReturnType<typeof vi.fn>;
@@ -63,7 +90,7 @@ let originalFetch: typeof globalThis.fetch;
 
 beforeEach(() => {
   originalFetch = globalThis.fetch;
-  fetchSpy = vi.fn(async () => makeClaudeResponse());
+  fetchSpy = vi.fn(async (input: RequestInfo | URL) => dispatchSimulatedFetch(input));
   (globalThis as Record<string, unknown>).__fetchSpy = fetchSpy;
   globalThis.fetch = fetchSpy as unknown as typeof globalThis.fetch;
 });
@@ -85,7 +112,7 @@ describe('CP-14: Provider_Abstraction — selecao e resultado tipado', () => {
     );
   });
 
-  it('claude => { ok: true } (fetch simulado); gemini/grok/llama => provider_not_implemented sem tocar segredo', async () => {
+  it('claude/gemini => { ok: true } (fetch simulado); grok/llama => provider_not_implemented sem tocar segredo', async () => {
     await fc.assert(
       fc.asyncProperty(providerGen, async (provider) => {
         fetchSpy.mockClear();
@@ -93,14 +120,14 @@ describe('CP-14: Provider_Abstraction — selecao e resultado tipado', () => {
         const client = selectProviderClient(provider);
         const result = await client.invoke(INPUT, SECRET_API_KEY);
 
-        if (provider === 'claude') {
+        if (provider === 'claude' || provider === 'gemini') {
           // Caminho funcional: sucesso tipado com a resposta simulada.
           expect(result.ok).toBe(true);
           if (result.ok) {
             expect(typeof result.content).toBe('string');
             expect(typeof result.model).toBe('string');
           }
-          // O cliente Claude de fato usou o fetch simulado.
+          // O cliente funcional de fato usou o fetch simulado.
           expect(fetchSpy).toHaveBeenCalledTimes(1);
         } else {
           // Stubs estruturais: erro tipado de nao implementado.
