@@ -1,13 +1,13 @@
 /**
  * Security Headers - Configuração de headers de segurança HTTP
- * 
+ *
  * Estes headers protegem contra:
  * - XSS (Cross-Site Scripting)
  * - Clickjacking
  * - MIME type sniffing
  * - Protocol downgrade attacks
  * - Information leakage
- * 
+ *
  * Nota: Em produção, estes headers devem ser configurados no servidor/CDN.
  * Para Vercel, use vercel.json. Para outros, configure no servidor web.
  */
@@ -36,8 +36,12 @@ const CSP_DIRECTIVES = {
     "'self'",
     'https://*.supabase.co', // Supabase API
     'wss://*.supabase.co', // Supabase Realtime
-    'https://api.ibge.gov.br', // IBGE API
-    'https://nominatim.openstreetmap.org', // Geocoding
+    'https://api.ibge.gov.br', // IBGE API (estados/cidades)
+    'https://nominatim.openstreetmap.org', // Geocoding reverso
+    'https://router.project-osrm.org', // Rota por estrada (OSRM publico)
+    'https://api.open-meteo.com', // Temperatura no header
+    'https://brasilapi.com.br', // Consulta CNPJ
+    'https://viacep.com.br', // Consulta CEP
   ],
   'frame-src': ["'none'"],
   'object-src': ["'none'"],
@@ -124,7 +128,8 @@ export const VERCEL_HEADERS_CONFIG = {
         },
         {
           key: 'Permissions-Policy',
-          value: 'accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
+          value:
+            'accelerometer=(), camera=(), geolocation=(self), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()',
         },
         {
           key: 'Content-Security-Policy',
@@ -169,19 +174,15 @@ export function validateSecurityHeaders(headers: Headers): {
     'Strict-Transport-Security',
   ];
 
-  const recommendedHeaders = [
-    'Content-Security-Policy',
-    'Referrer-Policy',
-    'Permissions-Policy',
-  ];
+  const recommendedHeaders = ['Content-Security-Policy', 'Referrer-Policy', 'Permissions-Policy'];
 
-  requiredHeaders.forEach(header => {
+  requiredHeaders.forEach((header) => {
     if (!headers.has(header)) {
       missing.push(header);
     }
   });
 
-  recommendedHeaders.forEach(header => {
+  recommendedHeaders.forEach((header) => {
     if (!headers.has(header)) {
       warnings.push(`Header recomendado ausente: ${header}`);
     }
