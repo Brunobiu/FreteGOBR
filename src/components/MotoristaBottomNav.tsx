@@ -5,8 +5,13 @@
  *  - 4 itens (Inicio, Negociar, Chat com badge, Menu)
  *  - Botao central circular verde flutuante (megafone) sobrepondo a barra
  *  - Fixo no rodape, nao some no scroll
- *  - SEM logica de navegacao por enquanto - apenas visual
+ *
+ * Navegacao:
+ *  - "Início" sempre volta para a home (`/`). Se ja estiver na home, apenas
+ *    rola a pagina de volta ao topo.
  */
+
+import { useNavigate, useLocation } from 'react-router-dom';
 
 interface Props {
   /** Quantidade de mensagens nao lidas no chat (badge). Default 0. */
@@ -14,6 +19,18 @@ interface Props {
 }
 
 export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const goHome = () => {
+    if (location.pathname === '/') {
+      // Ja na home: garante o retorno ao topo.
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      navigate('/');
+    }
+  };
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]"
@@ -23,6 +40,7 @@ export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
         {/* 1 - Inicio (esquerda) */}
         <button
           type="button"
+          onClick={goHome}
           className="flex flex-col items-center justify-center gap-0.5 py-1 text-green-600"
           aria-label="Início"
         >
