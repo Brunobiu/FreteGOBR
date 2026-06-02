@@ -60,6 +60,8 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
+import { CORS_HEADERS, handlePreflight } from '../_shared/cors.ts';
+
 import {
   resolvePeriod,
   computeMetrics,
@@ -95,7 +97,7 @@ const META_TOKEN_SECRET_NAME = 'meta_access_token';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
 
 /** Codigos de erro estruturados retornados ao frontend (espelha getMetrics). */
@@ -628,6 +630,9 @@ function successResponse(
 // ===================== Handler =============================================
 
 serve(async (req) => {
+  const preflight = handlePreflight(req);
+  if (preflight) return preflight;
+
   if (req.method !== 'POST') {
     return json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, 405);
   }

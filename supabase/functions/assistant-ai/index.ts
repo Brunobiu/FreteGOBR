@@ -47,6 +47,8 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts';
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 
+import { CORS_HEADERS, handlePreflight } from '../_shared/cors.ts';
+
 // ===================== Dominios fechados (espelho de assistant.ts) ==========
 
 type AiProvider = 'claude' | 'gemini' | 'grok' | 'llama';
@@ -394,7 +396,7 @@ const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? '';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS },
   });
 
 interface Payload {
@@ -861,6 +863,9 @@ async function callerHasAssistantView(authHeader: string): Promise<boolean> {
 // ===================== Handler =============================================
 
 serve(async (req) => {
+  const preflight = handlePreflight(req);
+  if (preflight) return preflight;
+
   if (req.method !== 'POST') {
     return json({ error: 'Method not allowed' }, 405);
   }
