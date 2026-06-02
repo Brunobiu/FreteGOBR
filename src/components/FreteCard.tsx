@@ -72,7 +72,7 @@ export default function FreteCard({
   return (
     <div
       onClick={onClick}
-      className="bg-white border border-gray-200 rounded-lg p-3 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
+      className="bg-white border border-gray-300 rounded-md p-3 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
     >
       {/* Header: rota + (status condicional) + coração */}
       <div className="flex items-start justify-between gap-2 mb-2">
