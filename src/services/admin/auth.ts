@@ -63,6 +63,34 @@ function sleep(ms: number): Promise<void> {
   return new Promise((res) => setTimeout(res, ms));
 }
 
+/**
+ * Garante que o cliente Supabase tenha uma sessao de auth ativa antes de chamar
+ * RPCs que dependem de `auth.uid()`. Resolve o "flash de 404" do painel no
+ * reload: no F5, o supabase-js restaura a sessao do storage de forma
+ * assincrona; se a sessao admin local existe mas o cliente ainda nao hidratou,
+ * recuperamos explicitamente os tokens persistidos via `setSession`.
+ *
+ * Best-effort e idempotente: se ja houver sessao, retorna imediatamente; se a
+ * recuperacao falhar, a RPC seguinte simplesmente retornara `no_session` (mesmo
+ * comportamento de antes, sem regressao).
+ */
+async function ensureSupabaseSessionReady(session: AdminSession): Promise<void> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data.session) return; // ja hidratado
+
+    // Sem sessao no cliente, mas temos tokens admin persistidos: restaura.
+    if (session.accessToken && session.refreshToken) {
+      await supabase.auth.setSession({
+        access_token: session.accessToken,
+        refresh_token: session.refreshToken,
+      });
+    }
+  } catch {
+    // Best-effort: em falha, segue para a RPC (que tratara como no_session).
+  }
+}
+
 async function ensureMinTime<T>(startedAt: number, result: T): Promise<T> {
   const elapsed = Date.now() - startedAt;
   if (elapsed < MIN_FAIL_RESPONSE_MS) {
@@ -219,12 +247,24 @@ export async function logoutAdmin(): Promise<void> {
 /**
  * Valida sessao admin via RPC validate_admin_session.
  * Retorna roles ativos atuais (snapshot do banco).
+ *
+ * IMPORTANTE (hidratacao): em um reload (F5), o cliente Supabase precisa
+ * restaurar a sessao do storage de forma assincrona antes que a RPC
+ * (SECURITY DEFINER baseada em auth.uid()) funcione. Se chamarmos a RPC antes
+ * disso, ela volta vazia e classificariamos como `no_session` indevidamente —
+ * gerando o "flash de 404" no painel. Por isso, quando existe uma sessao admin
+ * local persistida, aguardamos o supabase.auth.getSession() resolver (e, se
+ * necessario, recuperamos o token salvo na sessao admin) ANTES da RPC.
  */
 export async function validateAdminSession(): Promise<ValidateAdminSessionResult> {
   const session = getAdminSession();
   if (!session) {
     return { isValid: false, reason: 'no_session', roles: [], hasMfa: false };
   }
+
+  // Garante que o cliente Supabase ja hidratou (ou recuperou) a sessao de auth
+  // antes de chamar a RPC. Evita o falso-negativo de hidratacao no reload.
+  await ensureSupabaseSessionReady(session);
 
   const { data, error } = await supabase.rpc('validate_admin_session');
   if (error || !data || (Array.isArray(data) && data.length === 0)) {
