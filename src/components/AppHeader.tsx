@@ -271,16 +271,21 @@ export default function AppHeader() {
                     <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
                       Olá, {displayName.split(' ').slice(0, 2).join(' ')}
                     </p>
-                    <p className="text-xs sm:text-sm font-bold text-gray-800 leading-tight truncate">
+                    <p className="text-[11px] sm:text-xs text-gray-600 leading-tight truncate">
                       {user.userType === 'embarcador'
                         ? companyName || 'Embarcador'
-                        : `Motorista${vehicleName ? ' - ' + vehicleName : ''}`}
+                        : vehicleName || 'Caminhão não cadastrado'}
                     </p>
                   </div>
                 </button>
 
                 {profileOpen && (
                   <div className="absolute left-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
+                    {user.userType === 'motorista' && (
+                      <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-1">
+                        Motorista
+                      </div>
+                    )}
                     <Link
                       to={profileLink}
                       onClick={() => setProfileOpen(false)}
@@ -316,7 +321,12 @@ export default function AppHeader() {
                       className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
                     >
                       <ShieldIcon />
-                      Planos
+                      <span className="flex-1">Planos</span>
+                      {user.userType === 'motorista' && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">
+                          FREE
+                        </span>
+                      )}
                     </Link>
                     <div className="border-t border-gray-200 my-1" />
                     <button
