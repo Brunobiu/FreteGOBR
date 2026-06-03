@@ -385,7 +385,11 @@ export default function HomePage() {
         />
       )}
 
-      <main className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4 pb-24 md:pb-4">
+      <main
+        className={`max-w-7xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${
+          isMotorista ? 'pt-1 sm:pt-2' : 'py-3 sm:py-4'
+        }`}
+      >
         {/* Header (apenas para embarcador/desktop) */}
         {!isMotorista && (
           <div className="flex items-center mb-3 gap-2 flex-wrap">
