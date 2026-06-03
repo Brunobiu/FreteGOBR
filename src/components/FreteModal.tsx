@@ -236,7 +236,7 @@ export default function FreteModal({
           onClick={(e) => e.stopPropagation()}
           className={`relative bg-white border border-gray-200 shadow-xl pointer-events-auto
             w-full md:max-w-2xl
-            h-[75vh] md:h-[75vh]
+            h-[80vh] md:h-[80vh]
             rounded-t-2xl md:rounded-lg
             flex flex-col overflow-hidden
             transform transition duration-300 ease-out
