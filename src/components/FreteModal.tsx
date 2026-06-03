@@ -236,8 +236,9 @@ export default function FreteModal({
           onClick={(e) => e.stopPropagation()}
           className={`relative bg-white border border-gray-200 shadow-xl pointer-events-auto
             w-full md:max-w-2xl
-            max-h-[90vh] md:max-h-[85vh] overflow-y-auto
+            h-[75vh] md:h-[75vh]
             rounded-t-2xl md:rounded-lg
+            flex flex-col overflow-hidden
             transform transition duration-300 ease-out
             ${
               visible
@@ -246,34 +247,31 @@ export default function FreteModal({
             }`}
         >
           {/* Handle de arrasto visual (apenas mobile, indica bottom sheet). */}
-          <div className="md:hidden flex justify-center pt-2 pb-1">
+          <div className="md:hidden flex justify-center pt-2 pb-1 shrink-0">
             <span className="block h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
           </div>
 
-          <button
-            onClick={onClose}
-            type="button"
-            aria-label="Fechar"
-            className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 z-10"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+          {/* Cabecalho fixo: perfil do embarcador + botao de fechar.
+              Permanece visivel enquanto o motorista rola o miolo. */}
+          <div className="relative shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3">
+            <button
+              onClick={onClose}
+              type="button"
+              aria-label="Fechar"
+              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 z-10"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
 
-          <div className="p-3 sm:p-4">
-            {/* Cabecalho do embarcador (quem postou): logo da empresa a
-                esquerda e tres linhas a direita — nome da pessoa, nome da
-                empresa e filial (UF · Cidade). Hierarquia visual compacta:
-                pessoa em destaque sutil, empresa em texto menor, filial em
-                rotulo discreto. Aparece apenas quando ja temos o profile. */}
-            {embarcadorProfile && (
-              <div className="mb-3 pb-3 border-b border-gray-100 flex items-center gap-3">
+            {embarcadorProfile ? (
+              <div className="flex items-center gap-3 pr-7">
                 <div
                   className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center"
                   aria-hidden="true"
@@ -314,8 +312,14 @@ export default function FreteModal({
                   )}
                 </div>
               </div>
+            ) : (
+              <div className="text-xs font-semibold text-gray-700 pr-7">Detalhes do Frete</div>
             )}
+          </div>
 
+          {/* Miolo rolavel — toda a info do frete, mapa, calculo,
+              acoes. O cabecalho acima permanece fixo. */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4">
             <h2 className="sr-only">Detalhes do Frete</h2>
 
             {/* Mini-mapa da rota origem -> destino. Substitui visualmente o
