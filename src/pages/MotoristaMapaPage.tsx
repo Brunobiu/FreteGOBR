@@ -62,7 +62,7 @@ export default function MotoristaMapaPage() {
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100">
+      <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-gray-100">
         <MapaTopBar onBack={handleBack} />
         <MapaSkeleton />
       </div>
@@ -78,7 +78,7 @@ export default function MotoristaMapaPage() {
   }
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-gray-100">
+    <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-gray-100">
       <MapaTopBar onBack={handleBack} />
       <Suspense fallback={<MapaSkeleton />}>
         <MotoristaMapaFullscreen className="flex-1" />

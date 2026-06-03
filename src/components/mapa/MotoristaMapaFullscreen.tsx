@@ -443,7 +443,10 @@ export default function MotoristaMapaFullscreen({ className = '' }: MotoristaMap
 
       {/* Indicação de localização — canto inferior esquerdo */}
       {point && (
-        <div className="absolute bottom-2 left-2 z-[400] px-2 py-1 bg-white/90 backdrop-blur rounded-md shadow-sm text-[11px] text-gray-700">
+        <div
+          className="absolute left-2 z-[400] px-2 py-1 bg-white/90 backdrop-blur rounded-md shadow-sm text-[11px] text-gray-700"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+        >
           📍 {effectiveLoc.source === 'override' ? `Local: ${effectiveLoc.address ?? '—'}` : 'GPS'}
         </div>
       )}
@@ -480,7 +483,10 @@ export default function MotoristaMapaFullscreen({ className = '' }: MotoristaMap
 
       {/* Banner efêmero "Nenhum frete no raio" */}
       {noFretesBannerVisible && (
-        <div className="absolute bottom-16 left-2 right-2 z-[400] flex justify-center pointer-events-none">
+        <div
+          className="absolute left-2 right-2 z-[400] flex justify-center pointer-events-none"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4rem)' }}
+        >
           <div className="pointer-events-auto bg-yellow-50 border border-yellow-200 rounded-md shadow-md px-3 py-1.5 text-[11px] text-yellow-900 max-w-md text-center">
             Nenhum frete dentro do raio atual. Aumente o raio para ver mais ofertas.
           </div>
@@ -525,7 +531,10 @@ function FreteSelectedCard({
       : null;
 
   return (
-    <div className="absolute bottom-2 left-2 right-2 z-[400] flex justify-center pointer-events-none">
+    <div
+      className="absolute left-2 right-2 z-[400] flex justify-center pointer-events-none"
+      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.5rem)' }}
+    >
       <div className="pointer-events-auto bg-white border border-gray-300 rounded-lg shadow-lg px-3 py-2 max-w-md w-full text-[11px]">
         <div className="flex items-start justify-between gap-2 mb-1">
           <p className="font-semibold text-gray-800 truncate">
