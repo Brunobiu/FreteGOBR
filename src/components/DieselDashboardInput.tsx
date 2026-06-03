@@ -110,7 +110,7 @@ export default function DieselDashboardInput({
     // Garante o estado expandido ao montar (alguns browsers/StrictMode
     // podem reordenar; idempotente).
     setHintExpanded(true);
-    const t = window.setTimeout(() => setHintExpanded(false), 4000);
+    const t = window.setTimeout(() => setHintExpanded(false), 10000);
     return () => window.clearTimeout(t);
     // Sem dependencias: dispara apenas no mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,11 +122,17 @@ export default function DieselDashboardInput({
   };
 
   return (
-    <div className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 shadow-sm">
+    <div
+      className={`relative inline-flex items-center gap-1 bg-white rounded px-2 py-0.5 transition-shadow duration-700 ${
+        hintExpanded
+          ? 'border border-blue-300 shadow-[0_0_0_3px_rgba(59,130,246,0.18)] diesel-hint-border'
+          : 'border border-gray-200 shadow-sm'
+      }`}
+    >
       <span
-        className={`text-[10px] font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity,color] duration-500 ease-in-out ${
+        className={`text-[10px] font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity,color] duration-700 ease-in-out ${
           hintExpanded
-            ? 'max-w-[200px] opacity-100 text-blue-600 font-semibold'
+            ? 'max-w-[220px] opacity-100 text-blue-700 font-semibold'
             : 'max-w-[44px] opacity-100 text-gray-500'
         }`}
         aria-live="polite"
