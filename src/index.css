@@ -446,62 +446,25 @@ html[data-theme='dark'] .trip-suggest-btn {
 }
 
 
-/* Chamariz do input do diesel: borda luminosa que circula lentamente
- * ao redor do componente enquanto a mensagem "Adicione o valor do
- * diesel" esta visivel. Sutil, sem chamar mais atencao do que o
- * texto principal. */
+/* Chamariz do input do diesel: glow pulsante azul ao redor do
+ * componente enquanto a mensagem "Adicione o valor do diesel" esta
+ * visivel. Sem giro de gradiente — apenas a sombra cresce e
+ * diminui em loop suave. */
 @keyframes diesel-border-glow {
   0% {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18),
-                0 0 8px 0 rgba(59, 130, 246, 0.35);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18),
+                0 0 6px 0 rgba(59, 130, 246, 0.30);
   }
   50% {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32),
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.35),
                 0 0 14px 2px rgba(59, 130, 246, 0.55);
   }
   100% {
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18),
-                0 0 8px 0 rgba(59, 130, 246, 0.35);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18),
+                0 0 6px 0 rgba(59, 130, 246, 0.30);
   }
 }
 
 .diesel-hint-border {
-  animation: diesel-border-glow 2.4s ease-in-out infinite;
-}
-
-/* Faixa de luz girando ao redor do input (efeito mais sofisticado).
- * Roda no ::before com mask pra pintar so a borda. */
-.diesel-hint-border::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: 0.4rem;
-  padding: 2px;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    transparent 270deg,
-    rgba(59, 130, 246, 0) 270deg,
-    rgba(59, 130, 246, 0.9) 320deg,
-    rgba(59, 130, 246, 0) 360deg
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-          mask-composite: exclude;
-  pointer-events: none;
-  animation: diesel-spin 2.4s linear infinite;
-  z-index: 0;
-}
-
-@keyframes diesel-spin {
-  from { transform: rotate(0deg); }
-  to   { transform: rotate(360deg); }
-}
-
-/* O conteudo (span, input, button) precisa ficar acima do ::before. */
-.diesel-hint-border > * {
-  position: relative;
-  z-index: 1;
+  animation: diesel-border-glow 2s ease-in-out infinite;
 }
