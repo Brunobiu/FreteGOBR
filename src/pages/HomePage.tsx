@@ -55,6 +55,12 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedFrete, setSelectedFrete] = useState<Frete | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // Pilha de fretes em visualizacao. Cada vez que o motorista entra
+  // num "Frete e retorno", o frete original eh empilhado e o novo
+  // vira o `selectedFrete`. Ao fechar o modal, fazemos pop: se ha
+  // alguem na pilha, volta pro frete anterior; senao, fecha de vez.
+  // Isso preserva o contexto de navegacao por retornos encadeados.
+  const [, setFreteStack] = useState<Frete[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const listTopRef = useRef<HTMLDivElement>(null);
 
@@ -580,23 +586,40 @@ export default function HomePage() {
         frete={selectedFrete}
         isOpen={isModalOpen}
         onClose={() => {
-          setIsModalOpen(false);
-          setSelectedFrete(null);
+          // Se o motorista chegou aqui via "Frete e retorno", volta
+          // pro frete anterior em vez de fechar de vez. Stack vazia
+          // = fecha tudo.
+          setFreteStack((prev) => {
+            if (prev.length > 0) {
+              const restoreFrete = prev[prev.length - 1];
+              const next = prev.slice(0, -1);
+              // Aguarda animacao de fade do modal atual antes de
+              // restaurar o anterior, evita flicker.
+              requestAnimationFrame(() => {
+                setSelectedFrete(restoreFrete);
+                setIsModalOpen(true);
+              });
+              return next;
+            }
+            // Stack vazia: fecha de vez.
+            setIsModalOpen(false);
+            setSelectedFrete(null);
+            return prev;
+          });
         }}
         motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
         onSelectFreteRetorno={
           isMotorista
             ? (novoFrete) => {
-                // Fecha modal atual e abre detalhe do novo frete escolhido
-                // como retorno. Aguarda 1 frame pra animacao de fechar
-                // terminar antes de abrir o proximo.
+                // Empilha o frete atual antes de abrir o retorno —
+                // assim o motorista volta pra ele ao fechar.
+                setFreteStack((prev) => (selectedFrete ? [...prev, selectedFrete] : prev));
                 setIsModalOpen(false);
                 setSelectedFrete(null);
                 requestAnimationFrame(() => {
                   setSelectedFrete(novoFrete);
                   setIsModalOpen(true);
                 });
-                // Incrementa views silenciosamente.
                 incrementFreteViews(novoFrete.id).catch(() => {
                   /* silencioso */
                 });

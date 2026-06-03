@@ -157,8 +157,9 @@ export default function FreteRetornoModal({
           onClick={(e) => e.stopPropagation()}
           className={`relative bg-white border border-gray-200 shadow-xl pointer-events-auto
             w-full md:max-w-2xl
-            max-h-[90vh] md:max-h-[85vh] overflow-y-auto
+            h-[80vh] md:h-[80vh]
             rounded-t-2xl md:rounded-lg
+            flex flex-col overflow-hidden
             transform transition duration-300 ease-out
             ${
               visible
@@ -167,12 +168,12 @@ export default function FreteRetornoModal({
             }`}
         >
           {/* Handle de arrasto (mobile) */}
-          <div className="md:hidden flex justify-center pt-2 pb-1">
+          <div className="md:hidden flex justify-center pt-2 pb-1 shrink-0">
             <span className="block h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
           </div>
 
-          {/* Header */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 flex items-start gap-2">
+          {/* Header — fixo */}
+          <div className="shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-2 flex items-start gap-2">
             <div className="flex-1 min-w-0">
               <h2 className="text-sm sm:text-base font-semibold text-gray-800 leading-tight">
                 Fretes disponíveis no destino{' '}
@@ -199,8 +200,8 @@ export default function FreteRetornoModal({
             </button>
           </div>
 
-          {/* Toggle de raio */}
-          <div className="px-3 sm:px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-wrap">
+          {/* Toggle de raio — fixo */}
+          <div className="shrink-0 px-3 sm:px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] text-gray-500">Raio:</span>
             {[50, 100, 200, 500].map((r) => (
               <button
@@ -218,8 +219,8 @@ export default function FreteRetornoModal({
             ))}
           </div>
 
-          {/* Conteúdo */}
-          <div className="p-3 sm:p-4">
+          {/* Conteúdo rolável — altura restante */}
+          <div className="flex-1 overflow-y-auto p-3 sm:p-4">
             {!validDest ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800">
                 Destino sem coordenadas — não é possível buscar retornos.
@@ -261,7 +262,11 @@ export default function FreteRetornoModal({
             ) : (
               <div className="space-y-2">
                 {visibleFretes.map((f) => {
-                  const distOrigem =
+                  // Distancia do destino atual ate a origem do frete
+                  // de retorno. Eh a unica km que faz sentido aqui —
+                  // mostra ao motorista quao longe o retorno esta da
+                  // posicao final dele apos a entrega.
+                  const distDestinoAtual =
                     Number.isFinite(f.originLocation.latitude) && validDest
                       ? haversineDistanceKm(dest, f.originLocation)
                       : null;
@@ -270,26 +275,34 @@ export default function FreteRetornoModal({
                       key={f.id}
                       className="border border-gray-200 rounded-md p-2.5 bg-white hover:border-purple-300 transition-colors"
                     >
+                      {/* Linha 1: Origem → Destino (km do destino atual) +
+                          valor a direita. Mesmo formato visual do
+                          FreteCard padrao do feed. */}
                       <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="text-xs font-semibold text-gray-800 truncate">
+                        <p className="text-xs font-semibold text-gray-800 leading-tight flex-1 min-w-0 break-words">
                           {f.origin} → {f.destination}
+                          {distDestinoAtual !== null && (
+                            <span className="font-normal text-gray-500">
+                              {' '}
+                              ({formatKm(distDestinoAtual)} km)
+                            </span>
+                          )}
                         </p>
                         <span className="text-xs font-bold text-green-700 shrink-0">
                           {formatBRL(f.value)}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-2 text-[11px] text-gray-500 flex-wrap">
-                          {f.distanceKm && (
-                            <span>Rota: {f.distanceKm.toLocaleString('pt-BR')} km</span>
-                          )}
-                          {distOrigem !== null && (
-                            <span>{formatKm(distOrigem)} km do destino atual</span>
-                          )}
-                          {f.product && (
-                            <span className="text-gray-700 font-medium">{f.product}</span>
-                          )}
-                        </div>
+
+                      {/* Linha 2: Produto colado embaixo, mesmo padrao
+                          do FreteCard. */}
+                      {f.product && (
+                        <p className="text-[11px] text-gray-700 mb-1.5">
+                          <span className="text-gray-400">Produto:</span>{' '}
+                          <span className="font-medium">{f.product}</span>
+                        </p>
+                      )}
+
+                      <div className="flex items-center justify-end">
                         <button
                           type="button"
                           onClick={() => onSelectRetorno(f)}
