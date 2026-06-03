@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { listActiveCommodities, type CommodityCategory } from '../services/commodities';
 
 interface CommoditiesCarouselProps {
@@ -19,6 +19,14 @@ interface CommoditiesCarouselProps {
  *
  * Sem auto-slide; o usuario eh quem controla. Reflete dinamicamente as
  * categorias gerenciadas no painel admin.
+ *
+ * Comportamento de selecao (Migration 050 / filtro do motorista):
+ *  - Ao clicar em uma categoria, o item recebe destaque (anel verde + sombra
+ *    + leve scale) e o carrossel desliza suavemente pra trazer o selecionado
+ *    pro inicio da viewport — assim o motorista nao "perde" o item escolhido
+ *    quando ele estava la no fim da lista.
+ *  - Clicar de novo no mesmo item desmarca (gerenciado pelo pai via
+ *    `selectedSlug`).
  */
 export default function CommoditiesCarousel({
   selectedSlug,
@@ -27,6 +35,10 @@ export default function CommoditiesCarousel({
 }: CommoditiesCarouselProps) {
   const [items, setItems] = useState<CommodityCategory[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Refs para auto-scroll: o container e cada botao indexado pelo slug.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +57,29 @@ export default function CommoditiesCarousel({
       cancelled = true;
     };
   }, []);
+
+  // Quando `selectedSlug` muda, traz o item escolhido pro inicio da viewport
+  // do carrossel com scroll suave. Se nao tem selecao, volta pro inicio.
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    if (!selectedSlug) {
+      container.scrollTo({ left: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const target = itemRefs.current.get(selectedSlug);
+    if (!target) return;
+
+    // Calcula posicao do item dentro do container e desloca pra que ele
+    // fique encostado na esquerda (com pequeno padding).
+    const containerLeft = container.getBoundingClientRect().left;
+    const targetLeft = target.getBoundingClientRect().left;
+    const delta = targetLeft - containerLeft - 8; // 8px de respiro
+
+    container.scrollBy({ left: delta, behavior: 'smooth' });
+  }, [selectedSlug, items]);
 
   // Skeleton enquanto carrega
   if (loading) {
@@ -71,7 +106,8 @@ export default function CommoditiesCarousel({
       {title && <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">{title}</h2>}
 
       <div
-        className="flex gap-2 overflow-x-auto pb-1 sm:-mx-4 sm:px-4 pr-8 sm:pr-12 snap-x scrollbar-hide"
+        ref={scrollRef}
+        className="flex gap-2 overflow-x-auto pb-1 sm:-mx-4 sm:px-4 pr-8 sm:pr-12 snap-x scrollbar-hide scroll-smooth"
         role="listbox"
         aria-label="Categorias de commodities"
       >
@@ -81,18 +117,24 @@ export default function CommoditiesCarousel({
             <button
               key={c.id}
               type="button"
+              ref={(el) => {
+                if (el) itemRefs.current.set(c.slug, el);
+                else itemRefs.current.delete(c.slug);
+              }}
               onClick={() => onSelect?.(c)}
               role="option"
               aria-selected={isSelected}
-              className="flex flex-col items-center gap-0.5 shrink-0 snap-start group focus:outline-none"
-              title={c.name}
+              className={`flex flex-col items-center gap-0.5 shrink-0 snap-start group focus:outline-none transition-transform ${
+                isSelected ? 'scale-105' : ''
+              }`}
+              title={isSelected ? `${c.name} (selecionado, clique para limpar)` : c.name}
             >
               <div
-                className={`w-12 h-12 sm:w-11 sm:h-11 rounded-xl bg-white shadow-sm flex items-center justify-center overflow-hidden transition-all
+                className={`w-12 h-12 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center overflow-hidden transition-all
                   ${
                     isSelected
-                      ? 'ring-2 ring-green-500 border border-green-500'
-                      : 'border border-gray-200 group-hover:border-gray-300 group-hover:shadow-md'
+                      ? 'ring-2 ring-green-500 ring-offset-1 ring-offset-gray-100 border border-green-600 shadow-md shadow-green-500/30 bg-green-50'
+                      : 'border border-gray-200 bg-white shadow-sm group-hover:border-gray-300 group-hover:shadow-md'
                   }`}
               >
                 {c.iconUrl ? (
@@ -112,8 +154,8 @@ export default function CommoditiesCarousel({
                 )}
               </div>
               <span
-                className={`text-[10px] sm:text-[9px] font-medium text-center w-12 sm:w-11 truncate leading-tight
-                  ${isSelected ? 'text-green-700' : 'text-gray-700'}`}
+                className={`text-[10px] sm:text-[9px] font-medium text-center w-12 sm:w-11 truncate leading-tight transition-colors
+                  ${isSelected ? 'text-green-700 font-semibold' : 'text-gray-700'}`}
               >
                 {c.name}
               </span>
@@ -121,6 +163,30 @@ export default function CommoditiesCarousel({
           );
         })}
       </div>
+
+      {/* Aviso visivel + acessivel quando ha selecao. Posicionado fora da
+          tira pra nao quebrar o scroll-snap. */}
+      {selectedSlug && (
+        <div className="mt-1 px-1 flex items-center gap-2 text-[11px] text-green-700">
+          <span className="inline-flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            Mostrando apenas{' '}
+            <strong className="font-semibold">
+              {items.find((i) => i.slug === selectedSlug)?.name ?? '—'}
+            </strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const found = items.find((i) => i.slug === selectedSlug);
+              if (found) onSelect?.(found); // toggle off pelo pai
+            }}
+            className="ml-auto px-2 py-0.5 text-[10px] text-green-700 hover:text-green-800 hover:underline"
+          >
+            limpar filtro
+          </button>
+        </div>
+      )}
     </div>
   );
 }

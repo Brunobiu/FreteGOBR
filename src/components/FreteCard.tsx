@@ -74,10 +74,19 @@ export default function FreteCard({
       onClick={onClick}
       className="bg-white border border-gray-300 rounded-md p-3 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
     >
-      {/* Header: rota + (status condicional) + coração */}
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold text-gray-800 truncate flex-1">
+      {/* Header: rota com km inline + (status) + coracao.
+          Compactado: o "Tipo de caminhao" saiu daqui pra liberar espaco
+          vertical no card do motorista. A info continua disponivel ao
+          abrir o detalhe (FreteModal). */}
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <h3 className="text-sm font-semibold text-gray-800 leading-tight flex-1 min-w-0 break-words">
           {frete.origin} → {frete.destination}
+          {frete.distanceKm ? (
+            <span className="font-normal text-gray-500">
+              {' '}
+              ({frete.distanceKm.toLocaleString('pt-BR')} km)
+            </span>
+          ) : null}
         </h3>
         <div className="flex items-center gap-1 shrink-0">
           {!hideStatus && (
@@ -100,25 +109,15 @@ export default function FreteCard({
         </div>
       </div>
 
-      {/* Produto (linha própria) + Tipo de carreta com km à direita */}
-      <div className="space-y-1 mb-2">
-        {frete.product && (
-          <p className="text-xs text-gray-700">
-            <span className="text-gray-400">Produto:</span>{' '}
-            <span className="font-medium">{frete.product}</span>
-          </p>
-        )}
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] text-gray-500 truncate flex-1" title={frete.vehicleType}>
-            {frete.vehicleType}
-          </p>
-          {frete.distanceKm ? (
-            <span className="text-[11px] text-gray-500 shrink-0">
-              {frete.distanceKm.toLocaleString('pt-BR')} km
-            </span>
-          ) : null}
-        </div>
-      </div>
+      {/* Produto — colado embaixo da rota. Sem o tipo de caminhao
+          (que estava antes nesta linha) o card encosta direto na linha
+          do valor, ficando mais compacto. */}
+      {frete.product && (
+        <p className="text-xs text-gray-700 mb-2">
+          <span className="text-gray-400">Produto:</span>{' '}
+          <span className="font-medium">{frete.product}</span>
+        </p>
+      )}
 
       {/* Linha de baixo: valor à esquerda, "Postado em DD/MM HH:MM" à direita */}
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">

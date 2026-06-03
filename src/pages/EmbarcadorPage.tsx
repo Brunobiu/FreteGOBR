@@ -132,6 +132,7 @@ export default function EmbarcadorPage() {
       destinationLocation: data.destinationLocation,
       cargoType: data.cargoType,
       product: data.product,
+      productSlug: data.productSlug as string | null | undefined,
       cargoSpecies: data.cargoSpecies,
       vehicleType: data.vehicleType,
       weight: data.weight,
@@ -338,28 +339,62 @@ export default function EmbarcadorPage() {
                   }}
                 />
                 {frete.status === 'ativo' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteFrete(frete.id);
-                    }}
-                    title="Excluir"
-                    className="absolute top-2 right-2 p-1 bg-red-500/90 hover:bg-red-600 rounded text-white"
-                  >
-                    <svg
-                      className="w-3.5 h-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (
+                          confirm(
+                            'Tem certeza que deseja encerrar este frete? Ele sairá da listagem dos motoristas.'
+                          )
+                        ) {
+                          handleToggleStatus(frete);
+                        }
+                      }}
+                      title="Encerrar"
+                      aria-label="Encerrar frete"
+                      className="absolute top-2 right-10 p-1 bg-orange-500/90 hover:bg-orange-600 rounded text-white"
                     >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                      />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="9"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <line x1="6" y1="6" x2="18" y2="18" strokeWidth={2} strokeLinecap="round" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteFrete(frete.id);
+                      }}
+                      title="Excluir"
+                      className="absolute top-2 right-2 p-1 bg-red-500/90 hover:bg-red-600 rounded text-white"
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
+                      </svg>
+                    </button>
+                  </>
                 )}
               </div>
             ))}

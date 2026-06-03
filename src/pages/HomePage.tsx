@@ -13,6 +13,7 @@ import MotoristaBottomNav from '../components/MotoristaBottomNav';
 import FreteCard from '../components/FreteCard';
 import FreteModal from '../components/FreteModal';
 import FreteFiltersComponent from '../components/FreteFilters';
+import RadiusSelector from '../components/RadiusSelector';
 import FreteTable from '../components/FreteTable';
 import ViewToggle from '../components/ViewToggle';
 import DieselDashboardInput from '../components/DieselDashboardInput';
@@ -187,25 +188,37 @@ export default function HomePage() {
     motoristaCalc !== null &&
     (motoristaCalc.kmPerLiter === null || motoristaCalc.dieselPrice === null);
 
-  const loadFretes = useCallback(async (filters: FreteFilters) => {
+  // Categoria de commodity selecionada pelo motorista no carrossel.
+  // Quando preenchida, os fretes sao re-fetched com filtro `productSlug`
+  // (Migration 050). Toggle: clicar de novo na mesma desmarca.
+  const [selectedCommoditySlug, setSelectedCommoditySlug] = useState<string | null>(null);
+  const [selectedCommodityName, setSelectedCommodityName] = useState<string | null>(null);
+
+  const handleCommoditySelect = useCallback((commodity: { slug: string; name: string }) => {
+    setSelectedCommoditySlug((prev) => (prev === commodity.slug ? null : commodity.slug));
+    setSelectedCommodityName((prev) => (prev === commodity.name ? null : commodity.name));
+  }, []);
+
+  const loadFretes = useCallback(async (filters: FreteFilters, options?: { silent?: boolean }) => {
+    const silent = options?.silent === true;
     try {
-      setIsLoading(true);
+      if (!silent) setIsLoading(true);
       setError(null);
       const data = await getActiveFretes(filters);
       setFretes(data);
-      setCurrentPage(1);
+      if (!silent) setCurrentPage(1);
     } catch (err) {
       const msg = err instanceof Error ? err.message : '';
       // Erros de conexão/rede: mostrar mensagem amigável
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('lock')) {
         console.warn('[HOME] Erro de conexão com Supabase:', msg);
-        setFretes([]);
+        if (!silent) setFretes([]);
         setError(null); // Não mostrar erro, só lista vazia
-      } else {
+      } else if (!silent) {
         setError('Erro ao carregar fretes. Tente novamente.');
       }
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, []);
 
@@ -213,23 +226,81 @@ export default function HomePage() {
     // Motorista bloqueado (trial expirado): NÃO dispara o fetch do feed.
     // A TrialExpiredPage é renderizada no lugar do feed (Req 5.6).
     if (isMotoristaBloqueado) return;
-    loadFretes({});
+    loadFretes({ productSlug: selectedCommoditySlug ?? undefined });
+
+    // Realtime com:
+    //  1) Refetch silencioso (sem `setIsLoading(true)`) — evita o blink
+    //     do "Carregando..." na tela do motorista a cada save de outro
+    //     embarcador. Considerando que pode haver 500 embarcadores
+    //     atualizando, o blink original tornava a UI inutilizavel.
+    //  2) Debounce de 500ms — agrega rajadas de eventos num unico
+    //     refetch. Se chegarem 30 INSERT/UPDATE em 1s, fazemos so 1
+    //     fetch ao final dos 500ms, em vez de 30.
+    //  3) Filtro de relevancia — so dispara refetch quando o evento
+    //     toca um frete que importa pra esse motorista:
+    //      - status do registro novo OU antigo eh 'ativo' (motorista
+    //        nao se importa com fretes encerrados/cancelados);
+    //      - se ele esta com filtro de categoria selecionado, so
+    //        refetch quando o product_slug do registro casa.
+    type FretePayload = {
+      eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+      new?: { status?: string; product_slug?: string | null } | null;
+      old?: { status?: string; product_slug?: string | null } | null;
+    };
+
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const scheduleSilentRefetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        loadFretes(
+          {
+            ...currentFiltersRef.current,
+            productSlug: selectedCommoditySlug ?? undefined,
+          },
+          { silent: true }
+        );
+      }, 500);
+    };
+
+    const isRelevant = (payload: FretePayload): boolean => {
+      const newRow = payload.new ?? null;
+      const oldRow = payload.old ?? null;
+      const newActive = newRow?.status === 'ativo';
+      const oldActive = oldRow?.status === 'ativo';
+
+      // Se nem o "antes" nem o "depois" eh ativo, ignora.
+      if (!newActive && !oldActive) return false;
+
+      // Se o motorista escolheu uma categoria, so importa quando o
+      // frete tocado tem (ou tinha) esse slug.
+      if (selectedCommoditySlug) {
+        const newSlug = newRow?.product_slug ?? null;
+        const oldSlug = oldRow?.product_slug ?? null;
+        if (newSlug !== selectedCommoditySlug && oldSlug !== selectedCommoditySlug) {
+          return false;
+        }
+      }
+      return true;
+    };
+
     const channel = supabase
       .channel('fretes-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fretes' }, () => {
-        loadFretes(currentFiltersRef.current);
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'fretes' }, (payload) => {
+        if (isRelevant(payload as unknown as FretePayload)) scheduleSilentRefetch();
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fretes' }, () => {
-        loadFretes(currentFiltersRef.current);
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'fretes' }, (payload) => {
+        if (isRelevant(payload as unknown as FretePayload)) scheduleSilentRefetch();
       })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'fretes' }, () => {
-        loadFretes(currentFiltersRef.current);
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'fretes' }, (payload) => {
+        if (isRelevant(payload as unknown as FretePayload)) scheduleSilentRefetch();
       })
       .subscribe();
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
       supabase.removeChannel(channel);
     };
-  }, [loadFretes, isMotoristaBloqueado]);
+  }, [loadFretes, isMotoristaBloqueado, selectedCommoditySlug]);
 
   // Abre modal de um frete específico se o assistente IA tiver pedido.
   useEffect(() => {
@@ -247,9 +318,9 @@ export default function HomePage() {
   const handleFilterChange = useCallback(
     (filters: FreteFilters) => {
       currentFiltersRef.current = filters;
-      loadFretes(filters);
+      loadFretes({ ...filters, productSlug: selectedCommoditySlug ?? undefined });
     },
-    [loadFretes]
+    [loadFretes, selectedCommoditySlug]
   );
 
   const handleFreteClick = async (frete: Frete) => {
@@ -379,7 +450,10 @@ export default function HomePage() {
             <AnunciosCarousel />
 
             {/* Carrossel de categorias de commodities (gerenciado pelo admin) */}
-            <CommoditiesCarousel />
+            <CommoditiesCarousel
+              selectedSlug={selectedCommoditySlug}
+              onSelect={handleCommoditySelect}
+            />
 
             {/* Header do motorista: Fretes Disponiveis + Filtro */}
             <div className="flex items-center mb-3 gap-2 flex-wrap">
@@ -387,7 +461,8 @@ export default function HomePage() {
                 Fretes Disponíveis
               </h1>
               <span className="text-xs text-gray-500">({visibleFretes.length})</span>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
+                <RadiusSelector radiusKm={radiusKm} onRadiusChange={handleRadiusChange} compact />
                 <FreteFiltersComponent
                   onFilterChange={handleFilterChange}
                   totalResults={visibleFretes.length}
@@ -428,12 +503,32 @@ export default function HomePage() {
           </div>
         ) : visibleFretes.length === 0 ? (
           <div className="bg-white border border-gray-200 rounded-lg p-12 text-center shadow-sm">
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">Nenhum frete disponível</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">
+              {isMotorista && selectedCommodityName
+                ? `Sem cargas de ${selectedCommodityName} no momento`
+                : 'Nenhum frete disponível'}
+            </h3>
             <p className="text-gray-500">
-              {isMotorista && motoristaPoint
-                ? 'Nenhum frete encontrado nesse raio. Tente aumentar para 200 ou 500 km.'
-                : 'Novos fretes aparecerão aqui quando forem publicados.'}
+              {isMotorista && selectedCommodityName && motoristaPoint
+                ? `Não temos cargas de ${selectedCommodityName} num raio de ${radiusKm} km. Tente aumentar o raio acima ou escolher outra categoria.`
+                : isMotorista && selectedCommodityName
+                  ? `Não temos cargas de ${selectedCommodityName} disponíveis agora. Volte mais tarde ou escolha outra categoria.`
+                  : isMotorista && motoristaPoint
+                    ? `Nenhum frete encontrado num raio de ${radiusKm} km. Tente aumentar o raio.`
+                    : 'Novos fretes aparecerão aqui quando forem publicados.'}
             </p>
+            {isMotorista && selectedCommoditySlug && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCommoditySlug(null);
+                  setSelectedCommodityName(null);
+                }}
+                className="mt-4 inline-flex items-center gap-1 text-sm text-green-700 hover:text-green-800 font-medium underline"
+              >
+                Limpar filtro de categoria
+              </button>
+            )}
           </div>
         ) : effectiveView === 'table' ? (
           <FreteTable fretes={visibleFretes} onFreteClick={handleFreteClick} showActions={false} />
@@ -489,10 +584,29 @@ export default function HomePage() {
           setSelectedFrete(null);
         }}
         motoristaCalc={isMotorista && motoristaCalc ? motoristaCalc : undefined}
+        onSelectFreteRetorno={
+          isMotorista
+            ? (novoFrete) => {
+                // Fecha modal atual e abre detalhe do novo frete escolhido
+                // como retorno. Aguarda 1 frame pra animacao de fechar
+                // terminar antes de abrir o proximo.
+                setIsModalOpen(false);
+                setSelectedFrete(null);
+                requestAnimationFrame(() => {
+                  setSelectedFrete(novoFrete);
+                  setIsModalOpen(true);
+                });
+                // Incrementa views silenciosamente.
+                incrementFreteViews(novoFrete.id).catch(() => {
+                  /* silencioso */
+                });
+              }
+            : undefined
+        }
       />
 
       {/* Barra inferior de navegacao - apenas motorista */}
-      {isMotorista && <MotoristaBottomNav chatBadge={0} />}
+      {isMotorista && <MotoristaBottomNav />}
 
       {/* FAB Pergunte a Iara - desativado por enquanto, sera reativado em versao futura
       {isMotorista && (

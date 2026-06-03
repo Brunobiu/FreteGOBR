@@ -21,6 +21,9 @@ export interface MotoristaProfile {
   vehicleType: string;
   vehiclePlate?: string;
   vehicleModel?: string;
+  /** Tipo de carroceria do motorista (Migration 051). Slug canonico de
+   *  `src/data/bodyTypes.ts`. Usado para futuro filtro de fretes. */
+  bodyType?: string;
   /** Coluna legado preservada para retrocompatibilidade. */
   vehicleYear?: number;
   // === Campos novos (Migration 017) ============================================
@@ -29,6 +32,10 @@ export interface MotoristaProfile {
   kmPerLiter?: number;
   trailerAxles?: number;
   cargoCapacityTon?: number;
+  /** Peso Bruto Total (PBT) do caminhao em toneladas (Migration 052). */
+  grossWeightTon?: number;
+  /** Tara (peso vazio) do caminhao em toneladas (Migration 052). */
+  tareWeightTon?: number;
   dieselPrice?: number;
   isOwner?: boolean;
   // === Campos novos (Migration 018) ============================================
@@ -58,6 +65,7 @@ export interface UpdateMotoristaProfileData {
   vehicleType?: string;
   vehiclePlate?: string;
   vehicleModel?: string;
+  bodyType?: string;
   vehicleYear?: number;
   // === Campos novos (Migration 017) ===========================================
   vehicleYearManufacture?: number;
@@ -65,6 +73,8 @@ export interface UpdateMotoristaProfileData {
   kmPerLiter?: number;
   trailerAxles?: number;
   cargoCapacityTon?: number;
+  grossWeightTon?: number;
+  tareWeightTon?: number;
   dieselPrice?: number;
   isOwner?: boolean;
   // === Campos novos (Migration 018) ===========================================
@@ -130,6 +140,7 @@ export async function getMotoristaProfile(userId: string): Promise<MotoristaProf
     vehicleType: data.vehicle_type,
     vehiclePlate: data.vehicle_plate ?? undefined,
     vehicleModel: data.vehicle_model ?? undefined,
+    bodyType: data.body_type ?? undefined,
     vehicleYear: data.vehicle_year ?? undefined,
     vehicleYearManufacture: data.vehicle_year_manufacture ?? undefined,
     vehicleYearModel: data.vehicle_year_model ?? undefined,
@@ -141,6 +152,14 @@ export async function getMotoristaProfile(userId: string): Promise<MotoristaProf
     cargoCapacityTon:
       data.cargo_capacity_ton !== null && data.cargo_capacity_ton !== undefined
         ? Number(data.cargo_capacity_ton)
+        : undefined,
+    grossWeightTon:
+      data.gross_weight_ton !== null && data.gross_weight_ton !== undefined
+        ? Number(data.gross_weight_ton)
+        : undefined,
+    tareWeightTon:
+      data.tare_weight_ton !== null && data.tare_weight_ton !== undefined
+        ? Number(data.tare_weight_ton)
         : undefined,
     dieselPrice:
       data.diesel_price !== null && data.diesel_price !== undefined
@@ -195,6 +214,7 @@ export async function updateMotoristaProfile(
   if (data.vehicleType !== undefined) motoristaUpdate.vehicle_type = data.vehicleType;
   if (data.vehiclePlate !== undefined) motoristaUpdate.vehicle_plate = data.vehiclePlate;
   if (data.vehicleModel !== undefined) motoristaUpdate.vehicle_model = data.vehicleModel;
+  if (data.bodyType !== undefined) motoristaUpdate.body_type = data.bodyType;
   if (data.vehicleYear !== undefined) motoristaUpdate.vehicle_year = data.vehicleYear;
   if (data.vehicleYearManufacture !== undefined)
     motoristaUpdate.vehicle_year_manufacture = data.vehicleYearManufacture;
@@ -204,6 +224,8 @@ export async function updateMotoristaProfile(
   if (data.trailerAxles !== undefined) motoristaUpdate.trailer_axles = data.trailerAxles;
   if (data.cargoCapacityTon !== undefined)
     motoristaUpdate.cargo_capacity_ton = data.cargoCapacityTon;
+  if (data.grossWeightTon !== undefined) motoristaUpdate.gross_weight_ton = data.grossWeightTon;
+  if (data.tareWeightTon !== undefined) motoristaUpdate.tare_weight_ton = data.tareWeightTon;
   if (data.dieselPrice !== undefined) motoristaUpdate.diesel_price = data.dieselPrice;
   if (data.isOwner !== undefined) motoristaUpdate.is_owner = data.isOwner;
   // === Migration 018: endereço, RG e dados do proprietário ===================

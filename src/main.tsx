@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { AuthProvider } from './hooks/useAuth.tsx';
+import { ThemeProvider } from './hooks/useTheme.tsx';
 import AppErrorBoundary from './components/admin/assistant/AppErrorBoundary';
 import { installGlobalErrorCapture } from './services/admin/errorCapture';
 import 'leaflet/dist/leaflet.css';
@@ -16,9 +17,11 @@ installGlobalErrorCapture();
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <AppErrorBoundary>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </ThemeProvider>
     </AppErrorBoundary>
   </React.StrictMode>
 );

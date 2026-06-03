@@ -8,7 +8,10 @@ import { getOrCreateFreteConversation } from '../services/chatFrete';
 import type { MotoristaCalcContext } from '../services/motorista';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
 import { googleMapsUrl } from '../utils/coordParser';
+import { vehicleTypesCsvLabel } from '../data/vehicleTypes';
+import { bodyTypesCsvLabel } from '../data/bodyTypes';
 import FreteMiniMap from './FreteMiniMap';
+import FreteRetornoModal from './FreteRetornoModal';
 
 const REQUIRED_DOCS = [
   'cpf',
@@ -25,6 +28,12 @@ interface FreteModalProps {
   onClose: () => void;
   embarcadorWhatsApp?: string;
   motoristaCalc?: MotoristaCalcContext;
+  /**
+   * Disparado quando o motorista escolhe um frete de retorno via
+   * `FreteRetornoModal`. O consumidor (HomePage) deve fechar o modal
+   * atual e abrir o detalhe do frete escolhido.
+   */
+  onSelectFreteRetorno?: (frete: Frete) => void;
 }
 
 const FREIGHT_TYPE_LABELS: Record<string, string> = {
@@ -40,11 +49,13 @@ export default function FreteModal({
   onClose,
   embarcadorWhatsApp,
   motoristaCalc,
+  onSelectFreteRetorno,
 }: FreteModalProps) {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const [checkingProfile, setCheckingProfile] = useState(false);
+  const [returnSearchOpen, setReturnSearchOpen] = useState(false);
   const [embarcadorProfile, setEmbarcadorProfile] = useState<{
     companyName: string;
     companyLogoUrl: string | null;
@@ -400,14 +411,19 @@ export default function FreteModal({
               </div>
               <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
                 <p className="text-[10px] text-gray-500">Veículo</p>
-                <p className="text-xs text-gray-800 font-medium truncate" title={frete.vehicleType}>
-                  {frete.vehicleType || '—'}
+                <p
+                  className="text-xs text-gray-800 font-medium leading-tight whitespace-normal break-words"
+                  title={vehicleTypesCsvLabel(frete.vehicleType)}
+                >
+                  {vehicleTypesCsvLabel(frete.vehicleType)}
                 </p>
               </div>
               {frete.bodyTypes && (
                 <div className="bg-gray-50 p-1.5 rounded border border-gray-200 col-span-2 sm:col-span-3">
                   <p className="text-[10px] text-gray-500">Carrocerias</p>
-                  <p className="text-xs text-gray-800 font-medium">{frete.bodyTypes}</p>
+                  <p className="text-xs text-gray-800 font-medium leading-tight whitespace-normal break-words">
+                    {bodyTypesCsvLabel(frete.bodyTypes)}
+                  </p>
                 </div>
               )}
             </div>
@@ -549,12 +565,32 @@ export default function FreteModal({
 
             {/* Action Buttons */}
             <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
-              <button
-                onClick={onClose}
-                className="px-3 py-1.5 bg-gray-200 text-gray-800 text-xs font-medium rounded hover:bg-gray-300"
-              >
-                Fechar
-              </button>
+              {/* "Frete de Retorno": primeiro botao a esquerda quando
+                  motorista logado com perfil completo. Cor roxa pra
+                  destacar (Chat=azul, WhatsApp=verde). */}
+              {isAuthenticated && user?.userType === 'motorista' && profileComplete === true && (
+                <button
+                  onClick={() => setReturnSearchOpen(true)}
+                  aria-label="Buscar fretes de retorno"
+                  className="mr-auto px-3 py-1.5 bg-purple-600 text-white text-xs font-medium rounded hover:bg-purple-700 flex items-center gap-1"
+                >
+                  <svg
+                    className="w-3.5 h-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 10h10a8 8 0 018 8v2M3 10l6-6M3 10l6 6"
+                    />
+                  </svg>
+                  <span className="hidden sm:inline">Procurar retorno</span>
+                  <span className="sm:hidden">Retorno</span>
+                </button>
+              )}
 
               {!isAuthenticated && (
                 <button
@@ -633,6 +669,24 @@ export default function FreteModal({
           </div>
         </div>
       </div>
+
+      {/* Modal de Frete de Retorno: busca cargas a partir do destino
+          do frete atual. Quando o motorista escolhe um, delegamos
+          ao consumidor (HomePage) via callback `onSelectFreteRetorno`,
+          que decide como abrir o detalhe do novo frete. */}
+      {frete && (
+        <FreteRetornoModal
+          open={returnSearchOpen}
+          onClose={() => setReturnSearchOpen(false)}
+          origemFrete={frete}
+          onSelectRetorno={(novoFrete) => {
+            setReturnSearchOpen(false);
+            if (onSelectFreteRetorno) {
+              onSelectFreteRetorno(novoFrete);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

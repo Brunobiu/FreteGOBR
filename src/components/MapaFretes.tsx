@@ -7,6 +7,7 @@ import type { GeographicPoint } from '../types';
 import type { GeolocationStatus } from '../hooks/useGeolocation';
 import { getRouteGeometry } from '../services/geolocation';
 import { RADIUS_OPTIONS_KM, haversineDistanceKm, type RadiusOption } from '../utils/geoDistance';
+import { makePinIcon } from './mapa/pinHelpers';
 
 interface MapaFretesProps {
   fretes: Frete[];
@@ -29,36 +30,10 @@ const formatBRL = (n: number) =>
 const formatKm = (n: number) =>
   n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
-function pinIcon(status: 'ativo' | 'encerrado' | string): L.DivIcon {
-  const color = status === 'ativo' ? '#16a34a' : '#9ca3af';
-  return L.divIcon({
-    className: 'mapafretes-pin',
-    iconSize: [18, 22],
-    iconAnchor: [9, 22],
-    popupAnchor: [0, -20],
-    html: `<svg width="18" height="22" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg">
-      <path fill="${color}" stroke="#ffffff" stroke-width="1.5"
-            d="M11 0a11 11 0 0 0-11 11c0 7.5 11 17 11 17s11-9.5 11-17A11 11 0 0 0 11 0z"/>
-      <circle cx="11" cy="11" r="4" fill="#ffffff"/>
-    </svg>`,
-  });
-}
-
-/**
- * Pin laranja para marcar o destino quando uma rota é traçada.
- */
-function destIcon(): L.DivIcon {
-  return L.divIcon({
-    className: 'mapafretes-pin-dest',
-    iconSize: [18, 22],
-    iconAnchor: [9, 22],
-    html: `<svg width="18" height="22" viewBox="0 0 22 28" xmlns="http://www.w3.org/2000/svg">
-      <path fill="#ea580c" stroke="#ffffff" stroke-width="1.5"
-            d="M11 0a11 11 0 0 0-11 11c0 7.5 11 17 11 17s11-9.5 11-17A11 11 0 0 0 11 0z"/>
-      <circle cx="11" cy="11" r="4" fill="#ffffff"/>
-    </svg>`,
-  });
-}
+// Helpers `pinIcon` e `destIcon` foram movidos para
+// `./mapa/pinHelpers.ts` e centralizados como `makePinIcon`. O SVG e
+// as cores permanecem identicos — o motorista nao percebe diferenca
+// visual ao migrar.
 
 function MapAutoCenter({ point, radiusKm }: { point: GeographicPoint | null; radiusKm: number }) {
   const map = useMap();
@@ -221,7 +196,7 @@ export default function MapaFretes({
             <Marker
               key={f.id}
               position={[f.originLocation.latitude, f.originLocation.longitude]}
-              icon={pinIcon(f.status)}
+              icon={makePinIcon(f.status === 'ativo' ? 'frete-ativo' : 'frete-encerrado')}
               eventHandlers={{
                 // Click traça a rota e abre popup. Não usamos mouseover/mouseout
                 // porque touch (iOS Safari) dispara esses eventos de forma errática
@@ -291,7 +266,7 @@ export default function MapaFretes({
                       selectedRouteFrete.destinationLocation.latitude,
                       selectedRouteFrete.destinationLocation.longitude,
                     ]}
-                    icon={destIcon()}
+                    icon={makePinIcon('destino')}
                   />
                   <FitRoute routeBounds={positions as L.LatLngBoundsExpression} />
                 </>

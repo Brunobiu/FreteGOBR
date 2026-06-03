@@ -7,35 +7,20 @@ interface FreteTableProps {
   onFreteClick: (frete: Frete) => void;
   onEdit?: (frete: Frete) => void;
   onDelete?: (freteId: string) => void;
+  /**
+   * Quando definida, habilita o botão "Encerrar" na coluna de ações
+   * para fretes ativos. Click pede confirmação e dispara o handler.
+   * (Coluna Status separada foi removida; o toggle agora é inline.)
+   */
   onToggleStatus?: (frete: Frete) => void;
   onValueChange?: (freteId: string, newValue: number) => Promise<void>;
   showActions?: boolean;
 }
 
-type SortKey =
-  | 'origin'
-  | 'destination'
-  | 'product'
-  | 'vehicleType'
-  | 'distanceKm'
-  | 'status'
-  | 'createdAt'
-  | 'value';
+type SortKey = 'origin' | 'destination' | 'product' | 'distanceKm' | 'createdAt' | 'value';
 type SortDir = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
-
-const STATUS_STYLES: Record<string, string> = {
-  ativo: 'bg-green-100 text-green-700',
-  encerrado: 'bg-gray-100 text-gray-600',
-  cancelado: 'bg-red-100 text-red-700',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  ativo: 'Ativo',
-  encerrado: 'Encerrado',
-  cancelado: 'Cancelado',
-};
 
 const formatBRLValue = (value: number): string =>
   new Intl.NumberFormat('pt-BR', {
@@ -155,7 +140,7 @@ export default function FreteTable({
     <div>
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full [&_tbody_td:nth-child(even)]:bg-gray-50/70">
+          <table className="w-full [&_tbody_td:nth-child(even)]:bg-gray-50/70 dark:[&_tbody_td:nth-child(even)]:bg-gray-800/40">
             <thead className="bg-gray-100 border-b border-gray-200">
               <tr>
                 <th className={thClass} onClick={() => handleSort('origin')}>
@@ -167,17 +152,11 @@ export default function FreteTable({
                 <th className={thClass} onClick={() => handleSort('product')}>
                   Produto <SortIcon col="product" />
                 </th>
-                <th className={thClass} onClick={() => handleSort('vehicleType')}>
-                  Veículo <SortIcon col="vehicleType" />
-                </th>
                 <th className={thClass} onClick={() => handleSort('distanceKm')}>
                   KM <SortIcon col="distanceKm" />
                 </th>
                 <th className={thClass} onClick={() => handleSort('value')}>
                   Valor <SortIcon col="value" />
-                </th>
-                <th className={thClass} onClick={() => handleSort('status')}>
-                  Status <SortIcon col="status" />
                 </th>
                 <th className={thClass} onClick={() => handleSort('createdAt')}>
                   Postado em <SortIcon col="createdAt" />
@@ -196,12 +175,6 @@ export default function FreteTable({
                   <td className={`${tdClass} text-gray-800 font-medium`}>{frete.origin}</td>
                   <td className={`${tdClass} text-gray-800`}>{frete.destination}</td>
                   <td className={`${tdClass} text-gray-700`}>{frete.product ?? '—'}</td>
-                  <td
-                    className={`${tdClass} text-gray-600 max-w-[100px] truncate`}
-                    title={frete.vehicleType}
-                  >
-                    {frete.vehicleType}
-                  </td>
                   <td className={`${tdClass} text-gray-600`}>
                     {frete.distanceKm ? `${frete.distanceKm.toLocaleString('pt-BR')} km` : '—'}
                   </td>
@@ -240,35 +213,16 @@ export default function FreteTable({
                       </button>
                     )}
                   </td>
-                  <td className={`${tdClass}`}>
-                    {showActions && onToggleStatus ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleStatus(frete);
-                        }}
-                        title={
-                          frete.status === 'ativo' ? 'Clique para encerrar' : 'Clique para reativar'
-                        }
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium hover:opacity-80 cursor-pointer ${
-                          STATUS_STYLES[frete.status] || 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {STATUS_LABELS[frete.status] || frete.status}
-                      </button>
-                    ) : (
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                          STATUS_STYLES[frete.status] || 'bg-gray-100 text-gray-600'
-                        }`}
-                      >
-                        {STATUS_LABELS[frete.status] || frete.status}
-                      </span>
-                    )}
-                  </td>
-                  <td className={`${tdClass} text-gray-600`}>
-                    {new Date(frete.createdAt).toLocaleDateString('pt-BR')}
+                  <td className={`${tdClass} text-gray-600 whitespace-nowrap`}>
+                    {(() => {
+                      const d = new Date(frete.createdAt);
+                      const data = d.toLocaleDateString('pt-BR');
+                      const hora = d.toLocaleTimeString('pt-BR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      });
+                      return `${data} ${hora}`;
+                    })()}
                   </td>
                   <td className={tdClass}>
                     <div className="flex items-center gap-1">
@@ -291,6 +245,47 @@ export default function FreteTable({
                           />
                         </svg>
                       </button>
+                      {showActions && onToggleStatus && frete.status === 'ativo' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (
+                              confirm(
+                                'Tem certeza que deseja encerrar este frete? Ele sairá da listagem dos motoristas.'
+                              )
+                            ) {
+                              onToggleStatus(frete);
+                            }
+                          }}
+                          title="Encerrar frete"
+                          aria-label="Encerrar frete"
+                          className="p-1 text-orange-600 hover:bg-orange-50 rounded transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle
+                              cx="12"
+                              cy="12"
+                              r="9"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            <line
+                              x1="6"
+                              y1="6"
+                              x2="18"
+                              y2="18"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </button>
+                      )}
                       {showActions && onDelete && (
                         <button
                           onClick={(e) => {

@@ -17,6 +17,12 @@ export interface Frete {
   destinationLocation: GeographicPoint;
   cargoType: string;
   product?: string;
+  /**
+   * Slug da categoria de commodity (commodity_categories.slug). Vinculado
+   * ao carrossel do motorista. Pode ser undefined em fretes legados que
+   * o backfill da Migration 050 não conseguiu casar.
+   */
+  productSlug?: string;
   cargoSpecies?: string;
   vehicleType: string;
   weight: number;
@@ -66,6 +72,7 @@ export interface CreateFreteData {
   destinationLocation: GeographicPoint;
   cargoType: string;
   product?: string;
+  productSlug?: string;
   cargoSpecies?: string;
   vehicleType: string;
   weight: number;
@@ -104,6 +111,7 @@ export interface UpdateFreteData {
   destinationLocation?: GeographicPoint;
   cargoType?: string;
   product?: string;
+  productSlug?: string | null;
   cargoSpecies?: string;
   vehicleType?: string;
   weight?: number;
@@ -146,6 +154,12 @@ export interface FreteFilters {
   minValue?: number;
   maxValue?: number;
   status?: FreteStatus;
+  /**
+   * Slug da categoria de commodity (Milho, Soja, etc.). Quando preenchido,
+   * filtra apenas fretes vinculados a essa categoria. Ignora fretes legados
+   * sem product_slug.
+   */
+  productSlug?: string;
 }
 
 /**
@@ -171,6 +185,7 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
       destination_location: `POINT(${data.destinationLocation.longitude} ${data.destinationLocation.latitude})`,
       cargo_type: data.cargoType,
       product: data.product ?? null,
+      product_slug: data.productSlug ?? null,
       cargo_species: data.cargoSpecies ?? null,
       vehicle_type: data.vehicleType,
       weight: data.weight,
@@ -226,6 +241,7 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
   }
   if (data.cargoType) updateData.cargo_type = data.cargoType;
   if (data.product !== undefined) updateData.product = data.product;
+  if (data.productSlug !== undefined) updateData.product_slug = data.productSlug;
   if (data.cargoSpecies !== undefined) updateData.cargo_species = data.cargoSpecies;
   if (data.vehicleType) updateData.vehicle_type = data.vehicleType;
   if (data.weight !== undefined) updateData.weight = data.weight;
@@ -251,12 +267,9 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
   if (data.advancePercentage !== undefined) updateData.advance_percentage = data.advancePercentage;
   if (data.distanceKm !== undefined) updateData.distance_km = data.distanceKm;
   if (data.originDetail !== undefined) updateData.origin_detail = data.originDetail;
-  if (data.destinationDetail !== undefined)
-    updateData.destination_detail = data.destinationDetail;
-  if (data.originPinnedLat !== undefined)
-    updateData.origin_pinned_lat = data.originPinnedLat;
-  if (data.originPinnedLng !== undefined)
-    updateData.origin_pinned_lng = data.originPinnedLng;
+  if (data.destinationDetail !== undefined) updateData.destination_detail = data.destinationDetail;
+  if (data.originPinnedLat !== undefined) updateData.origin_pinned_lat = data.originPinnedLat;
+  if (data.originPinnedLng !== undefined) updateData.origin_pinned_lng = data.originPinnedLng;
   if (data.destinationPinnedLat !== undefined)
     updateData.destination_pinned_lat = data.destinationPinnedLat;
   if (data.destinationPinnedLng !== undefined)
@@ -316,6 +329,9 @@ export async function getActiveFretes(filters?: FreteFilters): Promise<Frete[]> 
   }
   if (filters?.vehicleType) {
     query = query.eq('vehicle_type', filters.vehicleType);
+  }
+  if (filters?.productSlug) {
+    query = query.eq('product_slug', filters.productSlug);
   }
   if (filters?.minWeight !== undefined) {
     query = query.gte('weight', filters.minWeight);
@@ -536,6 +552,7 @@ function mapFreteFromDb(
     destinationLocation: parsePoint(data.destination_location),
     cargoType: data.cargo_type,
     product: (data as unknown as { product?: string | null }).product ?? undefined,
+    productSlug: (data as unknown as { product_slug?: string | null }).product_slug ?? undefined,
     cargoSpecies: (data as unknown as { cargo_species?: string | null }).cargo_species ?? undefined,
     vehicleType: data.vehicle_type,
     weight: typeof data.weight === 'string' ? parseFloat(data.weight) : data.weight,

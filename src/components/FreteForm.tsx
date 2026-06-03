@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { getEstados, getCidades, type Estado, type Cidade } from '../services/ibge';
-import {
-  geocodeAddress,
-  calculateRouteDistance,
-  calculateDistance,
-} from '../services/geolocation';
+import { geocodeAddress, calculateRouteDistance, calculateDistance } from '../services/geolocation';
 import type { CreateFreteData } from '../services/fretes';
+import { listActiveCommodities, type CommodityCategory } from '../services/commodities';
 import { parseCoordInput } from '../utils/coordParser';
 import PublishingOverlay from './PublishingOverlay';
+import VehicleTypePicker from './VehicleTypePicker';
+import BodyTypePicker from './BodyTypePicker';
+import { vehicleTypeLabel } from '../data/vehicleTypes';
+import { bodyTypeLabel } from '../data/bodyTypes';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -42,60 +43,14 @@ const SPECIES = [
   'Unidades',
 ];
 
-const VEHICLE_CATEGORIES = [
-  {
-    label: 'Leves',
-    vehicles: [
-      { value: 'vuc', label: 'VUC' },
-      { value: 'tres_quartos', label: '3/4' },
-      { value: 'fiorino', label: 'Fiorino' },
-      { value: 'toco', label: 'Toco' },
-    ],
-  },
-  {
-    label: 'Médios',
-    vehicles: [
-      { value: 'bitruck', label: 'Bitruck' },
-      { value: 'truck', label: 'Truck' },
-    ],
-  },
-  {
-    label: 'Pesados',
-    vehicles: [
-      { value: 'bitrem', label: 'Bitrem' },
-      { value: 'carreta', label: 'Carreta' },
-      { value: 'carreta_4_eixo', label: 'Carreta 4º eixo' },
-      { value: 'carreta_ls', label: 'Carreta LS' },
-      { value: 'rodotrem', label: 'Rodotrem' },
-      { value: 'vanderleia', label: 'Vanderleia' },
-    ],
-  },
-];
+// Tipos de caminhao agora vem da lista canonica em `data/vehicleTypes`
+// e sao escolhidos pelo embarcador via `VehicleTypePicker` (modal).
+// Antes existiam categorias hardcoded (Leves/Medios/Pesados) com poucos
+// itens — tudo isso foi consolidado.
 
-const BODY_CATEGORIES = [
-  {
-    label: 'Fechada',
-    bodies: ['Baú', 'Baú Frigorífico', 'Baú Refrigerado', 'Sider'],
-  },
-  {
-    label: 'Aberta',
-    bodies: ['Caçamba', 'Grade Baixa', 'Graneleiro', 'Plataforma', 'Prancha'],
-  },
-  {
-    label: 'Especial',
-    bodies: [
-      'Apenas Cavalo',
-      'Bug Porta Container',
-      'Cavaqueira',
-      'Cegonheiro',
-      'Gaiola',
-      'Hopper',
-      'Munck',
-      'Silo',
-      'Tanque',
-    ],
-  },
-];
+// Carrocerias seguem o mesmo padrao: lista canonica em `data/bodyTypes`,
+// modal de selecao via `BodyTypePicker`. As categorias antigas
+// (Fechada/Aberta/Especial) foram removidas.
 
 const PAYMENT_METHODS = [
   'Pix/Ted',
@@ -225,7 +180,20 @@ export default function FreteForm({
   const [temperature, setTemperature] = useState('');
   const [species, setSpecies] = useState('');
   const [speciesOpen, setSpeciesOpen] = useState(false);
+  // Produto agora vem de uma lista fechada (commodity_categories, gerenciada
+  // pelo admin no painel). Guardamos:
+  //   - product: nome exibido (ex.: "Milho") — vai pro DB no campo `product`
+  //     e continua aparecendo no card/modal exatamente como antes.
+  //   - productSlug: slug estavel (ex.: "milho") — usado pelo motorista
+  //     pra filtrar pelo carrossel.
+  // Em fretes legados (criados antes da migration 050) podemos abrir o form
+  // com `product` preenchido mas `productSlug` vazio; nesse caso a UI vai
+  // mostrar o nome antigo como "selecionado pendente" e exigir nova escolha.
   const [product, setProduct] = useState('');
+  const [productSlug, setProductSlug] = useState<string>('');
+  const [productOpen, setProductOpen] = useState(false);
+  const [productFilter, setProductFilter] = useState('');
+  const [commodities, setCommodities] = useState<CommodityCategory[]>([]);
 
   // Peso e Volume
   const [weightUnit, setWeightUnit] = useState<'toneladas' | 'quilos'>('toneladas');
@@ -236,11 +204,13 @@ export default function FreteForm({
   // Campos removidos da UI mas mantidos no submit como placeholders.
   const totalWeight = '';
 
-  // Veículos
+  // Veículos — values vem de `data/vehicleTypes` (lista canonica)
   const [selectedVehicles, setSelectedVehicles] = useState<string[]>([]);
+  const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false);
 
-  // Carrocerias
+  // Carrocerias — values vem de `data/bodyTypes` (lista canonica)
   const [selectedBodies, setSelectedBodies] = useState<string[]>([]);
+  const [bodyPickerOpen, setBodyPickerOpen] = useState(false);
 
   // Opções Adicionais
   const [requiresLona, setRequiresLona] = useState('nao');
@@ -259,6 +229,23 @@ export default function FreteForm({
 
   useEffect(() => {
     getEstados().then(setEstados).catch(console.error);
+  }, []);
+
+  // Carrega as categorias ativas (geridas pelo admin) para popular o
+  // seletor de produto. Se a chamada falhar (rede/RLS), deixa lista vazia
+  // — o erro de validacao guia o usuario a tentar de novo.
+  useEffect(() => {
+    let cancelled = false;
+    listActiveCommodities()
+      .then((list) => {
+        if (!cancelled) setCommodities(list);
+      })
+      .catch(() => {
+        if (!cancelled) setCommodities([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Preenche os campos quando `initialFrete` é fornecido (modo edição).
@@ -299,6 +286,8 @@ export default function FreteForm({
 
     setCargoType(f.cargoType ?? '');
     setProduct(f.product ?? '');
+    setProductSlug(f.productSlug ?? '');
+    setProductFilter('');
     setSpecies(f.cargoSpecies ?? '');
     setOnuNumber(f.onuNumber ?? '');
     setTemperature(f.temperature !== undefined ? String(f.temperature) : '');
@@ -322,8 +311,7 @@ export default function FreteForm({
 
     setWeightUnit((f.weightUnit as 'toneladas' | 'quilos') ?? 'toneladas');
     setFreightType(
-      (f.freightType as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio') ??
-        'completa'
+      (f.freightType as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio') ?? 'completa'
     );
     setOccupancyPct(f.occupancyPercentage !== undefined ? String(f.occupancyPercentage) : '');
 
@@ -362,7 +350,7 @@ export default function FreteForm({
   const destinoCidadeRef = useRef<HTMLInputElement | null>(null);
   const cargoTypeRef = useRef<HTMLButtonElement | null>(null);
   const speciesRef = useRef<HTMLButtonElement | null>(null);
-  const productRef = useRef<HTMLInputElement | null>(null);
+  const productRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (origemUF) {
@@ -460,34 +448,11 @@ export default function FreteForm({
 
   // ── Toggle helpers ────────────────────────────────────────────────────────────
 
-  const toggleVehicle = (value: string) =>
-    setSelectedVehicles((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
-    );
+  const removeVehicle = (value: string) =>
+    setSelectedVehicles((prev) => prev.filter((v) => v !== value));
 
-  const toggleAllVehicles = (vehicles: { value: string }[]) => {
-    const vals = vehicles.map((v) => v.value);
-    const allSelected = vals.every((v) => selectedVehicles.includes(v));
-    if (allSelected) {
-      setSelectedVehicles((prev) => prev.filter((v) => !vals.includes(v)));
-    } else {
-      setSelectedVehicles((prev) => [...new Set([...prev, ...vals])]);
-    }
-  };
-
-  const toggleBody = (body: string) =>
-    setSelectedBodies((prev) =>
-      prev.includes(body) ? prev.filter((b) => b !== body) : [...prev, body]
-    );
-
-  const toggleAllBodies = (bodies: string[]) => {
-    const allSelected = bodies.every((b) => selectedBodies.includes(b));
-    if (allSelected) {
-      setSelectedBodies((prev) => prev.filter((b) => !bodies.includes(b)));
-    } else {
-      setSelectedBodies((prev) => [...new Set([...prev, ...bodies])]);
-    }
-  };
+  const removeBody = (value: string) =>
+    setSelectedBodies((prev) => prev.filter((b) => b !== value));
 
   const togglePayment = (method: string) =>
     setPaymentMethods((prev) =>
@@ -529,8 +494,8 @@ export default function FreteForm({
     if (species) clearFieldError('species');
   }, [species]);
   useEffect(() => {
-    if (product.trim()) clearFieldError('product');
-  }, [product]);
+    if (productSlug) clearFieldError('product');
+  }, [productSlug]);
   useEffect(() => {
     if (selectedVehicles.length > 0) clearFieldError('vehicles');
   }, [selectedVehicles]);
@@ -558,7 +523,7 @@ export default function FreteForm({
     if (!destinoCidade) errs.destinoCidade = 'Selecione a cidade';
     if (!cargoType) errs.cargoType = 'Selecione o tipo de carga';
     if (!species) errs.species = 'Selecione a espécie';
-    if (!product.trim()) errs.product = 'Informe o produto';
+    if (!productSlug) errs.product = 'Selecione o produto da lista';
     if (selectedVehicles.length === 0) errs.vehicles = 'Selecione pelo menos um tipo de veículo';
     if (selectedBodies.length === 0) errs.bodies = 'Selecione pelo menos um tipo de carroceria';
     if (valueKnown === 'ja_sei') {
@@ -576,9 +541,7 @@ export default function FreteForm({
 
     // Parse das coordenadas opcionais (Migration 020). Se inválidas,
     // bloqueia o submit e foca o erro inline.
-    const originPinned = originCoordInput.trim()
-      ? parseCoordInput(originCoordInput)
-      : null;
+    const originPinned = originCoordInput.trim() ? parseCoordInput(originCoordInput) : null;
     const destinationPinned = destinationCoordInput.trim()
       ? parseCoordInput(destinationCoordInput)
       : null;
@@ -625,6 +588,7 @@ export default function FreteForm({
         destinationLocation: destLoc,
         cargoType,
         product: product || undefined,
+        productSlug: productSlug || undefined,
         cargoSpecies: species || undefined,
         vehicleType: selectedVehicles.join(', '),
         weight: totalWeight ? parseFloat(totalWeight) : 0,
@@ -677,754 +641,880 @@ export default function FreteForm({
         message={isEditing ? 'Atualizando frete...' : 'Publicando frete...'}
       />
       <form onSubmit={handleSubmit} className="space-y-5">
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
-      {/* ── Origem + Destino (compactado, com detalhes) ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {/* Origem */}
-        <div className="bg-white border border-blue-200 rounded-lg p-3 space-y-2 relative">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-blue-700 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-blue-600"></span> Origem
-            </h3>
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {error}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
-              <div className="relative">
+        )}
+
+        {/* ── Origem + Destino (compactado, com detalhes) ── */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {/* Origem */}
+          <div className="bg-white border border-blue-200 rounded-lg p-3 space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-blue-700 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-blue-600"></span> Origem
+              </h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={origemUFFilter}
+                    onChange={(e) => {
+                      setOrigemUFFilter(e.target.value);
+                      setOrigemUF('');
+                      setOrigemCidade('');
+                      setOrigemCidadeFilter('');
+                    }}
+                    placeholder="UF"
+                    className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  {origemUFFilter && !origemUF && filteredOrigemEstados.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                      {filteredOrigemEstados.slice(0, 30).map((e) => (
+                        <button
+                          key={e.sigla}
+                          type="button"
+                          onClick={() => {
+                            setOrigemUF(e.sigla);
+                            setOrigemUFFilter(`${e.sigla} - ${e.nome}`);
+                            setTimeout(() => origemCidadeRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
+                        >
+                          {e.sigla} - {e.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {fieldErrors.origemUF && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemUF}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
+                <div className="relative">
+                  <input
+                    ref={origemCidadeRef}
+                    type="text"
+                    value={origemCidadeFilter}
+                    onChange={(e) => {
+                      setOrigemCidadeFilter(e.target.value);
+                      setOrigemCidade('');
+                    }}
+                    placeholder={origemUF ? 'Cidade' : 'Selecione UF'}
+                    disabled={!origemUF}
+                    className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                  {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                      {filteredOrigemCidades.slice(0, 50).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setOrigemCidade(c.nome);
+                            setOrigemCidadeFilter(c.nome);
+                            setTimeout(() => destinoUFRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
+                        >
+                          {c.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {origemCidade && (
+                  <p className="mt-0.5 text-[10px] text-green-600">
+                    ✓ {origemCidade}, {origemUF}
+                  </p>
+                )}
+                {!origemCidade && fieldErrors.origemCidade && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemCidade}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">
+                  Local de carregamento
+                </label>
                 <input
                   type="text"
-                  value={origemUFFilter}
-                  onChange={(e) => {
-                    setOrigemUFFilter(e.target.value);
-                    setOrigemUF('');
-                    setOrigemCidade('');
-                    setOrigemCidadeFilter('');
-                  }}
-                  placeholder="UF"
+                  value={originDetail}
+                  onChange={(e) => setOriginDetail(e.target.value.slice(0, 200))}
+                  placeholder="Ex: Fazenda São João"
+                  maxLength={200}
                   className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
-                {origemUFFilter && !origemUF && filteredOrigemEstados.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
-                    {filteredOrigemEstados.slice(0, 30).map((e) => (
-                      <button
-                        key={e.sigla}
-                        type="button"
-                        onClick={() => {
-                          setOrigemUF(e.sigla);
-                          setOrigemUFFilter(`${e.sigla} - ${e.nome}`);
-                          setTimeout(() => origemCidadeRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
-                      >
-                        {e.sigla} - {e.nome}
-                      </button>
-                    ))}
-                  </div>
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">
+                  Link do Maps <span className="text-gray-400">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={originCoordInput}
+                  onChange={(e) => {
+                    setOriginCoordInput(e.target.value);
+                    setOriginCoordError(null);
+                  }}
+                  placeholder="https://maps.google.com/..."
+                  className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    originCoordError ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {originCoordError && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{originCoordError}</p>
                 )}
               </div>
-              {fieldErrors.origemUF && (
-                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemUF}</p>
+            </div>
+          </div>
+
+          {/* Destino */}
+          <div className="bg-white border border-orange-200 rounded-lg p-3 space-y-2 relative">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-orange-700 flex items-center gap-1">
+                <span className="w-2 h-2 rounded-full bg-orange-500"></span> Destino
+              </h3>
+              {origemCidade && destinoCidade && (
+                <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-700 font-semibold inline-flex items-center gap-1">
+                  {calculatingDistance ? (
+                    <>
+                      <svg
+                        className="animate-spin w-3 h-3 text-blue-600"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          opacity="0.25"
+                        />
+                        <path
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      <span>calculando</span>
+                    </>
+                  ) : distanceKm !== null ? (
+                    `${distanceKm.toLocaleString('pt-BR')} km`
+                  ) : (
+                    '— km'
+                  )}
+                </span>
               )}
             </div>
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
-              <div className="relative">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
+                <div className="relative">
+                  <input
+                    ref={destinoUFRef}
+                    type="text"
+                    value={destinoUFFilter}
+                    onChange={(e) => {
+                      setDestinoUFFilter(e.target.value);
+                      setDestinoUF('');
+                      setDestinoCidade('');
+                      setDestinoCidadeFilter('');
+                    }}
+                    placeholder="UF"
+                    className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  {destinoUFFilter && !destinoUF && filteredDestinoEstados.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                      {filteredDestinoEstados.slice(0, 30).map((e) => (
+                        <button
+                          key={e.sigla}
+                          type="button"
+                          onClick={() => {
+                            setDestinoUF(e.sigla);
+                            setDestinoUFFilter(`${e.sigla} - ${e.nome}`);
+                            setTimeout(() => destinoCidadeRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
+                        >
+                          {e.sigla} - {e.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {fieldErrors.destinoUF && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoUF}</p>
+                )}
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
+                <div className="relative">
+                  <input
+                    ref={destinoCidadeRef}
+                    type="text"
+                    value={destinoCidadeFilter}
+                    onChange={(e) => {
+                      setDestinoCidadeFilter(e.target.value);
+                      setDestinoCidade('');
+                    }}
+                    placeholder={destinoUF ? 'Cidade' : 'Selecione UF'}
+                    disabled={!destinoUF}
+                    className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                  />
+                  {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
+                      {filteredDestinoCidades.slice(0, 50).map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            setDestinoCidade(c.nome);
+                            setDestinoCidadeFilter(c.nome);
+                            setTimeout(() => cargoTypeRef.current?.focus(), 0);
+                          }}
+                          className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
+                        >
+                          {c.nome}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {!destinoCidade && fieldErrors.destinoCidade && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoCidade}</p>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">Local de entrega</label>
                 <input
-                  ref={origemCidadeRef}
                   type="text"
-                  value={origemCidadeFilter}
-                  onChange={(e) => {
-                    setOrigemCidadeFilter(e.target.value);
-                    setOrigemCidade('');
-                  }}
-                  placeholder={origemUF ? 'Cidade' : 'Selecione UF'}
-                  disabled={!origemUF}
-                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  value={destinationDetail}
+                  onChange={(e) => setDestinationDetail(e.target.value.slice(0, 200))}
+                  placeholder="Ex: Depósito Central"
+                  maxLength={200}
+                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
                 />
-                {origemCidadeFilter && !origemCidade && filteredOrigemCidades.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
-                    {filteredOrigemCidades.slice(0, 50).map((c) => (
+              </div>
+              <div>
+                <label className="block text-[11px] text-gray-600 mb-0.5">
+                  Link do Maps <span className="text-gray-400">(opcional)</span>
+                </label>
+                <input
+                  type="text"
+                  value={destinationCoordInput}
+                  onChange={(e) => {
+                    setDestinationCoordInput(e.target.value);
+                    setDestinationCoordError(null);
+                  }}
+                  placeholder="https://maps.google.com/..."
+                  className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500 ${
+                    destinationCoordError ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {destinationCoordError && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{destinationCoordError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Dados da Carga ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Dados da Carga
+          </h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Tipo de carga *</label>
+              <div className="relative">
+                <button
+                  ref={cargoTypeRef}
+                  type="button"
+                  onClick={() => setCargoTypeOpen((v) => !v)}
+                  className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    fieldErrors.cargoType ? 'border-red-400' : 'border-gray-300'
+                  } ${cargoType ? 'text-gray-800' : 'text-gray-400'}`}
+                >
+                  <span>{cargoType || 'Selecione'}</span>
+                  <span className="text-gray-400 text-[10px]">{cargoTypeOpen ? '▴' : '▾'}</span>
+                </button>
+                {cargoTypeOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                    {CARGO_TYPES.map((t) => (
                       <button
-                        key={c.id}
+                        key={t}
                         type="button"
                         onClick={() => {
-                          setOrigemCidade(c.nome);
-                          setOrigemCidadeFilter(c.nome);
-                          setTimeout(() => destinoUFRef.current?.focus(), 0);
+                          setCargoType(t);
+                          setCargoTypeOpen(false);
+                          setTimeout(() => speciesRef.current?.focus(), 0);
                         }}
-                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50"
+                        className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
+                          cargoType === t ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
                       >
-                        {c.nome}
+                        {t}
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              {origemCidade && (
-                <p className="mt-0.5 text-[10px] text-green-600">
-                  ✓ {origemCidade}, {origemUF}
-                </p>
+              {fieldErrors.cargoType && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.cargoType}</p>
               )}
-              {!origemCidade && fieldErrors.origemCidade && (
-                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.origemCidade}</p>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Espécie *</label>
+              <div className="relative">
+                <button
+                  ref={speciesRef}
+                  type="button"
+                  onClick={() => setSpeciesOpen((v) => !v)}
+                  className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    fieldErrors.species ? 'border-red-400' : 'border-gray-300'
+                  } ${species ? 'text-gray-800' : 'text-gray-400'}`}
+                >
+                  <span>{species || 'Selecione'}</span>
+                  <span className="text-gray-400 text-[10px]">{speciesOpen ? '▴' : '▾'}</span>
+                </button>
+                {speciesOpen && (
+                  <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                    {SPECIES.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => {
+                          setSpecies(s);
+                          setSpeciesOpen(false);
+                          setTimeout(() => productRef.current?.focus(), 0);
+                        }}
+                        className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
+                          species === s ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {fieldErrors.species && (
+                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.species}</p>
               )}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+
+          {cargoType === 'Perigosa' && (
             <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">
-                Local de carregamento
-              </label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Número ONU</label>
               <input
                 type="text"
-                value={originDetail}
-                onChange={(e) => setOriginDetail(e.target.value.slice(0, 200))}
-                placeholder="Ex: Fazenda São João"
-                maxLength={200}
+                value={onuNumber}
+                onChange={(e) => setOnuNumber(e.target.value)}
+                placeholder="Ex: UN1203"
                 className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">
-                Link do Maps <span className="text-gray-400">(opcional)</span>
-              </label>
-              <input
-                type="text"
-                value={originCoordInput}
-                onChange={(e) => {
-                  setOriginCoordInput(e.target.value);
-                  setOriginCoordError(null);
-                }}
-                placeholder="https://maps.google.com/..."
-                className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  originCoordError ? 'border-red-400' : 'border-gray-300'
-                }`}
-              />
-              {originCoordError && (
-                <p className="mt-0.5 text-[10px] text-red-600">{originCoordError}</p>
-              )}
-            </div>
-          </div>
-        </div>
+          )}
 
-        {/* Destino */}
-        <div className="bg-white border border-orange-200 rounded-lg p-3 space-y-2 relative">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-orange-700 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-orange-500"></span> Destino
-            </h3>
-            {origemCidade && destinoCidade && (
-              <span className="px-1.5 py-0.5 bg-blue-50 border border-blue-200 rounded text-[10px] text-blue-700 font-semibold inline-flex items-center gap-1">
-                {calculatingDistance ? (
-                  <>
-                    <svg
-                      className="animate-spin w-3 h-3 text-blue-600"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                    >
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        strokeWidth="4"
-                        opacity="0.25"
-                      />
-                      <path
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      />
-                    </svg>
-                    <span>calculando</span>
-                  </>
-                ) : distanceKm !== null ? (
-                  `${distanceKm.toLocaleString('pt-BR')} km`
-                ) : (
-                  '— km'
-                )}
-              </span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          {cargoType === 'Frigorificada ou Aquecida' && (
             <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">Estado *</label>
-              <div className="relative">
-                <input
-                  ref={destinoUFRef}
-                  type="text"
-                  value={destinoUFFilter}
-                  onChange={(e) => {
-                    setDestinoUFFilter(e.target.value);
-                    setDestinoUF('');
-                    setDestinoCidade('');
-                    setDestinoCidadeFilter('');
-                  }}
-                  placeholder="UF"
-                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                />
-                {destinoUFFilter && !destinoUF && filteredDestinoEstados.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
-                    {filteredDestinoEstados.slice(0, 30).map((e) => (
-                      <button
-                        key={e.sigla}
-                        type="button"
-                        onClick={() => {
-                          setDestinoUF(e.sigla);
-                          setDestinoUFFilter(`${e.sigla} - ${e.nome}`);
-                          setTimeout(() => destinoCidadeRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
-                      >
-                        {e.sigla} - {e.nome}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {fieldErrors.destinoUF && (
-                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoUF}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">Cidade *</label>
-              <div className="relative">
-                <input
-                  ref={destinoCidadeRef}
-                  type="text"
-                  value={destinoCidadeFilter}
-                  onChange={(e) => {
-                    setDestinoCidadeFilter(e.target.value);
-                    setDestinoCidade('');
-                  }}
-                  placeholder={destinoUF ? 'Cidade' : 'Selecione UF'}
-                  disabled={!destinoUF}
-                  className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 disabled:opacity-50 focus:outline-none focus:ring-1 focus:ring-orange-500"
-                />
-                {destinoCidadeFilter && !destinoCidade && filteredDestinoCidades.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 max-h-40 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-20">
-                    {filteredDestinoCidades.slice(0, 50).map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => {
-                          setDestinoCidade(c.nome);
-                          setDestinoCidadeFilter(c.nome);
-                          setTimeout(() => cargoTypeRef.current?.focus(), 0);
-                        }}
-                        className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-orange-50"
-                      >
-                        {c.nome}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {!destinoCidade && fieldErrors.destinoCidade && (
-                <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.destinoCidade}</p>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">Local de entrega</label>
+              <label className="block text-[11px] text-gray-600 mb-0.5">Temperatura (°C)</label>
               <input
-                type="text"
-                value={destinationDetail}
-                onChange={(e) => setDestinationDetail(e.target.value.slice(0, 200))}
-                placeholder="Ex: Depósito Central"
-                maxLength={200}
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500"
+                type="number"
+                value={temperature}
+                onChange={(e) => setTemperature(e.target.value)}
+                placeholder="Ex: -18"
+                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
-            <div>
-              <label className="block text-[11px] text-gray-600 mb-0.5">
-                Link do Maps <span className="text-gray-400">(opcional)</span>
-              </label>
-              <input
-                type="text"
-                value={destinationCoordInput}
-                onChange={(e) => {
-                  setDestinationCoordInput(e.target.value);
-                  setDestinationCoordError(null);
-                }}
-                placeholder="https://maps.google.com/..."
-                className={`w-full px-2 py-1.5 bg-white border rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orange-500 ${
-                  destinationCoordError ? 'border-red-400' : 'border-gray-300'
-                }`}
-              />
-              {destinationCoordError && (
-                <p className="mt-0.5 text-[10px] text-red-600">{destinationCoordError}</p>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+          )}
 
-      {/* ── Dados da Carga ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
-          Dados da Carga
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           <div>
-            <label className="block text-[11px] text-gray-600 mb-0.5">Tipo de carga *</label>
+            <label className="block text-xs text-gray-600 mb-1">Produto *</label>
             <div className="relative">
               <button
-                ref={cargoTypeRef}
+                ref={productRef}
                 type="button"
-                onClick={() => setCargoTypeOpen((v) => !v)}
-                className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  fieldErrors.cargoType ? 'border-red-400' : 'border-gray-300'
-                } ${cargoType ? 'text-gray-800' : 'text-gray-400'}`}
+                onClick={() => setProductOpen((v) => !v)}
+                className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                  fieldErrors.product ? 'border-red-400' : 'border-gray-300'
+                } ${productSlug ? 'text-gray-800' : 'text-gray-400'}`}
               >
-                <span>{cargoType || 'Selecione'}</span>
-                <span className="text-gray-400 text-[10px]">{cargoTypeOpen ? '▴' : '▾'}</span>
+                <span className="flex items-center gap-2 min-w-0">
+                  {productSlug && commodities.find((c) => c.slug === productSlug)?.iconUrl ? (
+                    <img
+                      src={commodities.find((c) => c.slug === productSlug)?.iconUrl}
+                      alt=""
+                      className="w-5 h-5 rounded object-cover shrink-0"
+                    />
+                  ) : null}
+                  <span className="truncate">
+                    {productSlug
+                      ? product ||
+                        commodities.find((c) => c.slug === productSlug)?.name ||
+                        'Selecione'
+                      : product
+                        ? `${product} (selecione novamente)`
+                        : 'Selecione o produto'}
+                  </span>
+                </span>
+                <span className="text-gray-400 text-xs ml-2 shrink-0">
+                  {productOpen ? '▴' : '▾'}
+                </span>
               </button>
-              {cargoTypeOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
-                  {CARGO_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => {
-                        setCargoType(t);
-                        setCargoTypeOpen(false);
-                        setTimeout(() => speciesRef.current?.focus(), 0);
-                      }}
-                      className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
-                        cargoType === t ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
+
+              {productOpen && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg z-30">
+                  {commodities.length > 5 && (
+                    <div className="p-2 border-b border-gray-200">
+                      <input
+                        type="text"
+                        autoFocus
+                        value={productFilter}
+                        onChange={(e) => setProductFilter(e.target.value)}
+                        placeholder="Buscar produto..."
+                        className="w-full px-2 py-1 bg-gray-50 border border-gray-200 rounded text-xs text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+                  <div className="max-h-60 overflow-y-auto">
+                    {commodities.length === 0 ? (
+                      <div className="px-3 py-3 text-xs text-gray-500">
+                        Nenhuma categoria disponível. Avise o administrador.
+                      </div>
+                    ) : (
+                      commodities
+                        .filter((c) => {
+                          if (!productFilter.trim()) return true;
+                          const q = productFilter
+                            .toLowerCase()
+                            .normalize('NFD')
+                            .replace(/\p{Diacritic}/gu, '');
+                          const n = c.name
+                            .toLowerCase()
+                            .normalize('NFD')
+                            .replace(/\p{Diacritic}/gu, '');
+                          return n.includes(q);
+                        })
+                        .map((c) => (
+                          <button
+                            key={c.id}
+                            type="button"
+                            onClick={() => {
+                              setProductSlug(c.slug);
+                              setProduct(c.name);
+                              setProductOpen(false);
+                              setProductFilter('');
+                            }}
+                            className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 flex items-center gap-2 ${
+                              productSlug === c.slug ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                            }`}
+                          >
+                            {c.iconUrl ? (
+                              <img
+                                src={c.iconUrl}
+                                alt=""
+                                className="w-6 h-6 rounded object-cover shrink-0"
+                              />
+                            ) : (
+                              <span className="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                {c.name.charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                            <span className="truncate">{c.name}</span>
+                          </button>
+                        ))
+                    )}
+                  </div>
                 </div>
               )}
             </div>
-            {fieldErrors.cargoType && (
-              <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.cargoType}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-[11px] text-gray-600 mb-0.5">Espécie *</label>
-            <div className="relative">
-              <button
-                ref={speciesRef}
-                type="button"
-                onClick={() => setSpeciesOpen((v) => !v)}
-                className={`w-full px-2 py-1.5 bg-white border rounded text-xs text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  fieldErrors.species ? 'border-red-400' : 'border-gray-300'
-                } ${species ? 'text-gray-800' : 'text-gray-400'}`}
-              >
-                <span>{species || 'Selecione'}</span>
-                <span className="text-gray-400 text-[10px]">{speciesOpen ? '▴' : '▾'}</span>
-              </button>
-              {speciesOpen && (
-                <div className="absolute left-0 right-0 top-full mt-1 max-h-48 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-30">
-                  {SPECIES.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => {
-                        setSpecies(s);
-                        setSpeciesOpen(false);
-                        setTimeout(() => productRef.current?.focus(), 0);
-                      }}
-                      className={`w-full text-left px-2 py-1.5 text-xs hover:bg-blue-50 ${
-                        species === s ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-            {fieldErrors.species && (
-              <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.species}</p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              Escolha um produto da lista. Categorias gerenciadas pelo administrador.
+            </p>
+            {fieldErrors.product && (
+              <p className="mt-1 text-xs text-red-600">{fieldErrors.product}</p>
             )}
           </div>
         </div>
 
-        {cargoType === 'Perigosa' && (
+        {/* ── Peso e Volume ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Peso e Volume
+          </h3>
+
           <div>
-            <label className="block text-[11px] text-gray-600 mb-0.5">Número ONU</label>
-            <input
-              type="text"
-              value={onuNumber}
-              onChange={(e) => setOnuNumber(e.target.value)}
-              placeholder="Ex: UN1203"
-              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            <label className="block text-xs text-gray-600 mb-1">Unidade de medida</label>
+            <RadioGroup
+              name="weightUnit"
+              options={[
+                { label: 'Por toneladas', value: 'toneladas' },
+                { label: 'Por quilos', value: 'quilos' },
+              ]}
+              value={weightUnit}
+              onChange={(v) => setWeightUnit(v as 'toneladas' | 'quilos')}
             />
           </div>
-        )}
 
-        {cargoType === 'Frigorificada ou Aquecida' && (
           <div>
-            <label className="block text-[11px] text-gray-600 mb-0.5">Temperatura (°C)</label>
-            <input
-              type="number"
-              value={temperature}
-              onChange={(e) => setTemperature(e.target.value)}
-              placeholder="Ex: -18"
-              className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded text-gray-800 text-xs placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            <label className="block text-xs text-gray-600 mb-1">Tipo de frete</label>
+            <RadioGroup
+              name="freightType"
+              options={[
+                { label: 'Carga completa', value: 'completa' },
+                { label: 'Complemento', value: 'complemento' },
+                { label: 'Peso de balança', value: 'peso_balanca' },
+                { label: 'Caixote cheio', value: 'caixote_cheio' },
+              ]}
+              value={freightType}
+              onChange={(v) =>
+                setFreightType(v as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio')
+              }
             />
           </div>
-        )}
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Produto *</label>
-          <input
-            ref={productRef}
-            type="text"
-            value={product}
-            onChange={(e) => setProduct(e.target.value)}
-            placeholder="Qual produto será carregado? (Ex: Milho, Soja...)"
-            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
-          />
-          {fieldErrors.product && (
-            <p className="mt-1 text-xs text-red-600">{fieldErrors.product}</p>
+          {freightType === 'complemento' && (
+            <div>
+              <label className="block text-xs text-gray-600 mb-1">% de ocupação estimada</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={occupancyPct}
+                onChange={(e) => setOccupancyPct(e.target.value)}
+                placeholder="Ex: 50"
+                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+              />
+            </div>
           )}
         </div>
-      </div>
 
-      {/* ── Peso e Volume ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Peso e Volume</h3>
+        {/* ── Veículos ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Tipos de Caminhão *
+          </h3>
+          <p className="text-[11px] text-gray-500">
+            Selecione um ou mais tipos de caminhão aceitos para este frete.
+          </p>
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Unidade de medida</label>
-          <RadioGroup
-            name="weightUnit"
-            options={[
-              { label: 'Por toneladas', value: 'toneladas' },
-              { label: 'Por quilos', value: 'quilos' },
-            ]}
-            value={weightUnit}
-            onChange={(v) => setWeightUnit(v as 'toneladas' | 'quilos')}
+          <button
+            type="button"
+            onClick={() => setVehiclePickerOpen(true)}
+            className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              fieldErrors.vehicles ? 'border-red-400' : 'border-gray-300'
+            } ${selectedVehicles.length > 0 ? 'text-gray-800' : 'text-gray-400'}`}
+          >
+            <span className="whitespace-normal break-words leading-tight">
+              {selectedVehicles.length === 0
+                ? 'Selecionar tipos de caminhão...'
+                : `${selectedVehicles.length} tipo${selectedVehicles.length === 1 ? '' : 's'} selecionado${selectedVehicles.length === 1 ? '' : 's'}`}
+            </span>
+            <span className="text-gray-400 text-xs ml-2 shrink-0">▾</span>
+          </button>
+
+          {selectedVehicles.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {selectedVehicles.map((v) => (
+                <span
+                  key={v}
+                  className="inline-flex items-start gap-1 max-w-full pl-2 pr-1 py-1 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-700"
+                >
+                  <span className="whitespace-normal break-words leading-tight">
+                    {vehicleTypeLabel(v)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeVehicle(v)}
+                    aria-label={`Remover ${vehicleTypeLabel(v)}`}
+                    className="shrink-0 text-blue-500 hover:text-blue-800 px-1 leading-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {fieldErrors.vehicles && <p className="text-xs text-red-600">{fieldErrors.vehicles}</p>}
+
+          <VehicleTypePicker
+            open={vehiclePickerOpen}
+            onClose={() => setVehiclePickerOpen(false)}
+            selected={selectedVehicles}
+            onChange={(next) => setSelectedVehicles(next)}
+            mode="multi"
+            title="Tipos de Caminhão Aceitos"
           />
         </div>
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Tipo de frete</label>
-          <RadioGroup
-            name="freightType"
-            options={[
-              { label: 'Carga completa', value: 'completa' },
-              { label: 'Complemento', value: 'complemento' },
-              { label: 'Peso de balança', value: 'peso_balanca' },
-              { label: 'Caixote cheio', value: 'caixote_cheio' },
-            ]}
-            value={freightType}
-            onChange={(v) =>
-              setFreightType(v as 'completa' | 'complemento' | 'peso_balanca' | 'caixote_cheio')
-            }
+        {/* ── Carrocerias ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Carrocerias *
+          </h3>
+          <p className="text-[11px] text-gray-500">
+            Selecione uma ou mais carrocerias aceitas para este frete.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setBodyPickerOpen(true)}
+            className={`w-full px-3 py-2 bg-white border rounded-lg text-sm text-left flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              fieldErrors.bodies ? 'border-red-400' : 'border-gray-300'
+            } ${selectedBodies.length > 0 ? 'text-gray-800' : 'text-gray-400'}`}
+          >
+            <span className="whitespace-normal break-words leading-tight">
+              {selectedBodies.length === 0
+                ? 'Selecionar carrocerias...'
+                : `${selectedBodies.length} carroceria${selectedBodies.length === 1 ? '' : 's'} selecionada${selectedBodies.length === 1 ? '' : 's'}`}
+            </span>
+            <span className="text-gray-400 text-xs ml-2 shrink-0">▾</span>
+          </button>
+
+          {selectedBodies.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {selectedBodies.map((b) => (
+                <span
+                  key={b}
+                  className="inline-flex items-start gap-1 max-w-full pl-2 pr-1 py-1 bg-blue-50 border border-blue-200 rounded-md text-xs text-blue-700"
+                >
+                  <span className="whitespace-normal break-words leading-tight">
+                    {bodyTypeLabel(b)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => removeBody(b)}
+                    aria-label={`Remover ${bodyTypeLabel(b)}`}
+                    className="shrink-0 text-blue-500 hover:text-blue-800 px-1 leading-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+
+          {fieldErrors.bodies && <p className="text-xs text-red-600">{fieldErrors.bodies}</p>}
+
+          <BodyTypePicker
+            open={bodyPickerOpen}
+            onClose={() => setBodyPickerOpen(false)}
+            selected={selectedBodies}
+            onChange={(next) => setSelectedBodies(next)}
+            mode="multi"
+            title="Carrocerias Aceitas"
           />
         </div>
 
-        {freightType === 'complemento' && (
+        {/* ── Opções Adicionais ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Opções Adicionais
+          </h3>
+
           <div>
-            <label className="block text-xs text-gray-600 mb-1">% de ocupação estimada</label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={occupancyPct}
-              onChange={(e) => setOccupancyPct(e.target.value)}
-              placeholder="Ex: 50"
-              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+            <label className="block text-xs text-gray-600 mb-1">Precisa de lona?</label>
+            <RadioGroup
+              name="lona"
+              options={[
+                { label: 'Sim', value: 'sim' },
+                { label: 'Não', value: 'nao' },
+              ]}
+              value={requiresLona}
+              onChange={setRequiresLona}
             />
           </div>
-        )}
-      </div>
 
-      {/* ── Veículos ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Tipos de Veículo Aceitos *</h3>
-        {VEHICLE_CATEGORIES.map((cat) => {
-          const allSelected = cat.vehicles.every((v) => selectedVehicles.includes(v.value));
-          return (
-            <div key={cat.label}>
-              <div className="flex items-center gap-2 mb-1.5">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Precisa de rastreador?</label>
+            <RadioGroup
+              name="tracker"
+              options={[
+                { label: 'Sim', value: 'sim' },
+                { label: 'Não', value: 'nao' },
+              ]}
+              value={requiresTracker}
+              onChange={setRequiresTracker}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Terá seguro?</label>
+            <RadioGroup
+              name="insurance"
+              options={[
+                { label: 'Sim', value: 'sim' },
+                { label: 'Não', value: 'nao' },
+              ]}
+              value={requiresInsurance}
+              onChange={setRequiresInsurance}
+            />
+          </div>
+        </div>
+
+        {/* ── Dados de Pagamento ── */}
+        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
+          <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">
+            Dados de Pagamento
+          </h3>
+
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Informações de valor</label>
+            <RadioGroup
+              name="valueKnown"
+              options={[
+                { label: 'O valor', value: 'ja_sei' },
+                { label: 'A combinar', value: 'a_combinar' },
+              ]}
+              value={valueKnown}
+              onChange={setValueKnown}
+            />
+          </div>
+
+          {valueKnown === 'ja_sei' && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Valor do Frete</label>
                 <input
-                  type="checkbox"
-                  id={`cat-${cat.label}`}
-                  checked={allSelected}
-                  onChange={() => toggleAllVehicles(cat.vehicles)}
-                  className="accent-blue-600"
+                  type="text"
+                  inputMode="numeric"
+                  value={freteValue ? formatBRL(freteValue) : ''}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, '');
+                    // armazenamos em centavos como string crua
+                    setFreteValue(digits);
+                  }}
+                  placeholder="R$ 0,00"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
                 />
-                <label
-                  htmlFor={`cat-${cat.label}`}
-                  className="text-xs font-medium text-gray-700 cursor-pointer"
-                >
-                  Todos os {cat.label}
-                </label>
+                {fieldErrors.freteValue && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.freteValue}</p>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2 pl-5">
-                {cat.vehicles.map((v) => (
-                  <button
-                    key={v.value}
-                    type="button"
-                    onClick={() => toggleVehicle(v.value)}
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                      selectedVehicles.includes(v.value)
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    {v.label}
-                  </button>
-                ))}
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Cálculo do valor</label>
+                <select
+                  value={priceCalc}
+                  onChange={(e) => setPriceCalc(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
+                >
+                  <option value="">Selecione</option>
+                  <option value="toneladas">Por toneladas</option>
+                  <option value="quilos">Por quilos</option>
+                  <option value="total">Total</option>
+                </select>
+                {fieldErrors.priceCalc && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.priceCalc}</p>
+                )}
               </div>
             </div>
-          );
-        })}
-        {selectedVehicles.length > 0 && (
-          <p className="text-xs text-green-600">{selectedVehicles.length} tipo(s) selecionado(s)</p>
-        )}
-        {fieldErrors.vehicles && <p className="text-xs text-red-600">{fieldErrors.vehicles}</p>}
-      </div>
+          )}
 
-      {/* ── Carrocerias ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Carrocerias</h3>
-        {BODY_CATEGORIES.map((cat) => {
-          const allSelected = cat.bodies.every((b) => selectedBodies.includes(b));
-          return (
-            <div key={cat.label}>
-              <div className="flex items-center gap-2 mb-1.5">
-                <input
-                  type="checkbox"
-                  id={`body-cat-${cat.label}`}
-                  checked={allSelected}
-                  onChange={() => toggleAllBodies(cat.bodies)}
-                  className="accent-blue-600"
-                />
-                <label
-                  htmlFor={`body-cat-${cat.label}`}
-                  className="text-xs font-medium text-gray-700 cursor-pointer"
+          <div>
+            <label className="block text-xs text-gray-600 mb-2">Forma de pagamento</label>
+            <div className="flex flex-wrap gap-2">
+              {PAYMENT_METHODS.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => togglePayment(m)}
+                  className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                    paymentMethods.includes(m)
+                      ? 'bg-blue-600 border-blue-500 text-white'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
+                  }`}
                 >
-                  Todos — {cat.label}
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-2 pl-5">
-                {cat.bodies.map((b) => (
-                  <button
-                    key={b}
-                    type="button"
-                    onClick={() => toggleBody(b)}
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                      selectedBodies.includes(b)
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    {b}
-                  </button>
-                ))}
-              </div>
+                  {m}
+                </button>
+              ))}
             </div>
-          );
-        })}
-        {fieldErrors.bodies && <p className="text-xs text-red-600">{fieldErrors.bodies}</p>}
-      </div>
+            {fieldErrors.paymentMethods && (
+              <p className="mt-2 text-xs text-red-600">{fieldErrors.paymentMethods}</p>
+            )}
+          </div>
 
-      {/* ── Opções Adicionais ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Opções Adicionais</h3>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Precisa de lona?</label>
-          <RadioGroup
-            name="lona"
-            options={[
-              { label: 'Sim', value: 'sim' },
-              { label: 'Não', value: 'nao' },
-            ]}
-            value={requiresLona}
-            onChange={setRequiresLona}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Precisa de rastreador?</label>
-          <RadioGroup
-            name="tracker"
-            options={[
-              { label: 'Sim', value: 'sim' },
-              { label: 'Não', value: 'nao' },
-            ]}
-            value={requiresTracker}
-            onChange={setRequiresTracker}
-          />
-        </div>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Terá seguro?</label>
-          <RadioGroup
-            name="insurance"
-            options={[
-              { label: 'Sim', value: 'sim' },
-              { label: 'Não', value: 'nao' },
-            ]}
-            value={requiresInsurance}
-            onChange={setRequiresInsurance}
-          />
-        </div>
-      </div>
-
-      {/* ── Dados de Pagamento ── */}
-      <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2">
-        <h3 className="text-xs font-semibold text-gray-800 uppercase tracking-wide">Dados de Pagamento</h3>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Informações de valor</label>
-          <RadioGroup
-            name="valueKnown"
-            options={[
-              { label: 'O valor', value: 'ja_sei' },
-              { label: 'A combinar', value: 'a_combinar' },
-            ]}
-            value={valueKnown}
-            onChange={setValueKnown}
-          />
-        </div>
-
-        {valueKnown === 'ja_sei' && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Valor do Frete</label>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Adiantamento <span className="text-gray-400">(opcional)</span>
+            </label>
+            <div className="relative">
               <input
                 type="text"
                 inputMode="numeric"
-                value={freteValue ? formatBRL(freteValue) : ''}
+                maxLength={2}
+                value={advancePct}
                 onChange={(e) => {
-                  const digits = e.target.value.replace(/\D/g, '');
-                  // armazenamos em centavos como string crua
-                  setFreteValue(digits);
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 2);
+                  setAdvancePct(v);
                 }}
-                placeholder="R$ 0,00"
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+                placeholder="Ex: 80"
+                className="w-full pl-3 pr-8 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
               />
-              {fieldErrors.freteValue && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.freteValue}</p>
-              )}
-            </div>
-            <div>
-              <label className="block text-xs text-gray-600 mb-1">Cálculo do valor</label>
-              <select
-                value={priceCalc}
-                onChange={(e) => setPriceCalc(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm"
-              >
-                <option value="">Selecione</option>
-                <option value="toneladas">Por toneladas</option>
-                <option value="quilos">Por quilos</option>
-                <option value="total">Total</option>
-              </select>
-              {fieldErrors.priceCalc && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.priceCalc}</p>
-              )}
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+                %
+              </span>
             </div>
           </div>
-        )}
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-2">Forma de pagamento</label>
-          <div className="flex flex-wrap gap-2">
-            {PAYMENT_METHODS.map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => togglePayment(m)}
-                className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                  paymentMethods.includes(m)
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-white border-gray-300 text-gray-700 hover:border-gray-400'
-                }`}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-          {fieldErrors.paymentMethods && (
-            <p className="mt-2 text-xs text-red-600">{fieldErrors.paymentMethods}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            Adiantamento <span className="text-gray-400">(opcional)</span>
-          </label>
-          <div className="relative">
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={2}
-              value={advancePct}
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Observações <span className="text-gray-400">({observations.length}/500)</span>
+            </label>
+            <textarea
+              value={observations}
               onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 2);
-                setAdvancePct(v);
+                if (e.target.value.length <= 500) setObservations(e.target.value);
               }}
-              placeholder="Ex: 80"
-              className="w-full pl-3 pr-8 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
+              maxLength={500}
+              rows={3}
+              placeholder="Informações adicionais..."
+              className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
             />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
-              %
-            </span>
           </div>
         </div>
 
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            Observações <span className="text-gray-400">({observations.length}/500)</span>
-          </label>
-          <textarea
-            value={observations}
-            onChange={(e) => {
-              if (e.target.value.length <= 500) setObservations(e.target.value);
-            }}
-            maxLength={500}
-            rows={3}
-            placeholder="Informações adicionais..."
-            className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-gray-800 text-sm placeholder-gray-400"
-          />
-        </div>
-      </div>
-
-      {/* ── Botões ── */}
-      <div className="flex justify-end space-x-3">
-        {onCancel && (
+        {/* ── Botões ── */}
+        <div className="flex justify-end space-x-3">
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
+            >
+              Cancelar
+            </button>
+          )}
           <button
-            type="button"
-            onClick={onCancel}
-            className="px-5 py-2 bg-gray-200 text-gray-800 text-sm rounded-lg hover:bg-gray-300"
+            type="submit"
+            disabled={isSubmitting}
+            className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            Cancelar
+            {isSubmitting
+              ? isEditing
+                ? 'Salvando...'
+                : 'Publicando...'
+              : isEditing
+                ? 'Salvar alterações'
+                : 'Publicar Frete'}
           </button>
-        )}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-5 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isSubmitting
-            ? isEditing
-              ? 'Salvando...'
-              : 'Publicando...'
-            : isEditing
-              ? 'Salvar alterações'
-              : 'Publicar Frete'}
-        </button>
-      </div>
-    </form>
+        </div>
+      </form>
     </>
   );
 }

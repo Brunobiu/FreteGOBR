@@ -37,6 +37,9 @@ const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
 // Painel administrativo (admin-foundation)
 const AdminLayoutRoute = lazy(() => import('./components/admin/AdminLayoutRoute'));
 
+// Mapa fullscreen do motorista (rota dedicada)
+const MotoristaMapaPage = lazy(() => import('./pages/MotoristaMapaPage'));
+
 function LazyRoute({ children }: { children: React.ReactNode }) {
   return (
     <Suspense
@@ -91,6 +94,16 @@ function App() {
                   <MotoristaPlanPage />
                 </LazyRoute>
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/mapa"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaMapaPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
             }
           />
           <Route

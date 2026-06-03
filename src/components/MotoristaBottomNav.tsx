@@ -1,24 +1,22 @@
 /**
  * MotoristaBottomNav - barra de navegacao inferior fixa para motorista.
  *
- * Layout visual conforme spec:
- *  - 4 itens (Inicio, Negociar, Chat com badge, Menu)
+ * Layout visual:
+ *  - 4 itens (Inicio, Negociar, Mapa, Menu)
  *  - Botao central circular verde flutuante (megafone) sobrepondo a barra
  *  - Fixo no rodape, nao some no scroll
  *
  * Navegacao:
- *  - "Início" sempre volta para a home (`/`). Se ja estiver na home, apenas
- *    rola a pagina de volta ao topo.
+ *  - "Início" sempre volta para a home (`/`). Se ja estiver na home,
+ *    apenas rola a pagina de volta ao topo.
+ *  - "Mapa" navega para `/motorista/mapa` (rota fullscreen, criada
+ *    pela spec `motorista-mapa-fullscreen`). Slot 3 substitui o Chat
+ *    antigo; o badge `chatBadge` foi removido.
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
 
-interface Props {
-  /** Quantidade de mensagens nao lidas no chat (badge). Default 0. */
-  chatBadge?: number;
-}
-
-export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
+export default function MotoristaBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,17 +29,24 @@ export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
     }
   };
 
+  const goMapa = () => navigate('/motorista/mapa');
+
+  const isHomeActive = location.pathname === '/';
+  const isMapaActive = location.pathname === '/motorista/mapa';
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]"
       aria-label="Navegação inferior"
     >
       <div className="relative max-w-md mx-auto h-16 grid grid-cols-4 items-center px-2">
-        {/* 1 - Inicio (esquerda) */}
+        {/* 1 - Inicio */}
         <button
           type="button"
           onClick={goHome}
-          className="flex flex-col items-center justify-center gap-0.5 py-1 text-green-600"
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+            isHomeActive ? 'text-green-600' : 'text-gray-600'
+          }`}
           aria-label="Início"
         >
           <svg
@@ -57,7 +62,9 @@ export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
               d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
             />
           </svg>
-          <span className="text-[10px] font-bold">Início</span>
+          <span className={`text-[10px] ${isHomeActive ? 'font-bold' : 'font-medium'}`}>
+            Início
+          </span>
         </button>
 
         {/* 2 - Negociar */}
@@ -82,33 +89,34 @@ export default function MotoristaBottomNav({ chatBadge = 0 }: Props) {
           <span className="text-[10px] font-medium">Negociar</span>
         </button>
 
-        {/* 3 - Chat (com badge) */}
+        {/* 3 - Mapa (substitui Chat) */}
         <button
           type="button"
-          className="flex flex-col items-center justify-center gap-0.5 py-1 text-gray-600"
-          aria-label="Chat"
+          onClick={goMapa}
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+            isMapaActive ? 'text-green-600' : 'text-gray-600'
+          }`}
+          aria-label="Mapa"
         >
-          <span className="relative">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-              />
-            </svg>
-            {chatBadge > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 bg-green-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center border-2 border-white">
-                {chatBadge > 9 ? '9+' : chatBadge}
-              </span>
-            )}
-          </span>
-          <span className="text-[10px] font-medium">Chat</span>
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={1.8}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+            />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+            />
+          </svg>
+          <span className={`text-[10px] ${isMapaActive ? 'font-bold' : 'font-medium'}`}>Mapa</span>
         </button>
 
         {/* 4 - Menu */}

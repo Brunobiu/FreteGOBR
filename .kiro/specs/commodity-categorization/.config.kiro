@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "feature": "commodity-categorization",
+  "displayName": "Categorização de Fretes por Commodity",
+  "description": "Liga fretes às categorias de commodity já gerenciadas pelo admin. Embarcador escolhe via dropdown obrigatório; motorista filtra clicando no carrossel.",
+  "owner": "bruno",
+  "status": "design",
+  "createdAt": "2026-06-02"
+}

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Frete } from '../services/fretes';
+import { vehicleTypesCsvLabel } from '../data/vehicleTypes';
 
 // Fix default marker icons broken by webpack/vite
 delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
@@ -42,7 +43,7 @@ function FreteMarker({ frete, onFreteClick }: FreteMarkerProps) {
             {frete.origin} → {frete.destination}
           </p>
           <p className="text-sm text-gray-600 mb-1">
-            {frete.cargoType} • {frete.vehicleType}
+            {frete.cargoType} • {vehicleTypesCsvLabel(frete.vehicleType)}
           </p>
           <p className="text-sm font-bold text-green-600 mb-2">{formatCurrency(frete.value)}</p>
           <button
