@@ -93,25 +93,28 @@ export default function DieselDashboardInput({
     !Number.isNaN(currentNum) &&
     (lastSavedRef.current === null || Math.abs(currentNum - lastSavedRef.current) >= 0.005);
 
-  // Chamariz visual: a cada montagem do componente, se o motorista
-  // ainda nao tem valor de diesel salvo, expande o label de "Diesel"
-  // para "Adicione o valor do diesel" por 4 segundos. Depois retrai
-  // suavemente. Se ele clicar/digitar antes, retrai imediatamente —
-  // ele ja viu a mensagem.
-  const [hintExpanded, setHintExpanded] = useState<boolean>(() => initialValue === null);
+  // Chamariz visual: TODA vez que o componente monta (refresh da
+  // pagina, login, etc), expande o label "Diesel" para "Adicione o
+  // valor do diesel" por 4 segundos e depois retrai. O objetivo e
+  // chamar atencao do motorista pra que ele preencha/atualize o valor
+  // — mesmo quando ja tem um valor salvo (pode ter mudado o preco
+  // do combustivel na bomba).
+  //
+  // Se o motorista clicar/focar/digitar antes dos 4s, retrai
+  // imediatamente — ele ja viu a mensagem.
+  const [hintExpanded, setHintExpanded] = useState<boolean>(true);
   const hintDismissedRef = useRef(false);
 
   useEffect(() => {
-    if (initialValue !== null) {
-      // Ja tem valor salvo, nao precisa do chamariz.
-      setHintExpanded(false);
-      return;
-    }
     if (hintDismissedRef.current) return;
+    // Garante o estado expandido ao montar (alguns browsers/StrictMode
+    // podem reordenar; idempotente).
     setHintExpanded(true);
     const t = window.setTimeout(() => setHintExpanded(false), 4000);
     return () => window.clearTimeout(t);
-  }, [initialValue]);
+    // Sem dependencias: dispara apenas no mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const dismissHint = () => {
     hintDismissedRef.current = true;
@@ -121,8 +124,10 @@ export default function DieselDashboardInput({
   return (
     <div className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 shadow-sm">
       <span
-        className={`text-[10px] text-gray-500 font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-500 ease-in-out ${
-          hintExpanded ? 'max-w-[180px] opacity-100 text-blue-600' : 'max-w-[44px] opacity-100'
+        className={`text-[10px] font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity,color] duration-500 ease-in-out ${
+          hintExpanded
+            ? 'max-w-[200px] opacity-100 text-blue-600 font-semibold'
+            : 'max-w-[44px] opacity-100 text-gray-500'
         }`}
         aria-live="polite"
       >
