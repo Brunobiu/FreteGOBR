@@ -587,7 +587,7 @@ export default function FreteModal({
                       d="M3 10h10a8 8 0 018 8v2M3 10l6-6M3 10l6 6"
                     />
                   </svg>
-                  <span className="hidden sm:inline">Procurar retorno</span>
+                  <span className="hidden sm:inline">Frete retorno</span>
                   <span className="sm:hidden">Retorno</span>
                 </button>
               )}

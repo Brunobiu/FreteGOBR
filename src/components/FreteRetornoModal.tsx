@@ -29,7 +29,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { findNearbyFretes, type Frete } from '../services/fretes';
 import { haversineDistanceKm } from '../utils/geoDistance';
 
-type RetornoRadius = 50 | 100;
+type RetornoRadius = 50 | 100 | 200 | 500;
 
 interface FreteRetornoModalProps {
   open: boolean;
@@ -200,9 +200,9 @@ export default function FreteRetornoModal({
           </div>
 
           {/* Toggle de raio */}
-          <div className="px-3 sm:px-4 py-2 border-b border-gray-100 flex items-center gap-2">
+          <div className="px-3 sm:px-4 py-2 border-b border-gray-100 flex items-center gap-2 flex-wrap">
             <span className="text-[11px] text-gray-500">Raio:</span>
-            {[50, 100].map((r) => (
+            {[50, 100, 200, 500].map((r) => (
               <button
                 key={r}
                 type="button"
@@ -244,13 +244,17 @@ export default function FreteRetornoModal({
             ) : visibleFretes.length === 0 ? (
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 text-center">
                 Nenhum frete de retorno encontrado em {radiusKm} km de {destinoLabel}.{' '}
-                {radiusKm === 50 && (
+                {radiusKm < 500 && (
                   <button
                     type="button"
-                    onClick={() => setRadiusKm(100)}
+                    onClick={() => {
+                      const next: RetornoRadius =
+                        radiusKm === 50 ? 100 : radiusKm === 100 ? 200 : 500;
+                      setRadiusKm(next);
+                    }}
                     className="underline font-medium hover:text-yellow-900"
                   >
-                    Tente aumentar o raio para 100 km.
+                    Tente aumentar o raio.
                   </button>
                 )}
               </div>
