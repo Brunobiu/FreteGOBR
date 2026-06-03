@@ -61,9 +61,8 @@ export default function FreteFilters({
           onClick={() => setIsExpanded(!isExpanded)}
           aria-label="Filtros"
           title={`Filtros${activeFilterCount > 0 ? ` (${activeFilterCount} ativos)` : ''}`}
-          className="relative inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-xs font-medium text-gray-700"
+          className="relative inline-flex items-center justify-center px-2 py-1.5 bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50 transition-colors text-gray-700"
         >
-          <span>Filtro</span>
           <svg
             className="w-4 h-4 text-gray-600"
             fill="none"

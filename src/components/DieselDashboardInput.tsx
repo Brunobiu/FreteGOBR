@@ -93,15 +93,53 @@ export default function DieselDashboardInput({
     !Number.isNaN(currentNum) &&
     (lastSavedRef.current === null || Math.abs(currentNum - lastSavedRef.current) >= 0.005);
 
+  // Chamariz visual: a cada montagem do componente, se o motorista
+  // ainda nao tem valor de diesel salvo, expande o label de "Diesel"
+  // para "Adicione o valor do diesel" por 4 segundos. Depois retrai
+  // suavemente. Se ele clicar/digitar antes, retrai imediatamente —
+  // ele ja viu a mensagem.
+  const [hintExpanded, setHintExpanded] = useState<boolean>(() => initialValue === null);
+  const hintDismissedRef = useRef(false);
+
+  useEffect(() => {
+    if (initialValue !== null) {
+      // Ja tem valor salvo, nao precisa do chamariz.
+      setHintExpanded(false);
+      return;
+    }
+    if (hintDismissedRef.current) return;
+    setHintExpanded(true);
+    const t = window.setTimeout(() => setHintExpanded(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [initialValue]);
+
+  const dismissHint = () => {
+    hintDismissedRef.current = true;
+    setHintExpanded(false);
+  };
+
   return (
     <div className="inline-flex items-center gap-1 bg-white border border-gray-200 rounded px-2 py-0.5 shadow-sm">
-      <span className="text-[10px] text-gray-500 font-medium">Diesel</span>
+      <span
+        className={`text-[10px] text-gray-500 font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity] duration-500 ease-in-out ${
+          hintExpanded ? 'max-w-[180px] opacity-100 text-blue-600' : 'max-w-[44px] opacity-100'
+        }`}
+        aria-live="polite"
+      >
+        {hintExpanded ? 'Adicione o valor do diesel' : 'Diesel'}
+      </span>
       <span className="text-[10px] text-gray-400">R$</span>
       <input
         type="text"
         inputMode="numeric"
         value={value}
-        onChange={(e) => handleChange(e.target.value)}
+        onChange={(e) => {
+          handleChange(e.target.value);
+          if (hintExpanded) dismissHint();
+        }}
+        onFocus={() => {
+          if (hintExpanded) dismissHint();
+        }}
         onKeyDown={handleKeyDown}
         placeholder="0,00"
         aria-label="Valor do diesel por litro na sua região"
