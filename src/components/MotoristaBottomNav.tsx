@@ -2,16 +2,16 @@
  * MotoristaBottomNav - barra de navegacao inferior fixa para motorista.
  *
  * Layout visual:
- *  - 4 itens (Inicio, Negociar, Mapa, Menu)
- *  - Botao central circular verde flutuante (megafone) sobrepondo a barra
+ *  - 4 itens (Inicio, Mapa, Tabela ANTT, Menu)
  *  - Fixo no rodape, nao some no scroll
  *
- * Navegacao:
- *  - "Início" sempre volta para a home (`/`). Se ja estiver na home,
- *    apenas rola a pagina de volta ao topo.
- *  - "Mapa" navega para `/motorista/mapa` (rota fullscreen, criada
- *    pela spec `motorista-mapa-fullscreen`). Slot 3 substitui o Chat
- *    antigo; o badge `chatBadge` foi removido.
+ * Ordem dos slots foi invertida: o slot 2 era "Negociar" e virou
+ * "Mapa". O slot 3 era "Mapa" (em versao anterior) e agora hospeda
+ * "Tabela ANTT" — destino futuro pra exibir as tabelas oficiais da
+ * ANTT.
+ *
+ * O botao central flutuante (megafone) foi removido — nao tinha
+ * funcionalidade ainda atribuida e poluia visualmente.
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,7 +22,6 @@ export default function MotoristaBottomNav() {
 
   const goHome = () => {
     if (location.pathname === '/') {
-      // Ja na home: garante o retorno ao topo.
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } else {
       navigate('/');
@@ -33,6 +32,7 @@ export default function MotoristaBottomNav() {
 
   const isHomeActive = location.pathname === '/';
   const isMapaActive = location.pathname === '/motorista/mapa';
+  const isTabelaActive = location.pathname === '/motorista/tabela-antt';
 
   return (
     <nav
@@ -67,29 +67,7 @@ export default function MotoristaBottomNav() {
           </span>
         </button>
 
-        {/* 2 - Negociar */}
-        <button
-          type="button"
-          className="flex flex-col items-center justify-center gap-0.5 py-1 text-gray-600"
-          aria-label="Negociar"
-        >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={1.8}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-            />
-          </svg>
-          <span className="text-[10px] font-medium">Negociar</span>
-        </button>
-
-        {/* 3 - Mapa (substitui Chat) */}
+        {/* 2 - Mapa (antes era Negociar) */}
         <button
           type="button"
           onClick={goMapa}
@@ -119,6 +97,33 @@ export default function MotoristaBottomNav() {
           <span className={`text-[10px] ${isMapaActive ? 'font-bold' : 'font-medium'}`}>Mapa</span>
         </button>
 
+        {/* 3 - Tabela ANTT (substitui o slot Mapa antigo, com icone de
+            tabela em vez de carrinho/negociar) */}
+        <button
+          type="button"
+          className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+            isTabelaActive ? 'text-green-600' : 'text-gray-600'
+          }`}
+          aria-label="Tabela ANTT"
+        >
+          <svg
+            className="w-6 h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={1.8}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M3 10h18M3 6h18M3 14h18M3 18h18M9 6v12M15 6v12"
+            />
+          </svg>
+          <span className={`text-[10px] ${isTabelaActive ? 'font-bold' : 'font-medium'}`}>
+            Tabela ANTT
+          </span>
+        </button>
+
         {/* 4 - Menu */}
         <button
           type="button"
@@ -135,27 +140,6 @@ export default function MotoristaBottomNav() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
           </svg>
           <span className="text-[10px] font-medium">Menu</span>
-        </button>
-
-        {/* Botao central flutuante (megafone) */}
-        <button
-          type="button"
-          aria-label="Anunciar"
-          className="absolute left-1/2 -translate-x-1/2 -top-7 z-50 w-14 h-14 rounded-full bg-green-500 hover:bg-green-600 active:scale-95 transition-all shadow-lg shadow-green-500/40 flex items-center justify-center border-4 border-white"
-        >
-          <svg
-            className="w-6 h-6 text-white"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"
-            />
-          </svg>
         </button>
       </div>
     </nav>

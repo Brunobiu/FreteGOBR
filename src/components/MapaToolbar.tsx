@@ -38,7 +38,7 @@ interface MapaToolbarProps {
 export default function MapaToolbar({ middleSlot }: MapaToolbarProps) {
   if (!middleSlot) return null;
   return (
-    <div className="sticky top-14 sm:top-16 z-30 bg-gray-100 -mx-3 sm:-mx-4 px-3 sm:px-4 py-1.5 mb-2 flex items-center justify-center w-auto">
+    <div className="sticky top-14 sm:top-16 z-30 bg-gray-100 -mx-3 sm:-mx-4 px-3 sm:px-4 py-0.5 mb-1 flex items-center justify-center w-auto">
       {middleSlot}
     </div>
   );

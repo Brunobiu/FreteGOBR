@@ -109,17 +109,24 @@ export default function FreteCard({
         </div>
       </div>
 
-      {/* Produto — colado embaixo da rota. Sem o tipo de caminhao
-          (que estava antes nesta linha) o card encosta direto na linha
-          do valor, ficando mais compacto. */}
-      {frete.product && (
-        <p className="text-xs text-gray-700 mb-2">
-          <span className="text-gray-400">Produto:</span>{' '}
-          <span className="font-medium">{frete.product}</span>
-        </p>
-      )}
+      {/* Produto + "Postado em" na mesma linha. Em mobile o produto
+          eh truncado se for longo demais pra caber junto com a data. */}
+      <div className="flex items-center justify-between gap-2 mb-2">
+        {frete.product ? (
+          <p className="text-xs text-gray-700 truncate flex-1 min-w-0">
+            <span className="text-gray-400">Produto:</span>{' '}
+            <span className="font-medium">{frete.product}</span>
+          </p>
+        ) : (
+          <span className="flex-1" />
+        )}
+        <span className="text-[10px] text-gray-400 shrink-0 whitespace-nowrap">
+          {formatPostedAt(frete.createdAt)}
+        </span>
+      </div>
 
-      {/* Linha de baixo: valor à esquerda, "Postado em DD/MM HH:MM" à direita */}
+      {/* Linha de baixo: valor à esquerda + botao "Ver detalhes"
+          verde à direita. */}
       <div className="flex items-center justify-between gap-2 pt-2 border-t border-gray-100">
         <div className="flex-1 min-w-0">
           {isAuthenticated ? (
@@ -134,9 +141,18 @@ export default function FreteCard({
             </Link>
           )}
         </div>
-        <span className="text-[11px] text-gray-400 shrink-0">
-          {formatPostedAt(frete.createdAt)}
-        </span>
+        {isAuthenticated && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-[11px] font-semibold rounded shrink-0 shadow-sm"
+          >
+            Ver detalhes
+          </button>
+        )}
       </div>
 
       {/* Bloco de cálculo financeiro — só renderiza quando motoristaCalc
