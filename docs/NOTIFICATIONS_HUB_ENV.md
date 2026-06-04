@@ -8,7 +8,7 @@ Configurar no Supabase Dashboard → Edge Functions → `send-public-ticket-repl
 |----------|-----------|----------------|
 | `EMAIL_PROVIDER` | Provider de email a usar. | `log` (dev), `resend` ou `sendgrid` (prod) |
 | `EMAIL_PROVIDER_API_KEY` | API key do provider escolhido. | obtida no painel do provider |
-| `EMAIL_FROM_ADDRESS` | Email do remetente. | `suporte@fretego.com.br` |
+| `EMAIL_FROM_ADDRESS` | Email do remetente. | `suporte@fretegobr.com.br` |
 | `EMAIL_FROM_NAME` | Nome de exibição. | `FreteGO Suporte` |
 | `PUBLIC_TICKET_DEV_LOG` | Se `true`, apenas loga em vez de enviar (dev). | `true` em dev, ausente em prod |
 | `SUPABASE_URL` | URL do projeto (auto-injetado pelo Supabase). | — |
@@ -31,12 +31,12 @@ emails reais.
 ```
 EMAIL_PROVIDER=resend
 EMAIL_PROVIDER_API_KEY=re_xxx...
-EMAIL_FROM_ADDRESS=suporte@fretego.com.br
+EMAIL_FROM_ADDRESS=suporte@fretegobr.com.br
 EMAIL_FROM_NAME=FreteGO Suporte
 ```
 
 1. Criar conta em [resend.com](https://resend.com).
-2. Verificar domínio `fretego.com.br` (DNS records).
+2. Verificar domínio `fretegobr.com.br` (DNS records — DKIM, SPF, DMARC; ver `docs/RESEND_DNS_SETUP.md`).
 3. Gerar API key e colar em `EMAIL_PROVIDER_API_KEY`.
 
 ### Modo SendGrid
@@ -44,7 +44,7 @@ EMAIL_FROM_NAME=FreteGO Suporte
 ```
 EMAIL_PROVIDER=sendgrid
 EMAIL_PROVIDER_API_KEY=SG.xxx...
-EMAIL_FROM_ADDRESS=suporte@fretego.com.br
+EMAIL_FROM_ADDRESS=suporte@fretegobr.com.br
 EMAIL_FROM_NAME=FreteGO Suporte
 ```
 

@@ -26,6 +26,7 @@ import { capitalizeName } from '../utils/textCase';
 import { formatPlate, isValidMercosulPlate } from '../utils/plateValidation';
 import { sanitizePhone, formatPhoneBR, isValidPhoneBR } from '../utils/phoneFormat';
 import { maskDecimal, maskedToNumber, numberToMasked } from '../utils/numberMask';
+import { formatCpf, sanitizeCpf } from '../utils/cpfFormat';
 import { supabase } from '../services/supabase';
 import ModalVerificacaoEmail from '../components/ModalVerificacaoEmail';
 import VehicleTypePicker from '../components/VehicleTypePicker';
@@ -1490,17 +1491,20 @@ export default function MotoristaPerfilPage() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[11px] text-gray-600 mb-0.5">CPF</label>
                 <input
                   type="text"
-                  value={cpf}
+                  value={formatCpf(cpf)}
                   onChange={(e) => {
-                    setCpf(e.target.value);
+                    setCpf(sanitizeCpf(e.target.value));
                     markDirty('dadosPessoais');
                   }}
                   placeholder="000.000.000-00"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={14}
                   className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
@@ -1518,7 +1522,7 @@ export default function MotoristaPerfilPage() {
                   className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
-              <div className="sm:col-span-2">
+              <div className="col-span-2">
                 <label className="block text-[11px] text-gray-600 mb-0.5">E-mail</label>
                 {emailVerifiedNow ? (
                   <div className="flex items-center gap-2">

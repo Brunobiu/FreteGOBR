@@ -49,7 +49,7 @@ interface Payload {
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const DEV_LOG = Deno.env.get('PUBLIC_TICKET_DEV_LOG') === 'true';
-const EMAIL_FROM = Deno.env.get('EMAIL_FROM_ADDRESS') ?? 'suporte@fretego.com.br';
+const EMAIL_FROM = Deno.env.get('EMAIL_FROM_ADDRESS') ?? 'suporte@fretegobr.com.br';
 const EMAIL_FROM_NAME = Deno.env.get('EMAIL_FROM_NAME') ?? 'FreteGO Suporte';
 
 // Provider candidato 1: Resend (https://resend.com).
@@ -133,7 +133,7 @@ ${body}
     </div>
     <div style="background: #f9fafb; padding: 12px 24px; color: #9ca3af;
                 font-size: 11px; text-align: center;">
-      Este email foi enviado em resposta ao seu contato em fretego.com.br/contato.<br />
+      Este email foi enviado em resposta ao seu contato em fretegobr.com.br/contato.<br />
       Se voce nao reconhece esta mensagem, ignore.
     </div>
   </div>
