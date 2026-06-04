@@ -11,9 +11,9 @@ import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTheme } from '../hooks/useTheme';
+import { useTrialStatus } from '../hooks/useTrialStatus';
 import NotificationsModal from './NotificationsModal';
 import LocationOverrideModal from './LocationOverrideModal';
-import TrialBadge from './TrialBadge';
 import {
   LOCATION_OVERRIDE_EVENT,
   clearLocationOverride,
@@ -25,6 +25,7 @@ export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -322,11 +323,20 @@ export default function AppHeader() {
                     >
                       <ShieldIcon />
                       <span className="flex-1">Planos</span>
-                      {user.userType === 'motorista' && (
-                        <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">
-                          FREE
-                        </span>
-                      )}
+                      {user.userType === 'motorista' &&
+                        (isSubscribed ? (
+                          <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">
+                            PRO
+                          </span>
+                        ) : !isExpired && daysLeft > 0 ? (
+                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded whitespace-nowrap">
+                            Teste grátis · {daysLeft}d
+                          </span>
+                        ) : (
+                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">
+                            FREE
+                          </span>
+                        ))}
                     </Link>
                     <div className="border-t border-gray-200 my-1" />
                     <button
@@ -565,8 +575,6 @@ export default function AppHeader() {
                   )}
                 </div>
               )}
-
-              <TrialBadge />
 
               {isAuthenticated && user ? (
                 <button
