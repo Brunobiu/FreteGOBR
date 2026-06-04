@@ -546,3 +546,30 @@ html[data-theme='dark'] .menu-badge-trial {
   background-color: #ffffff;
   color: #000000;
 }
+
+
+/* Sub-views da secao Veiculo: tracao / carroceria / complemento.
+ * Cada <div> da secao Veiculo pode ter data-grupo="tracao",
+ * data-grupo="carroceria" ou data-grupo="complemento". Quando a view
+ * filtra por um desses, escondemos os filhos com outros grupos.
+ *
+ * No view 'veiculo' (que mostra a secao toda), nao escondemos nada.
+ */
+form[data-view='tracao'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='tracao']) {
+  display: none;
+}
+form[data-view='carroceria'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='carroceria']) {
+  display: none;
+}
+form[data-view='complemento'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='complemento']) {
+  display: none;
+}
+
+/* Quando filtramos por sub-view (tracao/carroceria/complemento), o resto
+ * das secoes (perfil, referencias, contrato) tambem some — mantem
+ * apenas a secao Veiculo. */
+form[data-view='tracao'] section[data-secao]:not([data-secao='veiculo']),
+form[data-view='carroceria'] section[data-secao]:not([data-secao='veiculo']),
+form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
+  display: none;
+}

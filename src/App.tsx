@@ -20,6 +20,9 @@ const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
 const MotoristaMenuPage = lazy(() => import('./pages/MotoristaMenuPage'));
 const MotoristaPerfilDadosPage = lazy(() => import('./pages/MotoristaPerfilDadosPage'));
 const MotoristaVeiculoPage = lazy(() => import('./pages/MotoristaVeiculoPage'));
+const MotoristaTracaoPage = lazy(() => import('./pages/MotoristaTracaoPage'));
+const MotoristaCarroceriaPage = lazy(() => import('./pages/MotoristaCarroceriaPage'));
+const MotoristaComplementoPage = lazy(() => import('./pages/MotoristaComplementoPage'));
 const MotoristaReferenciasPage = lazy(() => import('./pages/MotoristaReferenciasPage'));
 const MotoristaContratoPage = lazy(() => import('./pages/MotoristaContratoPage'));
 const MotoristaPlanPage = lazy(() => import('./pages/MotoristaPlanPage'));
@@ -117,6 +120,36 @@ function App() {
               <MotoristaProtectedRoute>
                 <LazyRoute>
                   <MotoristaVeiculoPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/tracao"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaTracaoPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/carroceria"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaCarroceriaPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/complemento"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaComplementoPage />
                 </LazyRoute>
               </MotoristaProtectedRoute>
             }

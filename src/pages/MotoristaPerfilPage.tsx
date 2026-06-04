@@ -715,7 +715,15 @@ function ProfileTopBar({ onBack }: { onBack: () => void }) {
   );
 }
 
-export type MotoristaPerfilView = 'all' | 'perfil' | 'veiculo' | 'referencias' | 'contrato';
+export type MotoristaPerfilView =
+  | 'all'
+  | 'perfil'
+  | 'veiculo'
+  | 'tracao'
+  | 'carroceria'
+  | 'complemento'
+  | 'referencias'
+  | 'contrato';
 
 interface MotoristaPerfilPageProps {
   view?: MotoristaPerfilView;
@@ -725,6 +733,9 @@ const VIEW_TITLES: Record<MotoristaPerfilView, string> = {
   all: 'Perfil do Motorista',
   perfil: 'Meu Perfil',
   veiculo: 'Veículo',
+  tracao: 'Tração (cavalo)',
+  carroceria: 'Carroceria',
+  complemento: 'Complemento do Veículo',
   referencias: 'Referências',
   contrato: 'Contrato de Arrendamento',
 };
@@ -1846,7 +1857,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
+              <div data-grupo="carroceria">
                 <label className="block text-xs text-gray-600 mb-1">Tipo</label>
                 <button
                   type="button"
@@ -1876,7 +1887,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 />
               </div>
 
-              <div>
+              <div data-grupo="carroceria">
                 <label className="block text-xs text-gray-600 mb-1">Carroceria</label>
                 <button
                   type="button"
@@ -1906,7 +1917,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 />
               </div>
 
-              <div>
+              <div data-grupo="tracao">
                 <label className="block text-xs text-gray-600 mb-1">Placa (Mercosul)</label>
                 <input
                   type="text"
@@ -1927,7 +1938,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="tracao">
                 <label className="block text-xs text-gray-600 mb-1">Modelo (fabricante)</label>
                 <select
                   value={vehicleModelSelect}
@@ -1946,7 +1957,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 </select>
               </div>
 
-              <div>
+              <div data-grupo="tracao">
                 <label className="block text-xs text-gray-600 mb-1">Ano de fabricação</label>
                 <input
                   type="number"
@@ -1968,7 +1979,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="tracao">
                 <label className="block text-xs text-gray-600 mb-1">Ano modelo</label>
                 <input
                   type="number"
@@ -1990,7 +2001,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">
                   Consumo (km por litro do cavalo)
                 </label>
@@ -2016,7 +2027,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">Eixos da carreta</label>
                 <input
                   type="text"
@@ -2046,7 +2057,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                   gravado em `cargo_capacity_ton`, que alimenta os cálculos
                   do painel de fretes. O campo "Líquido" é readonly e fica
                   com fundo cinza para deixar claro que é derivado. */}
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">
                   Capacidade bruta - PBT (toneladas)
                 </label>
@@ -2082,7 +2093,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">
                   Tara do caminhão (toneladas)
                 </label>
@@ -2118,7 +2129,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 </p>
               </div>
 
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">
                   Líquido — capacidade de carga (toneladas)
                 </label>
@@ -2138,7 +2149,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
               </div>
 
-              <div>
+              <div data-grupo="complemento">
                 <label className="block text-xs text-gray-600 mb-1">
                   Valor do diesel (R$/litro)
                 </label>
@@ -2163,30 +2174,40 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             </div>
 
             {(!kmPerLiter || !trailerAxles || !cargoCapacityTon) && (
-              <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-800">
+              <div
+                data-grupo="complemento"
+                className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-[11px] text-yellow-800"
+              >
                 ⚠ Preencha consumo, eixos e capacidade para desbloquear cálculos no painel.
               </div>
             )}
 
             {/* Documentos do veículo */}
             <div className="mt-3 space-y-2">
-              <DocSlot
-                slot={{ type: 'crlv_cavalo', label: 'CRLV do cavalo', accept: PDF_IMG }}
-                doc={documents.crlv_cavalo}
-                uploading={uploadingDoc === 'crlv_cavalo'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
-              <DocSlot
-                slot={{ type: 'crlv_carreta_1', label: 'CRLV da carreta 1', accept: PDF_IMG }}
-                doc={documents.crlv_carreta_1}
-                uploading={uploadingDoc === 'crlv_carreta_1'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
+              <div data-grupo="tracao">
+                <DocSlot
+                  slot={{ type: 'crlv_cavalo', label: 'CRLV do cavalo', accept: PDF_IMG }}
+                  doc={documents.crlv_cavalo}
+                  uploading={uploadingDoc === 'crlv_cavalo'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
+              <div data-grupo="carroceria">
+                <DocSlot
+                  slot={{ type: 'crlv_carreta_1', label: 'CRLV da carreta 1', accept: PDF_IMG }}
+                  doc={documents.crlv_carreta_1}
+                  uploading={uploadingDoc === 'crlv_carreta_1'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
 
               {/* Tipo de RNTRC (ANTT) — Pessoa Física ou Jurídica */}
-              <div className="col-span-1 md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div
+                data-grupo="tracao"
+                className="col-span-1 md:col-span-2 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+              >
                 <p className="text-xs font-semibold text-blue-800 mb-1.5">
                   Tipo da sua RNTRC (ANTT)
                 </p>
@@ -2222,115 +2243,125 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 </div>
               </div>
 
-              <DocSlot
-                slot={{ type: 'rntrc_cavalo', label: 'RNTRC do cavalo', accept: PDF_IMG }}
-                doc={documents.rntrc_cavalo}
-                uploading={uploadingDoc === 'rntrc_cavalo'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
-              <DocSlot
-                slot={{
-                  type: 'rntrc_carreta_1',
-                  label: 'RNTRC da carreta 1',
-                  accept: PDF_IMG,
-                  optional: true,
-                }}
-                doc={documents.rntrc_carreta_1}
-                uploading={uploadingDoc === 'rntrc_carreta_1'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
+              <div data-grupo="tracao">
+                <DocSlot
+                  slot={{ type: 'rntrc_cavalo', label: 'RNTRC do cavalo', accept: PDF_IMG }}
+                  doc={documents.rntrc_cavalo}
+                  uploading={uploadingDoc === 'rntrc_cavalo'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
+              <div data-grupo="carroceria">
+                <DocSlot
+                  slot={{
+                    type: 'rntrc_carreta_1',
+                    label: 'RNTRC da carreta 1',
+                    accept: PDF_IMG,
+                    optional: true,
+                  }}
+                  doc={documents.rntrc_carreta_1}
+                  uploading={uploadingDoc === 'rntrc_carreta_1'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
 
-              {!showExtraCarretas && (
-                <button
-                  type="button"
-                  onClick={() => setShowExtraCarretas(true)}
-                  className="text-[11px] text-blue-600 hover:underline"
-                >
-                  + adicionar mais carretas
-                </button>
-              )}
+              <div data-grupo="carroceria">
+                {!showExtraCarretas && (
+                  <button
+                    type="button"
+                    onClick={() => setShowExtraCarretas(true)}
+                    className="text-[11px] text-blue-600 hover:underline"
+                  >
+                    + adicionar mais carretas
+                  </button>
+                )}
 
-              {showExtraCarretas && (
-                <>
-                  <DocSlot
-                    slot={{
-                      type: 'crlv_carreta_2',
-                      label: 'CRLV da carreta 2',
-                      accept: PDF_IMG,
-                      optional: true,
-                    }}
-                    doc={documents.crlv_carreta_2}
-                    uploading={uploadingDoc === 'crlv_carreta_2'}
-                    onUpload={handleDocUpload}
-                    onDelete={handleDocDelete}
-                  />
-                  <DocSlot
-                    slot={{
-                      type: 'rntrc_carreta_2',
-                      label: 'RNTRC da carreta 2',
-                      accept: PDF_IMG,
-                      optional: true,
-                    }}
-                    doc={documents.rntrc_carreta_2}
-                    uploading={uploadingDoc === 'rntrc_carreta_2'}
-                    onUpload={handleDocUpload}
-                    onDelete={handleDocDelete}
-                  />
-                  <DocSlot
-                    slot={{
-                      type: 'crlv_carreta_3',
-                      label: 'CRLV da carreta 3',
-                      accept: PDF_IMG,
-                      optional: true,
-                    }}
-                    doc={documents.crlv_carreta_3}
-                    uploading={uploadingDoc === 'crlv_carreta_3'}
-                    onUpload={handleDocUpload}
-                    onDelete={handleDocDelete}
-                  />
-                  <DocSlot
-                    slot={{
-                      type: 'crlv_carreta_4',
-                      label: 'CRLV da carreta 4',
-                      accept: PDF_IMG,
-                      optional: true,
-                    }}
-                    doc={documents.crlv_carreta_4}
-                    uploading={uploadingDoc === 'crlv_carreta_4'}
-                    onUpload={handleDocUpload}
-                    onDelete={handleDocDelete}
-                  />
-                </>
-              )}
+                {showExtraCarretas && (
+                  <>
+                    <DocSlot
+                      slot={{
+                        type: 'crlv_carreta_2',
+                        label: 'CRLV da carreta 2',
+                        accept: PDF_IMG,
+                        optional: true,
+                      }}
+                      doc={documents.crlv_carreta_2}
+                      uploading={uploadingDoc === 'crlv_carreta_2'}
+                      onUpload={handleDocUpload}
+                      onDelete={handleDocDelete}
+                    />
+                    <DocSlot
+                      slot={{
+                        type: 'rntrc_carreta_2',
+                        label: 'RNTRC da carreta 2',
+                        accept: PDF_IMG,
+                        optional: true,
+                      }}
+                      doc={documents.rntrc_carreta_2}
+                      uploading={uploadingDoc === 'rntrc_carreta_2'}
+                      onUpload={handleDocUpload}
+                      onDelete={handleDocDelete}
+                    />
+                    <DocSlot
+                      slot={{
+                        type: 'crlv_carreta_3',
+                        label: 'CRLV da carreta 3',
+                        accept: PDF_IMG,
+                        optional: true,
+                      }}
+                      doc={documents.crlv_carreta_3}
+                      uploading={uploadingDoc === 'crlv_carreta_3'}
+                      onUpload={handleDocUpload}
+                      onDelete={handleDocDelete}
+                    />
+                    <DocSlot
+                      slot={{
+                        type: 'crlv_carreta_4',
+                        label: 'CRLV da carreta 4',
+                        accept: PDF_IMG,
+                        optional: true,
+                      }}
+                      doc={documents.crlv_carreta_4}
+                      uploading={uploadingDoc === 'crlv_carreta_4'}
+                      onUpload={handleDocUpload}
+                      onDelete={handleDocDelete}
+                    />
+                  </>
+                )}
+              </div>
 
-              <DocSlot
-                slot={{
-                  type: 'foto_frente_caminhao',
-                  label: 'Foto da frente do caminhão',
-                  accept: IMG_ONLY,
-                }}
-                doc={documents.foto_frente_caminhao}
-                uploading={uploadingDoc === 'foto_frente_caminhao'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
-              <DocSlot
-                slot={{
-                  type: 'foto_caminhao_completo',
-                  label: 'Foto do caminhão completo (conjunto)',
-                  accept: IMG_ONLY,
-                }}
-                doc={documents.foto_caminhao_completo}
-                uploading={uploadingDoc === 'foto_caminhao_completo'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
+              <div data-grupo="tracao">
+                <DocSlot
+                  slot={{
+                    type: 'foto_frente_caminhao',
+                    label: 'Foto da frente do caminhão',
+                    accept: IMG_ONLY,
+                  }}
+                  doc={documents.foto_frente_caminhao}
+                  uploading={uploadingDoc === 'foto_frente_caminhao'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
+              <div data-grupo="tracao">
+                <DocSlot
+                  slot={{
+                    type: 'foto_caminhao_completo',
+                    label: 'Foto do caminhão completo (conjunto)',
+                    accept: IMG_ONLY,
+                  }}
+                  doc={documents.foto_caminhao_completo}
+                  uploading={uploadingDoc === 'foto_caminhao_completo'}
+                  onUpload={handleDocUpload}
+                  onDelete={handleDocDelete}
+                />
+              </div>
             </div>
 
             {/* Toggle proprietário */}
-            <div className="mt-4 pt-3 border-t border-gray-100">
+            <div data-grupo="tracao" className="mt-4 pt-3 border-t border-gray-100">
               <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"

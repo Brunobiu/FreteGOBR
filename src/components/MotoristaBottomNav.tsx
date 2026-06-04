@@ -37,6 +37,9 @@ export default function MotoristaBottomNav() {
     location.pathname.startsWith('/motorista/menu') ||
     location.pathname.startsWith('/motorista/perfil') ||
     location.pathname.startsWith('/motorista/veiculo') ||
+    location.pathname.startsWith('/motorista/tracao') ||
+    location.pathname.startsWith('/motorista/carroceria') ||
+    location.pathname.startsWith('/motorista/complemento') ||
     location.pathname.startsWith('/motorista/referencias') ||
     location.pathname.startsWith('/motorista/contrato');
 

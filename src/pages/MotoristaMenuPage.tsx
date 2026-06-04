@@ -2,14 +2,14 @@
  * MotoristaMenuPage — pagina dedicada do motorista, acessada pelo
  * slot "Menu" do `MotoristaBottomNav`.
  *
- * Layout (revisao 2):
- *   - Sem AppHeader. A pagina abre direto no titulo.
- *   - Titulo "Menu" + subtitulo alinhados a ESQUERDA.
- *   - Tiles em grid 3 colunas:
- *       * fundo branco com borda fina clara (sem cinza pesado)
- *       * mini-quadrado verde-claro contendo o icone PRETO
- *       * label preto, peso medio
- *   - Sair em destaque vermelho no rodape.
+ * Layout (revisao 3):
+ *   - Sem AppHeader. Titulo a esquerda.
+ *   - Tile "Veiculo" foi quebrado em 3: Tracao (cavalo), Carroceria
+ *     e Complemento (consumo/peso/diesel).
+ *   - Cada tile mostra um alertinha "!" laranja quando o grupo
+ *     correspondente esta incompleto (via useMotoristaCompletude).
+ *   - Tiles brancos com borda fina, mini-quadrado verde-claro com
+ *     icone preto, label preta. Sair em destaque no rodape.
  */
 
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { useTrialStatus } from '../hooks/useTrialStatus';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useMotoristaCompletude } from '../hooks/useMotoristaCompletude';
 
 interface Tile {
   key: string;
@@ -25,6 +26,8 @@ interface Tile {
   icon: JSX.Element;
   onClick: () => void;
   badge?: { text: string; color: string };
+  /** Se true, exibe alertinha "!" laranja indicando dados incompletos. */
+  alert?: boolean;
 }
 
 export default function MotoristaMenuPage() {
@@ -33,6 +36,7 @@ export default function MotoristaMenuPage() {
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
+  const { groups } = useMotoristaCompletude();
 
   const planoBadge = isSubscribed
     ? { text: 'PRO', color: 'menu-badge-pro' }
@@ -46,18 +50,35 @@ export default function MotoristaMenuPage() {
       label: 'Perfil',
       icon: <UserIcon />,
       onClick: () => navigate('/motorista/perfil'),
+      alert: groups.perfil,
     },
     {
-      key: 'veiculo',
-      label: 'Veículo',
+      key: 'tracao',
+      label: 'Tração',
       icon: <TruckIcon />,
-      onClick: () => navigate('/motorista/veiculo'),
+      onClick: () => navigate('/motorista/tracao'),
+      alert: groups.tracao,
+    },
+    {
+      key: 'carroceria',
+      label: 'Carroceria',
+      icon: <TrailerIcon />,
+      onClick: () => navigate('/motorista/carroceria'),
+      alert: groups.carroceria,
+    },
+    {
+      key: 'complemento',
+      label: 'Complemento',
+      icon: <GaugeIcon />,
+      onClick: () => navigate('/motorista/complemento'),
+      alert: groups.complemento,
     },
     {
       key: 'referencias',
       label: 'Referências',
       icon: <ReferencesIcon />,
       onClick: () => navigate('/motorista/referencias'),
+      alert: groups.referencias,
     },
     {
       key: 'contrato',
@@ -117,6 +138,19 @@ export default function MotoristaMenuPage() {
               <span className="text-[11px] sm:text-xs font-medium text-gray-900 text-center leading-tight px-1">
                 {tile.label}
               </span>
+
+              {/* Alerta "!" laranja - dados incompletos */}
+              {tile.alert && !tile.badge && (
+                <span
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm"
+                  title="Faltam dados para completar"
+                  aria-label="Faltam dados"
+                >
+                  !
+                </span>
+              )}
+
+              {/* Badge (Planos) */}
               {tile.badge && (
                 <span
                   className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded ${tile.badge.color}`}
@@ -146,7 +180,7 @@ export default function MotoristaMenuPage() {
   );
 }
 
-// ─── Icones (stroke=currentColor; tile aplica text-gray-900 -> ficam pretos) ──
+// ─── Icones ───────────────────────────────────────────────────────────────
 
 const UserIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
@@ -158,6 +192,7 @@ const UserIcon = () => (
   </svg>
 );
 
+// Tracao = cavalo (icone do truck/cabine)
 const TruckIcon = () => (
   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
     <path
@@ -165,6 +200,24 @@ const TruckIcon = () => (
       strokeLinejoin="round"
       d="M3 7h11v9H3V7zm11 3h4l3 3v3h-7v-6zM6.5 19a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm11 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"
     />
+  </svg>
+);
+
+// Carroceria = trailer/carreta
+const TrailerIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M3 16V8a1 1 0 011-1h13a1 1 0 011 1v8M3 16h18M3 16l-1 2h22l-1-2M8 19a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm11 0a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"
+    />
+  </svg>
+);
+
+// Complemento = mostrador/peso (chart-bar com seta)
+const GaugeIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6m6 6V9m6 10V5M3 19h18" />
   </svg>
 );
 
