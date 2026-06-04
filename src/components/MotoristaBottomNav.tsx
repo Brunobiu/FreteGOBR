@@ -14,10 +14,24 @@
  */
 
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { useMotoristaCompletude } from '../hooks/useMotoristaCompletude';
 
 export default function MotoristaBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const { groups } = useMotoristaCompletude();
+
+  // So mostra alerta no botao Menu se for motorista logado e algum
+  // grupo estiver incompleto.
+  const hasIncomplete =
+    user?.userType === 'motorista' &&
+    (groups.perfil ||
+      groups.tracao ||
+      groups.carroceria ||
+      groups.complemento ||
+      groups.referencias);
 
   const goHome = () => {
     if (location.pathname === '/') {
@@ -136,20 +150,28 @@ export default function MotoristaBottomNav() {
         <button
           type="button"
           onClick={goMenu}
-          className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+          className={`relative flex flex-col items-center justify-center gap-0.5 py-1 ${
             isMenuActive ? 'text-green-600' : 'text-gray-600'
           }`}
-          aria-label="Menu"
+          aria-label={hasIncomplete ? 'Menu - dados pendentes' : 'Menu'}
         >
-          <svg
-            className="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <span className="relative">
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            {hasIncomplete && (
+              <span
+                className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-orange-500 border border-white"
+                aria-hidden="true"
+              />
+            )}
+          </span>
           <span className={`text-[10px] ${isMenuActive ? 'font-bold' : 'font-medium'}`}>Menu</span>
         </button>
       </div>
