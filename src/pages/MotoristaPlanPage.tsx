@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import AppHeader from '../components/AppHeader';
@@ -56,6 +57,7 @@ const PLANS = [
 export default function MotoristaPlanPage() {
   useDocumentTitle('Plano - Motorista');
   useAuth();
+  const navigate = useNavigate();
   const [, setSelectedPlan] = useState<string | null>(null);
 
   const handleSelectPlan = (planId: string) => {
@@ -68,6 +70,25 @@ export default function MotoristaPlanPage() {
       <AppHeader />
 
       <main className="max-w-6xl mx-auto px-4 py-8">
+        {/* Botao Voltar */}
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="mb-4 inline-flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded-md"
+          aria-label="Voltar"
+        >
+          <svg
+            className="w-4 h-4"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            strokeWidth={2}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Voltar
+        </button>
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-3xl font-bold text-gray-800 mb-4">Meu Plano</h1>

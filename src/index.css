@@ -514,3 +514,35 @@ form[data-view='referencias'] section[data-secao='perfil'] > *:not([data-bloco='
 form[data-view='perfil'] section[data-secao='perfil'] [data-bloco='referencias'] {
   display: none;
 }
+
+
+/* Badges do tile "Planos" no MotoristaMenuPage.
+ * Usamos classes proprias (em vez de utilitarias do Tailwind) pra
+ * escapar do override do tema escuro, que substitui text-gray-900 e
+ * border-gray-200 globalmente. O texto fica preto em ambos os temas
+ * conforme pedido. */
+.menu-badge-free {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1.5px solid #16a34a; /* green-600, contorno verde */
+}
+.menu-badge-pro {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1.5px solid #2563eb; /* blue-600 */
+}
+.menu-badge-trial {
+  background-color: #ffffff;
+  color: #000000;
+  border: 1.5px solid #d97706; /* amber-600 */
+}
+
+/* No tema escuro mantemos o fundo branco no badge pra preservar
+ * legibilidade do texto preto (conforme pedido explicito do usuario:
+ * texto preto, contorno verde, em ambos os temas). */
+html[data-theme='dark'] .menu-badge-free,
+html[data-theme='dark'] .menu-badge-pro,
+html[data-theme='dark'] .menu-badge-trial {
+  background-color: #ffffff;
+  color: #000000;
+}

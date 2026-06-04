@@ -35,13 +35,10 @@ export default function MotoristaMenuPage() {
   const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
 
   const planoBadge = isSubscribed
-    ? { text: 'PRO', color: 'bg-blue-100 text-blue-700 border border-blue-200' }
+    ? { text: 'PRO', color: 'menu-badge-pro' }
     : !isExpired && daysLeft > 0
-      ? {
-          text: `${daysLeft}d`,
-          color: 'bg-amber-50 text-amber-800 border border-amber-200',
-        }
-      : { text: 'FREE', color: 'bg-gray-100 text-gray-900 border border-gray-200' };
+      ? { text: `${daysLeft}d`, color: 'menu-badge-trial' }
+      : { text: 'FREE', color: 'menu-badge-free' };
 
   const tiles: Tile[] = [
     {
