@@ -715,8 +715,22 @@ function ProfileTopBar({ onBack }: { onBack: () => void }) {
   );
 }
 
-export default function MotoristaPerfilPage() {
-  useDocumentTitle('Perfil do Motorista');
+export type MotoristaPerfilView = 'all' | 'perfil' | 'veiculo' | 'referencias' | 'contrato';
+
+interface MotoristaPerfilPageProps {
+  view?: MotoristaPerfilView;
+}
+
+const VIEW_TITLES: Record<MotoristaPerfilView, string> = {
+  all: 'Perfil do Motorista',
+  perfil: 'Meu Perfil',
+  veiculo: 'Veículo',
+  referencias: 'Referências',
+  contrato: 'Contrato de Arrendamento',
+};
+
+export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPageProps = {}) {
+  useDocumentTitle(VIEW_TITLES[view]);
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1439,7 +1453,7 @@ export default function MotoristaPerfilPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfileTopBar onBack={() => navigate('/')} />
+        <ProfileTopBar onBack={() => navigate(-1)} />
         <div className="flex justify-center py-20 text-gray-600">Carregando perfil...</div>
       </div>
     );
@@ -1447,7 +1461,7 @@ export default function MotoristaPerfilPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ProfileTopBar onBack={() => navigate('/')} />
+      <ProfileTopBar onBack={() => navigate(-1)} />
       <main className="max-w-3xl mx-auto px-3 sm:px-4 py-3">
         {topError && (
           <div
@@ -1458,11 +1472,14 @@ export default function MotoristaPerfilPage() {
           </div>
         )}
 
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-3">
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-3" data-view={view}>
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 1 — Dados Pessoais (Motorista)
               ────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+          <section
+            data-secao="perfil"
+            className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
+          >
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-gray-800">Dados Pessoais</h2>
               <span className="text-[11px] text-gray-500">
@@ -1704,7 +1721,7 @@ export default function MotoristaPerfilPage() {
             </div>
 
             {/* Referências profissionais */}
-            <div className="mt-3 pt-3 border-t border-gray-100">
+            <div data-bloco="referencias" className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-semibold text-gray-700">
                   Referências profissionais{' '}
@@ -1817,6 +1834,7 @@ export default function MotoristaPerfilPage() {
               SEÇÃO 2 — Veículo
               ────────────────────────────────────────────────────────────────── */}
           <section
+            data-secao="veiculo"
             id="veiculo"
             className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 scroll-mt-20"
           >
@@ -2334,7 +2352,10 @@ export default function MotoristaPerfilPage() {
               SEÇÃO 3 — Proprietário (renderiza apenas se isNotOwner)
               ────────────────────────────────────────────────────────────────── */}
           {isNotOwner && (
-            <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+            <section
+              data-secao="contrato"
+              className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
+            >
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold text-gray-800">Proprietário</h2>
                 <span className="text-[11px] text-gray-500">
@@ -2452,7 +2473,10 @@ export default function MotoristaPerfilPage() {
               SEÇÃO 4 — Contrato de Arrendamento (apenas se isNotOwner)
               ────────────────────────────────────────────────────────────────── */}
           {isNotOwner && (
-            <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+            <section
+              data-secao="contrato"
+              className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
+            >
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold text-gray-800">Contrato de Arrendamento</h2>
                 <span className="text-[11px] text-gray-500">
@@ -2481,7 +2505,7 @@ export default function MotoristaPerfilPage() {
           <div className="flex items-center justify-between gap-3 pt-2">
             <button
               type="button"
-              onClick={() => navigate('/')}
+              onClick={() => navigate(-1)}
               className="min-h-[44px] px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
             >
               ← Voltar

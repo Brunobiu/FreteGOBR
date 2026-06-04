@@ -468,3 +468,49 @@ html[data-theme='dark'] .trip-suggest-btn {
 .diesel-hint-border {
   animation: diesel-border-glow 2s ease-in-out infinite;
 }
+
+
+/* ── Gating de secoes do MotoristaPerfilPage por view ──────────────────────
+ * O componente MotoristaPerfilPage carrega TUDO (Dados Pessoais, Veiculo,
+ * Referencias, Proprietario, Contrato) e fica num formulario com
+ * data-view=<view>. Quando view != 'all', escondemos as secoes que nao
+ * casam, mantendo o estado/handlers intactos. As secoes ficam marcadas
+ * com data-secao=<key>:
+ *   - perfil: dados pessoais (nome/CPF/RG/email/PIS/endereco + docs pessoais)
+ *   - veiculo: dados do veiculo (tipo/placa/peso/etc + docs do veiculo)
+ *   - referencias: lista de referencias profissionais
+ *   - contrato: bloco proprietario + contrato de arrendamento (so renderiza
+ *               se isNotOwner=true)
+ */
+form[data-view='perfil'] section[data-secao]:not([data-secao='perfil']) {
+  display: none;
+}
+form[data-view='veiculo'] section[data-secao]:not([data-secao='veiculo']) {
+  display: none;
+}
+form[data-view='referencias'] section[data-secao]:not([data-secao='referencias']) {
+  display: none;
+}
+form[data-view='contrato'] section[data-secao]:not([data-secao='contrato']) {
+  display: none;
+}
+
+
+/* Dentro da view 'referencias', mostramos APENAS o bloco de referencias
+ * dentro de "Dados Pessoais". O resto da secao Dados Pessoais (campos,
+ * documentos, footer) some. A secao em si fica visivel pra encapsular
+ * o bloco de referencias, mas escondemos seus filhos diretos que nao
+ * sejam o bloco. */
+form[data-view='referencias'] section[data-secao='perfil'] > *:not([data-bloco='referencias']) {
+  display: none;
+}
+
+/* No view 'perfil' (e na view 'all') o bloco de referencias permanece
+ * onde estava. Sem regras adicionais necessarias. */
+
+/* Quando view eh 'perfil', a secao Dados Pessoais aparece normal mas o
+ * bloco de referencias DENTRO dela some, pois Referencias tem seu proprio
+ * tile no menu. */
+form[data-view='perfil'] section[data-secao='perfil'] [data-bloco='referencias'] {
+  display: none;
+}

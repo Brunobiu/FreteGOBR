@@ -17,6 +17,11 @@ const FreteChatWidget = lazy(() => import('./components/FreteChatWidget'));
 
 // Lazy load pages
 const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
+const MotoristaMenuPage = lazy(() => import('./pages/MotoristaMenuPage'));
+const MotoristaPerfilDadosPage = lazy(() => import('./pages/MotoristaPerfilDadosPage'));
+const MotoristaVeiculoPage = lazy(() => import('./pages/MotoristaVeiculoPage'));
+const MotoristaReferenciasPage = lazy(() => import('./pages/MotoristaReferenciasPage'));
+const MotoristaContratoPage = lazy(() => import('./pages/MotoristaContratoPage'));
 const MotoristaPlanPage = lazy(() => import('./pages/MotoristaPlanPage'));
 const EmbarcadorPage = lazy(() => import('./pages/EmbarcadorPage'));
 const EmbarcadorPerfilPage = lazy(() => import('./pages/EmbarcadorPerfilPage'));
@@ -84,6 +89,56 @@ function App() {
                   <MotoristaPerfilPage />
                 </LazyRoute>
               </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/menu"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaMenuPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/perfil"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaPerfilDadosPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/veiculo"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaVeiculoPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/referencias"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaReferenciasPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
+            }
+          />
+          <Route
+            path="/motorista/contrato"
+            element={
+              <MotoristaProtectedRoute>
+                <LazyRoute>
+                  <MotoristaContratoPage />
+                </LazyRoute>
+              </MotoristaProtectedRoute>
             }
           />
           <Route
