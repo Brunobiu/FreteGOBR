@@ -1519,6 +1519,8 @@ export default function MotoristaPerfilPage() {
                   }}
                   maxLength={20}
                   placeholder="00.000.000-0"
+                  inputMode="numeric"
+                  autoComplete="off"
                   className="w-full px-2.5 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
               </div>
