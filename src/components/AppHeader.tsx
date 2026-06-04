@@ -11,7 +11,6 @@ import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { useTheme } from '../hooks/useTheme';
-import { useTrialStatus } from '../hooks/useTrialStatus';
 import NotificationsModal from './NotificationsModal';
 import LocationOverrideModal from './LocationOverrideModal';
 import {
@@ -25,7 +24,6 @@ export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
-  const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
@@ -240,115 +238,135 @@ export default function AppHeader() {
           <div className="relative flex items-center h-14 sm:h-16 gap-3">
             {/* Esquerda-centro: foto + nome + tipo */}
             {isAuthenticated && user ? (
-              <div className="relative flex-1 min-w-0" ref={profileRef}>
-                <button
-                  onClick={() => setProfileOpen(!profileOpen)}
-                  className="flex items-center gap-2.5 w-full hover:opacity-80 transition-opacity"
-                  aria-label="Menu do perfil"
-                >
-                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
-                    {photoUrl ? (
-                      <img
-                        src={photoUrl}
-                        alt={displayName}
-                        className="w-full h-full object-cover"
-                        onError={() => setPhotoUrl(null)}
-                      />
-                    ) : (
-                      <svg
-                        className="w-5 h-5 text-gray-400"
-                        fill="currentColor"
-                        viewBox="0 0 20 20"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                          clipRule="evenodd"
+              user.userType === 'motorista' ? (
+                /* Motorista: foto + nome + caminhao SEM popover.
+                   As acoes (Perfil, Configuracoes, Tema, Planos, Sair)
+                   moram agora no MotoristaMenuSheet, aberto pelo slot
+                   "Menu" do MotoristaBottomNav. */
+                <div className="flex-1 min-w-0">
+                  <div
+                    className="flex items-center gap-2.5 w-full"
+                    aria-label="Perfil do motorista"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
+                      {photoUrl ? (
+                        <img
+                          src={photoUrl}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                          onError={() => setPhotoUrl(null)}
                         />
-                      </svg>
-                    )}
+                      ) : (
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
+                        Olá, {displayName.split(' ').slice(0, 2).join(' ')}
+                      </p>
+                      <p className="text-[11px] sm:text-xs text-gray-600 leading-tight truncate">
+                        {vehicleName || 'Caminhão não cadastrado'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
-                      Olá, {displayName.split(' ').slice(0, 2).join(' ')}
-                    </p>
-                    <p className="text-[11px] sm:text-xs text-gray-600 leading-tight truncate">
-                      {user.userType === 'embarcador'
-                        ? companyName || 'Embarcador'
-                        : vehicleName || 'Caminhão não cadastrado'}
-                    </p>
-                  </div>
-                </button>
+                </div>
+              ) : (
+                <div className="relative flex-1 min-w-0" ref={profileRef}>
+                  <button
+                    onClick={() => setProfileOpen(!profileOpen)}
+                    className="flex items-center gap-2.5 w-full hover:opacity-80 transition-opacity"
+                    aria-label="Menu do perfil"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
+                      {photoUrl ? (
+                        <img
+                          src={photoUrl}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                          onError={() => setPhotoUrl(null)}
+                        />
+                      ) : (
+                        <svg
+                          className="w-5 h-5 text-gray-400"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
+                        Olá, {displayName.split(' ').slice(0, 2).join(' ')}
+                      </p>
+                      <p className="text-[11px] sm:text-xs text-gray-600 leading-tight truncate">
+                        {companyName || 'Embarcador'}
+                      </p>
+                    </div>
+                  </button>
 
-                {profileOpen && (
-                  <div className="absolute left-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
-                    {user.userType === 'motorista' && (
-                      <div className="px-4 py-1.5 text-[11px] font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 mb-1">
-                        Motorista
-                      </div>
-                    )}
-                    <Link
-                      to={profileLink}
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <ProfileIcon />
-                      Meu Perfil
-                    </Link>
-                    <Link
-                      to="/configuracoes"
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <CogIcon />
-                      Configurações
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        toggleTheme();
-                        // Mantemos o menu aberto após o toggle pra que o
-                        // motorista veja o rótulo trocando de "Tema escuro"
-                        // para "Tema claro" sem precisar reabrir.
-                      }}
-                      className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
-                      {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-                    </button>
-                    <Link
-                      to={planLink}
-                      onClick={() => setProfileOpen(false)}
-                      className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
-                    >
-                      <ShieldIcon />
-                      <span className="flex-1">Planos</span>
-                      {user.userType === 'motorista' &&
-                        (isSubscribed ? (
-                          <span className="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded">
-                            PRO
-                          </span>
-                        ) : !isExpired && daysLeft > 0 ? (
-                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded whitespace-nowrap">
-                            Teste grátis · {daysLeft}d
-                          </span>
-                        ) : (
-                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">
-                            FREE
-                          </span>
-                        ))}
-                    </Link>
-                    <div className="border-t border-gray-200 my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-gray-100"
-                    >
-                      <LogoutIcon />
-                      Sair
-                    </button>
-                  </div>
-                )}
-              </div>
+                  {profileOpen && (
+                    <div className="absolute left-0 mt-2 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50">
+                      <Link
+                        to={profileLink}
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <ProfileIcon />
+                        Meu Perfil
+                      </Link>
+                      <Link
+                        to="/configuracoes"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <CogIcon />
+                        Configurações
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleTheme();
+                        }}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+                        {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+                      </button>
+                      <Link
+                        to={planLink}
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <ShieldIcon />
+                        <span className="flex-1">Planos</span>
+                      </Link>
+                      <div className="border-t border-gray-200 my-1" />
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-gray-100"
+                      >
+                        <LogoutIcon />
+                        Sair
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
             ) : (
               <Link to="/" aria-label="FreteGO" className="flex-1 flex items-center">
                 <img

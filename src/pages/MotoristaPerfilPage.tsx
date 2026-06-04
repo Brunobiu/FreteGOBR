@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import {
@@ -719,6 +719,7 @@ export default function MotoristaPerfilPage() {
   useDocumentTitle('Perfil do Motorista');
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isLoading, setIsLoading] = useState(true);
   const [topError, setTopError] = useState<string | null>(null);
@@ -946,6 +947,23 @@ export default function MotoristaPerfilPage() {
     if (!user) return;
     loadAll();
   }, [user, loadAll]);
+
+  // ─── Scroll para a seção via hash (#veiculo, #dados-pessoais...) ─────────
+  // Usado pelo MotoristaMenuSheet, que navega com hash pra abrir a página
+  // já posicionada na seção certa. Espera o paint inicial (loadAll resolveu
+  // ou não) pra garantir que o nó do <section id="..."> exista.
+  useEffect(() => {
+    if (isLoading) return;
+    const hash = location.hash.replace('#', '');
+    if (!hash) return;
+    const el = document.getElementById(hash);
+    if (!el) return;
+    // Pequeno timeout pra dar tempo do layout estabilizar (imagens, pickers).
+    const t = window.setTimeout(() => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+    return () => window.clearTimeout(t);
+  }, [isLoading, location.hash]);
 
   // ─── Lookup automático de CEP ────────────────────────────────────────────
   useEffect(() => {
@@ -1798,7 +1816,10 @@ export default function MotoristaPerfilPage() {
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 2 — Veículo
               ────────────────────────────────────────────────────────────────── */}
-          <section className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4">
+          <section
+            id="veiculo"
+            className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 scroll-mt-20"
+          >
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-gray-800">Veículo</h2>
               <span className="text-[11px] text-gray-500">
