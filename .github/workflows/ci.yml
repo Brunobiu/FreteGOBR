@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,6 +16,32 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - run: npm ci
-      - run: npm run lint
-      - run: npm test -- --run
-      - run: npm run build
+
+      # Gate 1 — lint (Requirement 25.1)
+      - name: Lint
+        run: npm run lint
+
+      # Gate 2 — type-check (Requirement 25.1)
+      - name: Type-check
+        run: npx tsc --noEmit
+
+      # Gate 3 — testes com cobertura (Requirements 21.1, 25.1, 25.6)
+      - name: Testes + cobertura
+        run: npm run test:run -- --coverage
+
+      # Gate 4 — cobertura mínima dos Critical_Modules (Requirements 25.7, 25.8)
+      - name: Cobertura de Critical_Modules
+        run: npx tsx scripts/check-coverage.ts
+
+      # Gate 5 — build (Requirement 25.1)
+      - name: Build
+        run: npm run build
+
+      # Artefato de cobertura (Requirement 25.6)
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore

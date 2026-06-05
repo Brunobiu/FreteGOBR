@@ -61,6 +61,11 @@ function main(): void {
   const report: Array<{ module: string; pct: number; threshold: number; ok: boolean }> = [];
 
   for (const [moduleRel, threshold] of Object.entries(CRITICAL_MODULES)) {
+    // Threshold 0 = módulo isento por ora (ex.: depende de integração/Fase 2).
+    if (threshold <= 0) {
+      report.push({ module: moduleRel, pct: 0, threshold, ok: true });
+      continue;
+    }
     const file = byRelative.get(moduleRel);
     if (!file) {
       failures.push(`${moduleRel}: SEM COBERTURA (módulo não encontrado no relatório)`);

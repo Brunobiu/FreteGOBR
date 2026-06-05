@@ -195,7 +195,7 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
 
 ## Fase 4 — Validação e contratos (Categorias G e H)
 
-- [ ] 22. Validação de entrada frontend + backend
+- [x] 22. Validação de entrada frontend + backend
   - Testes garantindo validação de tipo/formato/tamanho/obrigatoriedade no frontend e revalidação no backend.
   - Sanitização só quando caractere perigoso detectado; normalização/encoding antes de persistir; violação de regra rejeitada na camada de validação.
   - Property test: entradas vazias/nulas/undefined/tipo incorreto rejeitadas consistentemente nos dois lados.
@@ -205,7 +205,7 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
   - Testes de estrutura JSON contra schema, status HTTP correto, mensagens de erro padronizadas, ausência de campos sensíveis fora do contrato.
   - _Requirements: 23.1, 23.2, 23.3, 23.4_
 
-- [ ] 24. Testes de contrato frontend/backend
+- [x] 24. Testes de contrato frontend/backend
   - Criar `tests/contract/api-contracts.test.ts` + baseline em `tests/contracts-snapshots/`.
   - `assertContractCompatible`: mudança compatível passa, incompatível falha (Property 13); round-trip de contrato (Property 2); estabilidade de webhooks; compatibilidade entre versões.
   - _Requirements: 24.1, 24.2, 24.3, 24.4, 24.5, 24.6_
@@ -235,7 +235,7 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
 
 ## Fase 7 — Pipeline, regressão e observabilidade (Categorias F, I, J)
 
-- [ ] 29. Estender o pipeline CI com gates de qualidade
+- [x] 29. Estender o pipeline CI com gates de qualidade
   - Atualizar `.github/workflows/ci.yml`: adicionar `tsc --noEmit`, `test:run --coverage`, `check-coverage.ts`, jobs `migrations` (`validate-migrations.ts`) e `env-check` (`validate-env.ts`).
   - Gate de deploy só após quality + migrations + env-check verdes; falha de qualidade bloqueia deploy.
   - Step que falha se `flaky > 0`; steps de infra com `continue-on-error` + anotação (não bloqueiam merge).

@@ -33,6 +33,7 @@ const settingsFlat = (pct: number): FinanceiroSettings => ({
   commission_brackets: [],
   effective_from: null,
   updated_at: null,
+  updated_by: null,
 });
 
 describe('computeCommission — Property 1 (consistência)', () => {
@@ -80,6 +81,7 @@ describe('computeCommission — ramos de decisão', () => {
       commission_brackets: [],
       effective_from: null,
       updated_at: null,
+      updated_by: null,
     };
     expect(computeCommission(1000, sentinel).resolved_via).toBe('flat_default');
   });
@@ -103,6 +105,7 @@ describe('computeCommission — ramos de decisão', () => {
       commission_brackets: brackets,
       effective_from: null,
       updated_at: null,
+      updated_by: null,
     };
     const r = computeCommission(2000, settings);
     expect(r.resolved_via).toBe('bracket');
@@ -117,6 +120,7 @@ describe('computeCommission — ramos de decisão', () => {
       commission_brackets: brackets,
       effective_from: null,
       updated_at: null,
+      updated_by: null,
     };
     const r = computeCommission(5000, settings);
     expect(r.resolved_via).toBe('bracket_max_inclusive');
@@ -131,6 +135,7 @@ describe('computeCommission — ramos de decisão', () => {
       commission_brackets: brackets,
       effective_from: null,
       updated_at: null,
+      updated_by: null,
     };
     const r = computeCommission(9999, settings);
     expect(r.resolved_via).toBe('flat');
