@@ -107,20 +107,20 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
   - Property test de phone/CPF/CNPJ/email (válidos aceitos, inválidos rejeitados).
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
 
-- [ ] 7. Cobertura unitária de helpers, serviços, hooks, middlewares e jobs
+- [x] 7. Cobertura unitária de helpers, serviços, hooks, middlewares e jobs
   - Testes de serviços internos (sucesso e erro), helpers/utilitários (válido, vazio, extremo).
   - Testes de hooks React (inicial, loading, sucesso, erro) usando `vi.mock` hoisted com spies via `globalThis.__nomeDoSpy`.
   - Testes de middlewares (autorizado/não autorizado) e de jobs (sucesso, falha, reprocessamento).
   - Validar tratamento de `JOB_FAILED` sem falha real (apenas error code é suficiente).
   - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7_
 
-- [ ] 8. Cobertura unitária de parsing, transformação e CSV export
+- [x] 8. Cobertura unitária de parsing, transformação e CSV export
   - Para cada parser, garantir pretty printer correspondente e property test de round-trip `parse(print(x)) ≡ x` (Property 2).
   - Teste de entrada malformada retornando `PARSE_ERROR`.
   - Property test do CSV export: BOM UTF-8, separador `;`, escape RFC 4180, truncamento em 10000 linhas.
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6_
 
-- [ ] 9. Robustez unitária sob concorrência e idempotência
+- [x] 9. Robustez unitária sob concorrência e idempotência
   - Property test de confluência de operações comutativas (Property 4).
   - Property test de idempotência `op(op(s)) == op(s)` (Property 3).
   - Teste de versionamento otimista: segunda escrita concorrente recebe `STALE_VERSION` (Property 5).
