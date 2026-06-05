@@ -37,6 +37,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Gate 6 — scan de segredos hardcoded (Requirement 19.5)
+      # Roda como teste dedicado; falha o CI se encontrar credenciais no fonte.
+      - name: Scan de segredos
+        run: npm run test:run -- --run tests/security/secretScan.test.ts
+
       # Artefato de cobertura (Requirement 25.6)
       - name: Publicar relatório de cobertura
         if: always()

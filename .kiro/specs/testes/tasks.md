@@ -188,7 +188,7 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
   - `tests/security/rate-limit-bruteforce.test.ts`: excesso de login → 429; excesso por IP → header `Retry-After`; enumeração indistinguível; upload malicioso/MIME forjado rejeitado.
   - _Requirements: 18.1, 18.2, 18.3, 18.4_
 
-- [ ] 21. Não vazamento de dados sensíveis e secrets
+- [x] 21. Não vazamento de dados sensíveis e secrets
   - `tests/security/no-secret-leak.test.ts`: property test de respostas sem hash/secret (Property 11); erro de servidor sem stack trace; tokens fora dos logs; headers de segurança presentes.
   - `tests/security/secret-scan.test.ts`: escanear código-fonte por secrets hardcoded e falhar se encontrar.
   - _Requirements: 19.1, 19.2, 19.3, 19.4, 19.5_
