@@ -3,6 +3,7 @@ import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { usePixel } from '../components/marketing/pixelContext';
+import SiteFooter from '../components/SiteFooter';
 import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
@@ -41,8 +42,11 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 relative flex items-start md:items-center justify-center p-4 pt-6 md:py-8">
-      <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
+    <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="flex-1 flex items-start md:items-center justify-center p-4 pt-6 md:py-8">
+        <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
+      </div>
+      <SiteFooter />
     </div>
   );
 }

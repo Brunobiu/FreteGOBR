@@ -3,6 +3,7 @@ import { useEffect } from 'react';
 import { LoginForm } from '../components/LoginForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import SiteFooter from '../components/SiteFooter';
 import type { LoginCredentials } from '../types';
 
 export function LoginPage() {
@@ -31,14 +32,17 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 relative flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-100 flex flex-col">
       {/* Conteudo centralizado */}
-      <LoginForm
-        onSubmit={handleLogin}
-        onRegisterClick={() => navigate('/register')}
-        successMessage={state?.successMessage}
-        initialPhone={state?.phone}
-      />
+      <div className="flex-1 flex items-center justify-center p-4">
+        <LoginForm
+          onSubmit={handleLogin}
+          onRegisterClick={() => navigate('/register')}
+          successMessage={state?.successMessage}
+          initialPhone={state?.phone}
+        />
+      </div>
+      <SiteFooter />
     </div>
   );
 }

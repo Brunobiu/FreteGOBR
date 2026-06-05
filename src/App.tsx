@@ -34,6 +34,8 @@ const MensagensPage = lazy(() => import('./pages/MensagensPage'));
 const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
 const AssistentePage = lazy(() => import('./pages/AssistantePage'));
 const PublicTicketPage = lazy(() => import('./pages/PublicTicketPage'));
+const TermosPage = lazy(() => import('./pages/TermosPage'));
+const PrivacidadePage = lazy(() => import('./pages/PrivacidadePage'));
 const MyTicketsPage = lazy(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazy(() => import('./pages/NewTicketPage'));
 const MyTicketDetailPage = lazy(() => import('./pages/MyTicketDetailPage'));
@@ -81,6 +83,22 @@ function App() {
             element={
               <LazyRoute>
                 <PublicTicketPage />
+              </LazyRoute>
+            }
+          />
+          <Route
+            path="/termos"
+            element={
+              <LazyRoute>
+                <TermosPage />
+              </LazyRoute>
+            }
+          />
+          <Route
+            path="/privacidade"
+            element={
+              <LazyRoute>
+                <PrivacidadePage />
               </LazyRoute>
             }
           />
