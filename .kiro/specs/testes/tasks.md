@@ -258,7 +258,7 @@ Cada tarefa é incremental, referencia requisitos e constrói sobre o que já ex
 
 ## Fase 8 — Governança futura (Categoria K)
 
-- [ ] 33. Steering de governança de specs e checklist de PR
+- [x] 33. Steering de governança de specs e checklist de PR
   - Criar `.kiro/steering/testing-governance.md`: nenhuma feature pronta sem Requirements/Design/Tasks, testes, cenários de falha, validações, regressão atualizada e doc técnica.
   - Adicionar checklist de PR (template) com os itens obrigatórios e critérios de aceite testáveis.
   - _Requirements: 27.1, 27.2, 27.3, 27.4, 27.5, 27.6_
