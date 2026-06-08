@@ -5,11 +5,13 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import HomePage from './pages/HomePage';
+import LandingPage from './pages/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
 import NativeBackButton from './components/NativeBackButton';
 import NativePushBootstrap from './components/NativePushBootstrap';
 import { PixelProvider } from './components/marketing/PixelProvider';
+import { useAuth } from './hooks/useAuth';
 
 // Widget flutuante global: não é crítico para o primeiro paint, então
 // carrega depois (defer) para não pesar o bundle inicial.
@@ -64,6 +66,27 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * RootRoute — decide o que renderizar em `/`:
+ *  - Visitante não logado: LandingPage (página de entrada).
+ *  - Usuário logado: HomePage (lista de fretes).
+ * A lista pública de fretes também fica acessível em `/fretes` para o
+ * visitante explorar antes de criar conta.
+ */
+function RootRoute() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="text-gray-400">Carregando...</div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <HomePage /> : <LandingPage />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -75,7 +98,8 @@ function App() {
           <FreteChatWidget />
         </Suspense>
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RootRoute />} />
+          <Route path="/fretes" element={<HomePage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route
