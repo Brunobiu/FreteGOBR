@@ -177,12 +177,6 @@ export default function LandingPage() {
               </Link>
 
               <nav className="flex items-center gap-2 sm:gap-3">
-                <Link
-                  to="/register"
-                  className="px-3 sm:px-4 py-1.5 text-sm font-semibold text-white border border-white/30 rounded-full hover:bg-white/10 transition-colors"
-                >
-                  Criar conta
-                </Link>
                 <button
                   type="button"
                   onClick={() => navigate('/fretes')}
@@ -235,12 +229,6 @@ export default function LandingPage() {
                   Ver fretes
                   <ArrowRight className="h-4 w-4" />
                 </button>
-                <Link
-                  to="/register"
-                  className="inline-flex items-center justify-center px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold bg-white/10 text-white border border-white/30 rounded-xl hover:bg-white/20 transition-colors backdrop-blur-sm text-center"
-                >
-                  Criar conta
-                </Link>
               </div>
 
               <p className="mt-4 text-xs text-white/70">
