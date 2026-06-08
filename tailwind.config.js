@@ -8,6 +8,15 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Paleta da marca FreteGO (extraída da logo)
+        brand: {
+          green: '#007848', // verde principal da logo
+          greenDark: '#00532f', // verde escuro p/ hover
+          greenLight: '#34d399', // verde claro p/ destaques sobre fundo escuro
+          navy: '#0a2a40', // azul-marinho da logo
+          navyDeep: '#05202f', // marinho mais profundo p/ topo de gradiente
+          lime: '#c8cc1e', // lima/amarelo de acento
+        },
         // Paleta light mode FreteGO
         surface: {
           DEFAULT: '#f5f5f5', // fundo principal

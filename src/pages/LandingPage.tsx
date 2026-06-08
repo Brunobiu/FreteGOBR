@@ -5,9 +5,11 @@
  * Hero no estilo "marketplace": fundo verde escuro com imagem opcional e
  * overlay, headline em duas cores, pills de destaque e dois CTAs.
  *
- * Identidade visual:
- *  - Verde de ação do app: green-600 (#16a34a).
- *  - Fundo do hero: gradiente verde escuro (green-950 → green-800).
+ * Identidade visual (cores extraídas da logo):
+ *  - Verde da marca: brand-green (#007848).
+ *  - Azul-marinho: brand-navy (#0a2a40).
+ *  - Acento lima: brand-lime (#c8cc1e).
+ *  - Fundo do hero: gradiente marinho → verde da marca.
  *
  * Imagem de fundo (trocar depois sem mexer no código):
  *  - Basta colocar o arquivo `public/landing-hero.jpg`. Ele é aplicado
@@ -124,8 +126,8 @@ export default function LandingPage() {
     <div className="min-h-screen flex flex-col bg-gray-100">
       {/* ===================== HERO ===================== */}
       <section className="relative overflow-hidden">
-        {/* Camada 1: gradiente verde escuro (sempre visível) */}
-        <div className="absolute inset-0 bg-gradient-to-br from-green-950 via-green-900 to-green-800" />
+        {/* Camada 1: gradiente da marca (marinho → verde da logo) */}
+        <div className="absolute inset-0 bg-gradient-to-br from-brand-navyDeep via-brand-navy to-brand-green" />
 
         {/* Camada 2: imagem de fundo opcional (public/landing-hero.jpg).
             Se o arquivo não existir, só não aparece nada e o gradiente
@@ -170,15 +172,15 @@ export default function LandingPage() {
 
               <nav className="flex items-center gap-2 sm:gap-3">
                 <Link
-                  to="/login"
-                  className="text-sm font-medium text-white/90 hover:text-white px-2"
+                  to="/register"
+                  className="px-4 py-2 text-sm font-semibold text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors"
                 >
-                  Entrar
+                  Criar conta
                 </Link>
                 <button
                   type="button"
                   onClick={() => navigate('/fretes')}
-                  className="px-4 py-2 text-sm font-semibold bg-green-600 text-white rounded-lg hover:bg-green-500 transition-colors shadow-sm"
+                  className="px-4 py-2 text-sm font-semibold bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors shadow-sm"
                 >
                   Ver fretes
                 </button>
@@ -192,7 +194,7 @@ export default function LandingPage() {
               <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight text-white">
                 Fretes que cabem
                 <br className="hidden sm:block" /> na sua rota.
-                <span className="block text-green-400 mt-1">Sem intermediário.</span>
+                <span className="block text-brand-lime mt-1">Sem intermediário.</span>
               </h1>
 
               <p className="mt-5 text-sm sm:text-lg text-white/80 max-w-xl">
@@ -203,15 +205,15 @@ export default function LandingPage() {
               {/* Pills de destaque */}
               <div className="mt-6 flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                  <BadgeCheck className="h-3.5 w-3.5 text-green-400" />
+                  <BadgeCheck className="h-3.5 w-3.5 text-brand-lime" />
                   100% gratuito para começar
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                  <Zap className="h-3.5 w-3.5 text-green-400" />
+                  <Zap className="h-3.5 w-3.5 text-brand-lime" />
                   Sem burocracia
                 </span>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
-                  <MapPin className="h-3.5 w-3.5 text-green-400" />
+                  <MapPin className="h-3.5 w-3.5 text-brand-lime" />
                   Cargas perto de você
                 </span>
               </div>
@@ -221,7 +223,7 @@ export default function LandingPage() {
                 <button
                   type="button"
                   onClick={() => navigate('/fretes')}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-green-600 text-white rounded-xl hover:bg-green-500 transition-colors shadow-lg shadow-green-900/40"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors shadow-lg shadow-black/30"
                 >
                   <Truck className="h-5 w-5" />
                   Ver fretes
@@ -237,7 +239,7 @@ export default function LandingPage() {
 
               <p className="mt-4 text-xs text-white/70">
                 Já tem conta?{' '}
-                <Link to="/login" className="text-green-300 font-medium hover:underline">
+                <Link to="/login" className="text-brand-lime font-medium hover:underline">
                   Entrar
                 </Link>
               </p>
@@ -253,15 +255,15 @@ export default function LandingPage() {
       <section className="bg-gray-100">
         <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20 text-center">
           {/* Pill */}
-          <span className="inline-flex items-center gap-2 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-green-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+          <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 border border-brand-green/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-green">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
             Aplicativo
           </span>
 
           {/* Título em duas fontes */}
           <h2 className="mt-5 text-3xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
             Seu frete na palma
-            <span className="block font-serif italic font-medium text-green-700">da sua mão</span>
+            <span className="block font-serif italic font-medium text-brand-green">da sua mão</span>
           </h2>
 
           <p className="mt-4 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">
@@ -280,7 +282,7 @@ export default function LandingPage() {
 
           {/* Indicadores (decorativos por enquanto) */}
           <div className="mt-6 flex items-center justify-center gap-1.5">
-            <span className="h-1.5 w-6 rounded-full bg-green-600" />
+            <span className="h-1.5 w-6 rounded-full bg-brand-green" />
             <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
             <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
             <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
@@ -317,11 +319,11 @@ function PhoneMock({
       <div
         className={`h-full w-full rounded-[1.25rem] overflow-hidden flex flex-col ${
           highlight
-            ? 'bg-gradient-to-b from-green-50 to-white'
+            ? 'bg-gradient-to-b from-brand-green/10 to-white'
             : 'bg-gradient-to-b from-gray-50 to-white'
         }`}
       >
-        <div className="h-12 bg-green-600 flex items-center px-3">
+        <div className="h-12 bg-brand-green flex items-center px-3">
           <div className="h-2 w-12 bg-white/80 rounded-full" />
         </div>
         <div className="flex-1 p-2.5 space-y-2">
