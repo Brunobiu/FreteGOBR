@@ -41,10 +41,19 @@ const ITEMS: MenuItem[] = [
     permission: 'USER_VIEW',
   },
   { to: '/admin/fretes', label: 'Fretes', icon: 'M5 13l4 4L19 7', permission: 'FRETE_VIEW' },
+  // Financeiro (comissão) OCULTO da sidebar a pedido do produto — rota e código
+  // permanecem intactos (037), apenas não aparece no menu. Substituído por
+  // "Assinaturas" no fluxo de cobrança de motoristas (spec assinaturas-pagamento).
+  // {
+  //   to: '/admin/financeiro',
+  //   label: 'Financeiro',
+  //   icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1',
+  //   permission: 'FINANCEIRO_VIEW',
+  // },
   {
-    to: '/admin/financeiro',
-    label: 'Financeiro',
-    icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1',
+    to: '/admin/assinaturas',
+    label: 'Assinaturas',
+    icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
     permission: 'FINANCEIRO_VIEW',
   },
   {

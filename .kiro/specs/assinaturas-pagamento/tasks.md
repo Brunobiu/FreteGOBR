@@ -144,18 +144,18 @@ banco → RPCs → Edge Functions Asaas → automação → UI → admin → fec
 
 ## Fase 6 — Admin Assinaturas
 
-- [ ] 16. RPC admin + ocultar Financeiro
+- [x] 16. RPC admin + ocultar Financeiro
   - `admin_list_subscriptions(p_group, p_q, p_sort, p_limit, p_offset)` (STABLE, gating
     `FINANCEIRO_VIEW`, audit negativo `SUBSCRIPTION_VIEW_DENIED`, Stealth_404). Ocultar item
     "Financeiro" no `AdminSidebar` (sem apagar rotas/código).
   - _Requirements: 13.1, 13.3, 13.5, 13.6, 13.7_
 
-- [ ] 17. Página admin "Assinaturas"
+- [x] 17. Página admin "Assinaturas"
   - Nova página + rota: grupos A Vencer / Pagas / Inadimplentes (`past_due`+`suspended`), busca,
     filtros, paginação 10/50/100, estilo compacto do painel.
   - _Requirements: 13.2, 13.3, 13.4, 13.5_
 
-- [ ] 17.1 Testes do admin
+- [x] 17.1 Testes do admin
   - Gating/Stealth_404 sem permissão; agrupamento correto; paginação. Integração do audit negativo.
   - _Requirements: 13.6, 13.7_
 
