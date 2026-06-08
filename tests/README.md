@@ -63,3 +63,28 @@ npx vitest run src/__tests__/calculoFrete.invariants.property.test.ts
 - Fases 2–7 (integração, segurança, E2E, performance, pipeline): pendentes —
   exigem branch Supabase efêmero e secrets de CI.
 - Fase 8 (governança): ✅ steering + template de PR
+
+## Regression_Suite — feature Assinaturas e Pagamento (Asaas)
+
+Testes incorporados à suíte de regressão (rodam no pre-commit + CI):
+
+- `src/__tests__/cp1_subscription_plans.property.test.ts` — catálogo de planos
+  (Property 1: totais fixos 39,90 / 104,70 / 179,40 e determinismo).
+- `src/__tests__/cp3_access_state.property.test.ts` — máquina de estados de
+  acesso (Property 2 determinismo + Property 3 invariante de suspensão).
+- `src/__tests__/cp4_asaas_webhook.property.test.ts` — mapeamento evento→ação
+  e idempotência do webhook (Property 4).
+- `src/__tests__/cp5_billing_notifier.property.test.ts` — seleção do
+  Billing_Notifier (Property 5: janela de trial + suspensão por grace).
+- `src/__tests__/trialBadge.example.test.tsx` — render do selo (FREE·N dias /
+  PRO / oculto).
+- `src/__tests__/likeButtonSuspended.example.test.tsx` — bloqueio de interação
+  do motorista suspenso (aviso pt-BR + CTA), trial/ativo interage.
+- `src/__tests__/adminSubscriptions.example.test.tsx` — filtros do painel
+  admin (round-trip), erro tipado e gating Stealth_404 sem FINANCEIRO_VIEW.
+
+Núcleo puro (espelho TS da autoridade SQL): `src/utils/subscriptionPlans.ts`,
+`src/utils/trialStatus.ts` (Critical_Module, ≥85%), `src/utils/asaasWebhook.ts`,
+`src/utils/billingNotifier.ts`.
+
+Documentação operacional da feature: `docs/assinaturas-asaas.md`.

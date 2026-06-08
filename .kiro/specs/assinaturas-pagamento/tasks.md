@@ -161,12 +161,12 @@ banco → RPCs → Edge Functions Asaas → automação → UI → admin → fec
 
 ## Fase 7 — Fechamento
 
-- [ ] 18. Regression_Suite + verificação final
+- [x] 18. Regression_Suite + verificação final
   - Rodar suite completa (tsc + vitest + build), atualizar Regression_Suite com os novos testes,
     conferir cobertura dos Critical_Modules tocados, e advisors de segurança do Supabase.
   - _Requirements: governança de testes (todas as Properties 1–7)_
 
-- [ ] 19. Documentação técnica
+- [x] 19. Documentação técnica
   - Documentar variáveis de ambiente do Asaas (sandbox→produção), fluxo de webhook e operação do
     Billing_Notifier em `docs/`. Atualizar steering se necessário.
   - _Requirements: 12.6, 12.7, 14.4_
