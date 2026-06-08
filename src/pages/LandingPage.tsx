@@ -195,49 +195,49 @@ export default function LandingPage() {
           </header>
 
           {/* Bloco principal */}
-          <div className="max-w-6xl mx-auto px-4 pt-10 pb-20 sm:pt-16 sm:pb-28">
+          <div className="max-w-6xl mx-auto px-4 pt-8 pb-14 sm:pt-16 sm:pb-28">
             <div className="max-w-2xl">
-              <h1 className="text-3xl sm:text-5xl font-extrabold leading-tight text-white">
+              <h1 className="text-[1.6rem] leading-tight sm:text-4xl lg:text-5xl font-extrabold text-white">
                 Fretes que cabem
                 <br className="hidden sm:block" /> na sua rota.
                 <span className="block text-brand-lime mt-1">Sem intermediário.</span>
               </h1>
 
-              <p className="mt-5 text-sm sm:text-lg text-white/80 max-w-xl">
+              <p className="mt-4 text-sm sm:text-base lg:text-lg text-white/80 max-w-xl">
                 O FreteGO conecta caminhoneiros e embarcadores em todo o Brasil. Encontre cargas
                 perto de você e negocie direto, do jeito mais simples.
               </p>
 
               {/* Pills de destaque */}
-              <div className="mt-6 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-white backdrop-blur-sm">
                   <BadgeCheck className="h-3.5 w-3.5 text-brand-lime" />
                   100% gratuito para começar
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-white backdrop-blur-sm">
                   <Zap className="h-3.5 w-3.5 text-brand-lime" />
                   Sem burocracia
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-2.5 py-1 text-[11px] sm:text-xs font-medium text-white backdrop-blur-sm">
                   <MapPin className="h-3.5 w-3.5 text-brand-lime" />
                   Cargas perto de você
                 </span>
               </div>
 
               {/* CTAs */}
-              <div className="mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="mt-7 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => navigate('/fretes')}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors shadow-lg shadow-black/30"
+                  className="inline-flex items-center justify-center gap-2 px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors shadow-lg shadow-black/30"
                 >
-                  <Truck className="h-5 w-5" />
+                  <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
                   Ver fretes
                   <ArrowRight className="h-4 w-4" />
                 </button>
                 <Link
                   to="/register"
-                  className="inline-flex items-center justify-center px-6 py-3 text-base font-semibold bg-white/10 text-white border border-white/30 rounded-xl hover:bg-white/20 transition-colors backdrop-blur-sm text-center"
+                  className="inline-flex items-center justify-center px-5 py-2.5 sm:px-6 sm:py-3 text-sm sm:text-base font-semibold bg-white/10 text-white border border-white/30 rounded-xl hover:bg-white/20 transition-colors backdrop-blur-sm text-center"
                 >
                   Criar conta
                 </Link>
@@ -259,26 +259,26 @@ export default function LandingPage() {
           são placeholders: troque o conteúdo de cada PhoneMock (ou coloque
           uma <img> da screenshot real) quando tiver as telas finais. */}
       <section className="bg-gray-100">
-        <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20 text-center">
+        <div className="max-w-6xl mx-auto px-4 py-12 sm:py-20 text-center">
           {/* Pill */}
-          <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 border border-brand-green/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-brand-green">
+          <span className="inline-flex items-center gap-2 rounded-full bg-brand-green/10 border border-brand-green/20 px-3 py-1 text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-brand-green">
             <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
             Aplicativo
           </span>
 
           {/* Título em duas fontes */}
-          <h2 className="mt-5 text-3xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
+          <h2 className="mt-4 text-2xl leading-tight sm:text-4xl lg:text-5xl font-extrabold text-gray-900">
             Seu frete na palma
             <span className="block font-serif italic font-medium text-brand-green">da sua mão</span>
           </h2>
 
-          <p className="mt-4 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">
+          <p className="mt-3 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">
             Encontre cargas, acompanhe sua rota e fale com o embarcador direto pelo app. Tudo
             simples, rápido e pensado pra estrada.
           </p>
 
           {/* Vitrine de celulares */}
-          <div className="mt-12 flex items-end justify-center gap-3 sm:gap-5 overflow-x-auto pb-4">
+          <div className="mt-8 sm:mt-12 flex items-end justify-center gap-2.5 sm:gap-5 overflow-x-auto pb-4 -mx-4 px-4">
             <PhoneMock className="hidden sm:block scale-90 opacity-70" label="Mapa" />
             <PhoneMock className="scale-95" label="Detalhe do frete" />
             <PhoneMock className="z-10 shadow-2xl" label="Lista de fretes" highlight />
@@ -317,7 +317,7 @@ function PhoneMock({
 }) {
   return (
     <div
-      className={`relative shrink-0 w-36 sm:w-44 aspect-[9/19] rounded-[1.75rem] border-[6px] border-gray-900 bg-gray-900 shadow-xl ${className}`}
+      className={`relative shrink-0 w-28 sm:w-44 aspect-[9/19] rounded-[1.5rem] sm:rounded-[1.75rem] border-[5px] sm:border-[6px] border-gray-900 bg-gray-900 shadow-xl ${className}`}
     >
       {/* Notch */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 h-4 w-16 bg-gray-900 rounded-b-xl z-10" />

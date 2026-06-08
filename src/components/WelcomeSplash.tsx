@@ -65,19 +65,19 @@ export default function WelcomeSplash({ durationMs = 4000, onDone }: WelcomeSpla
         <img
           src="/logo.png"
           alt="FreteGO"
-          className="h-14 sm:h-16 w-auto object-contain select-none brightness-0 invert welcome-pop"
+          className="h-11 sm:h-16 w-auto object-contain select-none brightness-0 invert welcome-pop"
           draggable={false}
         />
 
-        <p className="mt-6 text-lg sm:text-2xl font-semibold text-white welcome-rise">
+        <p className="mt-5 sm:mt-6 text-base sm:text-2xl font-semibold text-white welcome-rise">
           Seja bem-vindo ao FreteGO
         </p>
-        <p className="mt-2 text-sm sm:text-base text-white/70 welcome-rise-delayed">
+        <p className="mt-1.5 sm:mt-2 text-xs sm:text-base text-white/70 welcome-rise-delayed">
           Fretes que cabem na sua rota.
         </p>
 
         {/* Barra de progresso fina que enche enquanto a splash está visível */}
-        <div className="mt-8 h-1 w-40 sm:w-52 overflow-hidden rounded-full bg-white/15">
+        <div className="mt-7 sm:mt-8 h-1 w-36 sm:w-52 overflow-hidden rounded-full bg-white/15">
           <div
             className="h-full rounded-full bg-brand-lime welcome-progress"
             style={{ animationDuration: `${durationMs}ms` }}
@@ -85,7 +85,9 @@ export default function WelcomeSplash({ durationMs = 4000, onDone }: WelcomeSpla
         </div>
       </div>
 
-      <span className="absolute bottom-6 text-xs text-white/50">Toque para pular</span>
+      <span className="absolute bottom-6 text-[11px] sm:text-xs text-white/50">
+        Toque para pular
+      </span>
     </div>
   );
 }
