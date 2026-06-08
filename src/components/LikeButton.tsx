@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useTrialStatus } from '../hooks/useTrialStatus';
 import { toggleFreteLike } from '../services/likes';
+
+/** Aviso pt-BR exibido quando um motorista suspenso tenta interagir. */
+export const SUSPENDED_INTERACTION_MESSAGE =
+  'Sua assinatura está suspensa. Reative seu plano para interagir com os fretes.';
 
 interface LikeButtonProps {
   freteId: string;
@@ -15,6 +20,12 @@ interface LikeButtonProps {
   size?: 'sm' | 'md' | 'lg';
   /** Callback chamado após toggle bem sucedido (passa novo estado). */
   onToggled?: (liked: boolean, total: number) => void;
+  /**
+   * Callback chamado quando a interação é bloqueada por assinatura suspensa.
+   * Recebe a mensagem pt-BR a exibir. Quando ausente, o botão redireciona o
+   * motorista para a página de planos (CTA padrão).
+   */
+  onBlocked?: (message: string) => void;
 }
 
 const SIZE_MAP = {
@@ -35,8 +46,10 @@ export default function LikeButton({
   showCount = false,
   size = 'md',
   onToggled,
+  onBlocked,
 }: LikeButtonProps) {
   const { user, isAuthenticated } = useAuth();
+  const { status } = useTrialStatus();
   const navigate = useNavigate();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
@@ -51,6 +64,10 @@ export default function LikeButton({
   }, [initialCount]);
 
   const isMotorista = isAuthenticated && user?.userType === 'motorista';
+  // Suspenso/cancelado vê o feed, mas NÃO interage (espelho de
+  // `motorista_can_interact` no servidor — o RPC também negaria).
+  // 'blocked' é o `subscription_status` cru de quem foi suspenso (migration 058).
+  const isBlocked = status === 'blocked' || status === 'canceled';
   const sizes = SIZE_MAP[size];
 
   const handleClick = async (e: React.MouseEvent) => {
@@ -64,6 +81,12 @@ export default function LikeButton({
     }
     if (!isMotorista) {
       // Embarcador/admin não curtem — silencioso.
+      return;
+    }
+    if (isBlocked) {
+      // Interação bloqueada: avisa (pt-BR) ou leva para reativar o plano.
+      if (onBlocked) onBlocked(SUSPENDED_INTERACTION_MESSAGE);
+      else navigate('/motorista/plano');
       return;
     }
 

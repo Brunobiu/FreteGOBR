@@ -108,7 +108,11 @@ export default function HomePage() {
   // tem o feed de fretes substituído pela TrialExpiredPage. A autoridade do
   // estado é o servidor (RLS); aqui é apenas a UX imediata, usando a MESMA
   // fonte do hook (useAuth) já consumida por useTrialStatus.
-  const { isExpired } = useTrialStatus();
+  const { isExpired, status: subscriptionStatus } = useTrialStatus();
+  // Suspenso/cancelado: vê o feed, mas não interage (banner de aviso + CTA).
+  // 'blocked' é o status cru de suspensão por assinatura (migration 058).
+  const isMotoristaSuspenso =
+    isMotorista && (subscriptionStatus === 'blocked' || subscriptionStatus === 'canceled');
   const isMotoristaBloqueado = isMotorista && isExpired;
 
   // Geolocalizacao do motorista. Antes haviam DUAS instancias do hook
@@ -439,6 +443,20 @@ export default function HomePage() {
           />
         )}
 
+        {isMotoristaSuspenso && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Sua assinatura está suspensa. Você pode ver os fretes, mas não pode interagir.
+            </span>
+            <Link
+              to="/motorista/plano"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-greenDark whitespace-nowrap"
+            >
+              Reativar plano
+            </Link>
+          </div>
+        )}
+
         {showCalcBanner && (
           <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
             Configure seu veículo para ver os cálculos.{' '}
@@ -557,6 +575,10 @@ export default function HomePage() {
                   showLikeButton={isMotorista}
                   initialLiked={likedFreteIds.has(frete.id)}
                   onLikeToggle={handleLikeToggle}
+                  onLikeBlocked={(msg) => {
+                    setToast(msg);
+                    setTimeout(() => setToast(null), 4000);
+                  }}
                   hideStatus
                 />
               ))}

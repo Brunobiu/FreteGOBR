@@ -87,7 +87,7 @@ describe('TrialBadge — render e mapeamento de tier', () => {
 
     const el = badgeEl();
     expect(el).not.toBeNull();
-    expect(el!.textContent).toBe('Teste grátis: 15 dias');
+    expect(el!.textContent).toBe('FREE · 15 dias restantes');
   });
 
   it('aplica classe verde (bg-green-100) quando daysLeft > 10 (Req 4.4)', () => {
@@ -136,7 +136,7 @@ describe('TrialBadge — render e mapeamento de tier', () => {
     expect(el).not.toBeNull();
     expect(el!.classList.contains('bg-red-100')).toBe(true);
     expect(el!.classList.contains('animate-pulse')).toBe(true);
-    expect(el!.textContent).toBe('Teste grátis: 1 dias');
+    expect(el!.textContent).toBe('FREE · 1 dia restante');
   });
 
   it('renderiza nada (oculto) quando daysLeft === 0 (Req 4.8)', () => {
@@ -170,14 +170,16 @@ describe('TrialBadge — render e mapeamento de tier', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('permanece oculto para motorista assinante (Req 4.3)', () => {
+  it('exibe selo PRO para motorista assinante (Req 9.3)', () => {
     renderBadge(
       { user: { userType: 'motorista' } },
       { daysLeft: 15, isExpired: false, isSubscribed: true, status: 'active' }
     );
 
-    expect(badgeEl()).toBeNull();
-    expect(container.textContent).toBe('');
+    const el = badgeEl();
+    expect(el).not.toBeNull();
+    expect(el!.textContent).toContain('PRO');
+    expect(el!.textContent).not.toContain('FREE');
   });
 
   it('permanece oculto quando não há usuário autenticado (Req 4.2)', () => {

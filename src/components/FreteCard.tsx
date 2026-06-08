@@ -23,6 +23,8 @@ interface FreteCardProps {
   initialLiked?: boolean;
   /** Callback chamado quando o motorista alterna o coração. */
   onLikeToggle?: (freteId: string, liked: boolean) => void;
+  /** Callback quando a curtida é bloqueada por assinatura suspensa (aviso pt-BR). */
+  onLikeBlocked?: (message: string) => void;
   /**
    * Oculta o badge de status (ativo/encerrado/cancelado). Usado no feed do
    * motorista, onde só fretes ativos aparecem — exibir "Ativo" e redundante
@@ -39,6 +41,7 @@ export default function FreteCard({
   showLikeButton,
   initialLiked,
   onLikeToggle,
+  onLikeBlocked,
   hideStatus,
 }: FreteCardProps) {
   const { isAuthenticated } = useAuth();
@@ -104,6 +107,7 @@ export default function FreteCard({
               initialLiked={initialLiked}
               size="sm"
               onToggled={(liked) => onLikeToggle?.(frete.id, liked)}
+              onBlocked={onLikeBlocked}
             />
           )}
         </div>

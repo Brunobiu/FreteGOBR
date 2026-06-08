@@ -3,18 +3,16 @@ import { useTrialStatus } from '../hooks/useTrialStatus';
 import { selectBadgeTier, type BadgeTier } from '../utils/trialStatus';
 
 /**
- * TrialBadge — contador visual de dias restantes do trial no AppHeader (FreteGO).
+ * TrialBadge — selo de status de assinatura no AppHeader (FreteGO).
  *
- * Pílula compacta exibida no cluster da direita do header. Consome o estado de
- * trial via `useTrialStatus()` (daysLeft/isSubscribed) e deriva o tier de cor
- * com a função pura `selectBadgeTier`. O `userType` vem de `useAuth()` (a mesma
- * fonte primária do hook), pois `useTrialStatus` não o expõe.
+ * Pílula compacta no cluster da direita do header. Consome `useTrialStatus()`
+ * (daysLeft/isSubscribed/status) e deriva o tier de cor com `selectBadgeTier`.
+ * O `userType` vem de `useAuth()`.
  *
- * Auto-ocultação (tier `'hidden'` ⇒ `null`): cobre não-motoristas, assinantes,
- * usuários sem autenticação e `daysLeft === 0` (estado tratado pela tela de
- * bloqueio). Assim o AppHeader não precisa de lógica condicional adicional.
- *
- * (Requirements 4.1, 4.4, 4.5, 4.6, 4.7, 4.8, 4.9)
+ * Exibição (spec assinaturas-pagamento Req 9):
+ *  - Trial: "FREE · {N} dias restantes" (verde/amarelo/vermelho conforme dias).
+ *  - Assinante pago: selo "PRO" verde da marca.
+ *  - Não-motorista / sem auth / expirado: oculto.
  */
 
 /** Classes Tailwind por tier visível: cor base + destaque pulsante no `red-pulse`. */
@@ -29,8 +27,21 @@ export function TrialBadge() {
   const { user } = useAuth();
   const { daysLeft, isSubscribed } = useTrialStatus();
 
-  // userType vem do useAuth (mesma fonte do hook). Sem usuário ⇒ oculto (Req 4.2).
   const userType = user?.userType;
+
+  // Assinante pago (motorista): selo "PRO" da marca, sem contador de dias.
+  if (userType === 'motorista' && isSubscribed) {
+    return (
+      <span
+        role="status"
+        className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-brand-green/30 bg-brand-green/10 px-2.5 py-1 text-[11px] font-semibold text-brand-green md:text-xs"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
+        PRO
+      </span>
+    );
+  }
+
   const tier: BadgeTier = userType
     ? selectBadgeTier({ userType, isSubscribed, daysLeft })
     : 'hidden';
@@ -38,13 +49,16 @@ export function TrialBadge() {
   // Tiers ocultos não renderizam nada (não-motorista/assinante/expirado/sem auth).
   if (tier === 'hidden') return null;
 
+  // Texto do contador: singular/plural.
+  const diasLabel = daysLeft === 1 ? '1 dia restante' : `${daysLeft} dias restantes`;
+
   return (
     <span
       role="status"
       aria-live="polite"
       className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-medium md:text-xs ${TIER_CLASSES[tier]}`}
     >
-      Teste grátis: {daysLeft} dias
+      FREE · {diasLabel}
     </span>
   );
 }
