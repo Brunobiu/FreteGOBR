@@ -246,46 +246,94 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ===================== FAIXA DE APOIO ===================== */}
-      <section className="bg-white border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-8 grid grid-cols-1 sm:grid-cols-3 gap-6">
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-green-50 text-green-600">
-              <Truck className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Cargas todo dia</h3>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Novos fretes publicados o tempo todo, de embarcadores reais.
-              </p>
-            </div>
+      {/* ===================== VITRINE DO APP ===================== */}
+      {/* Seção para mostrar passo a passo / vantagens do app. Os "celulares"
+          são placeholders: troque o conteúdo de cada PhoneMock (ou coloque
+          uma <img> da screenshot real) quando tiver as telas finais. */}
+      <section className="bg-gray-100">
+        <div className="max-w-6xl mx-auto px-4 py-16 sm:py-20 text-center">
+          {/* Pill */}
+          <span className="inline-flex items-center gap-2 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-green-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+            Aplicativo
+          </span>
+
+          {/* Título em duas fontes */}
+          <h2 className="mt-5 text-3xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
+            Seu frete na palma
+            <span className="block font-serif italic font-medium text-green-700">da sua mão</span>
+          </h2>
+
+          <p className="mt-4 text-sm sm:text-base text-gray-600 max-w-xl mx-auto">
+            Encontre cargas, acompanhe sua rota e fale com o embarcador direto pelo app. Tudo
+            simples, rápido e pensado pra estrada.
+          </p>
+
+          {/* Vitrine de celulares */}
+          <div className="mt-12 flex items-end justify-center gap-3 sm:gap-5 overflow-x-auto pb-4">
+            <PhoneMock className="hidden sm:block scale-90 opacity-70" label="Mapa" />
+            <PhoneMock className="scale-95" label="Detalhe do frete" />
+            <PhoneMock className="z-10 shadow-2xl" label="Lista de fretes" highlight />
+            <PhoneMock className="scale-95" label="Mensagens" />
+            <PhoneMock className="hidden sm:block scale-90 opacity-70" label="Perfil" />
           </div>
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-green-50 text-green-600">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Perto de você</h3>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Filtre por raio e ache cargas na sua região e rota de volta.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="shrink-0 grid place-items-center h-10 w-10 rounded-lg bg-green-50 text-green-600">
-              <BadgeCheck className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-900">Negocie direto</h3>
-              <p className="text-xs text-gray-600 mt-0.5">
-                Fale com quem tem a carga, sem atravessador no meio.
-              </p>
-            </div>
+
+          {/* Indicadores (decorativos por enquanto) */}
+          <div className="mt-6 flex items-center justify-center gap-1.5">
+            <span className="h-1.5 w-6 rounded-full bg-green-600" />
+            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
+            <span className="h-1.5 w-1.5 rounded-full bg-gray-300" />
           </div>
         </div>
       </section>
 
       <SiteFooter />
+    </div>
+  );
+}
+
+/**
+ * PhoneMock — moldura de celular placeholder para a vitrine do app.
+ * Troque o conteúdo interno por uma <img src="/app-xxx.png" /> quando
+ * tiver as screenshots reais.
+ */
+function PhoneMock({
+  className = '',
+  label,
+  highlight = false,
+}: {
+  className?: string;
+  label: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={`relative shrink-0 w-36 sm:w-44 aspect-[9/19] rounded-[1.75rem] border-[6px] border-gray-900 bg-gray-900 shadow-xl ${className}`}
+    >
+      {/* Notch */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 h-4 w-16 bg-gray-900 rounded-b-xl z-10" />
+      {/* Tela (placeholder) */}
+      <div
+        className={`h-full w-full rounded-[1.25rem] overflow-hidden flex flex-col ${
+          highlight
+            ? 'bg-gradient-to-b from-green-50 to-white'
+            : 'bg-gradient-to-b from-gray-50 to-white'
+        }`}
+      >
+        <div className="h-12 bg-green-600 flex items-center px-3">
+          <div className="h-2 w-12 bg-white/80 rounded-full" />
+        </div>
+        <div className="flex-1 p-2.5 space-y-2">
+          <div className="h-9 rounded-lg bg-gray-100" />
+          <div className="h-9 rounded-lg bg-gray-100" />
+          <div className="h-9 rounded-lg bg-gray-100" />
+          <div className="h-9 rounded-lg bg-gray-100" />
+        </div>
+        <div className="px-3 pb-3">
+          <span className="text-[10px] font-medium text-gray-400">{label}</span>
+        </div>
+      </div>
     </div>
   );
 }
