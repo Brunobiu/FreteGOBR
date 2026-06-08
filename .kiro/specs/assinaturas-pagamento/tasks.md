@@ -106,7 +106,7 @@ banco → RPCs → Edge Functions Asaas → automação → UI → admin → fec
 
 ## Fase 4 — Automação de cobrança/aviso
 
-- [ ] 12. Billing_Notifier (pg_cron diário)
+- [x] 12. Billing_Notifier (pg_cron diário)
   - Migration 056: função `run_billing_notifications()` que seleciona SOMENTE motoristas com trial
     vencendo em 1-2 dias (`is_subscribed=false`) e insere `notifications(type='plan_trial_expiring')`
     com `ON CONFLICT DO NOTHING` (índice `uq_notifications_user_plan_unread`). Agendar via pg_cron 1x/dia.
@@ -114,7 +114,7 @@ banco → RPCs → Edge Functions Asaas → automação → UI → admin → fec
     `plan_reactivated`).
   - _Requirements: 5.4, 7.4, 10.1, 10.2, 10.3, 10.4, 10.5, 10.6_
 
-- [ ] 12.1 Teste de idempotência da notificação
+- [x] 12.1 Teste de idempotência da notificação
   - Integração: N tentativas do mesmo `plan_*` não lido → ≤ 1 linha (Property 5); seleção não atinge
     usuários fora da janela (anti-disparo-em-massa).
   - _Requirements: 10.3, 10.4, 10.6 (Property 5)_
