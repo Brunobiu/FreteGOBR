@@ -573,3 +573,66 @@ form[data-view='carroceria'] section[data-secao]:not([data-secao='veiculo']),
 form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
   display: none;
 }
+
+
+/* ===================== WelcomeSplash (tela de abertura) ===================== */
+
+@keyframes welcomePop {
+  0% {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes welcomeRise {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes welcomeProgress {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+.welcome-pop {
+  animation: welcomePop 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome-rise {
+  animation: welcomeRise 0.6s ease-out 0.3s both;
+}
+
+.welcome-rise-delayed {
+  animation: welcomeRise 0.6s ease-out 0.55s both;
+}
+
+.welcome-progress {
+  animation: welcomeProgress linear forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .welcome-pop,
+  .welcome-rise,
+  .welcome-rise-delayed {
+    animation-duration: 0.2s;
+    animation-delay: 0s;
+  }
+}

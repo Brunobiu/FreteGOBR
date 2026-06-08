@@ -20,9 +20,11 @@
  * Fluxo: Landing → "Ver fretes" (/fretes) → cadastro/login.
  */
 
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import SiteFooter from '../components/SiteFooter';
+import WelcomeSplash, { hasSeenWelcome } from '../components/WelcomeSplash';
 
 /* Ícones em SVG inline (convenção do projeto: não usar libs de ícone). */
 type IconProps = { className?: string };
@@ -121,9 +123,12 @@ function Zap({ className }: IconProps) {
 export default function LandingPage() {
   useDocumentTitle(null);
   const navigate = useNavigate();
+  const [showSplash, setShowSplash] = useState(() => !hasSeenWelcome());
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
+      {showSplash && <WelcomeSplash durationMs={4000} onDone={() => setShowSplash(false)} />}
+
       {/* ===================== HERO ===================== */}
       <section className="relative overflow-hidden">
         {/* Camada 1: gradiente da marca (marinho → verde da logo) */}
@@ -158,14 +163,15 @@ export default function LandingPage() {
 
         {/* Conteúdo do hero */}
         <div className="relative">
-          {/* Header transparente sobre o hero */}
-          <header className="px-4 py-4">
-            <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
-              <Link to="/" aria-label="FreteGO" className="flex items-center">
+          {/* Header flutuante: barra arredondada translúcida centralizada,
+              estilo "pill" sobreposta ao hero (efeito glass). */}
+          <header className="px-4 pt-4 sm:pt-6">
+            <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 rounded-full border border-white/15 bg-white/10 px-4 py-2.5 shadow-lg shadow-black/20 backdrop-blur-md">
+              <Link to="/" aria-label="FreteGO" className="flex items-center pl-1">
                 <img
                   src="/logo.png"
                   alt="FreteGO"
-                  className="h-9 sm:h-11 w-auto object-contain select-none brightness-0 invert"
+                  className="h-7 sm:h-8 w-auto object-contain select-none brightness-0 invert"
                   draggable={false}
                 />
               </Link>
@@ -173,14 +179,14 @@ export default function LandingPage() {
               <nav className="flex items-center gap-2 sm:gap-3">
                 <Link
                   to="/register"
-                  className="px-4 py-2 text-sm font-semibold text-white border border-white/30 rounded-lg hover:bg-white/10 transition-colors"
+                  className="px-3 sm:px-4 py-1.5 text-sm font-semibold text-white border border-white/30 rounded-full hover:bg-white/10 transition-colors"
                 >
                   Criar conta
                 </Link>
                 <button
                   type="button"
                   onClick={() => navigate('/fretes')}
-                  className="px-4 py-2 text-sm font-semibold bg-brand-green text-white rounded-lg hover:bg-brand-greenDark transition-colors shadow-sm"
+                  className="px-3 sm:px-4 py-1.5 text-sm font-semibold bg-brand-green text-white rounded-full hover:bg-brand-greenDark transition-colors shadow-sm"
                 >
                   Ver fretes
                 </button>
