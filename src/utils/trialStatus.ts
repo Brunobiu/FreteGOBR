@@ -286,3 +286,112 @@ export function computeIdentifierAvailable(
   const set = existing instanceof Set ? (existing as Set<string>) : new Set(existing);
   return !set.has(norm);
 }
+
+/* ===========================================================================
+ * Máquina de estados de ACESSO (spec assinaturas-pagamento)
+ *
+ * Evolui o trial existente com o conceito de assinatura paga (Asaas). O
+ * `AccessState` é derivado e total; é o espelho TS do predicado SQL
+ * `motorista_can_interact` e da reconciliação entre `users.subscription_status`
+ * e `subscriptions.status` (ver design.md §3).
+ *
+ * Diferença-chave vs. o bloqueio de trial da migration 044:
+ *   - Antes: trial vencido ⇒ feed ESCONDIDO.
+ *   - Agora: motorista sem direito de uso fica `suspended` ⇒ VÊ o feed, mas
+ *     NÃO interage (curtir/contato/chat).
+ * ======================================================================== */
+
+/**
+ * Estado de acesso derivado do Motorista.
+ *
+ * - `trial`: dentro dos 30 dias grátis. Vê e interage.
+ * - `active`: assinatura paga em dia. Vê e interage.
+ * - `past_due`: pagamento falhou/venceu, dentro do grace_period de 5 dias.
+ *   Mantém acesso completo (vê e interage) enquanto avisa para regularizar.
+ * - `suspended`: trial vencido sem nunca pagar, OU grace_period esgotado sem
+ *   pagamento. Vê o feed, mas NÃO interage.
+ * - `canceled`: cancelou. Tratado como `suspended` para fins de acesso.
+ *
+ * Para Embarcador/Admin o estado é sempre `active` (nunca suspenso).
+ */
+export type AccessState = 'trial' | 'active' | 'past_due' | 'suspended' | 'canceled';
+
+/**
+ * Entrada para o cálculo do estado de acesso. Estende os campos de trial com o
+ * fim do grace_period vindo de `subscriptions.grace_ends_at`.
+ */
+export interface AccessInput {
+  userType: UserTypeLike;
+  /** `users.is_subscribed`. */
+  isSubscribed: boolean;
+  /** `users.subscription_status`. */
+  subscriptionStatus: SubscriptionStatus;
+  /** `users.trial_ends_at`. */
+  trialEndsAt: Date | null;
+  /** `subscriptions.grace_ends_at` (fim da tolerância de 5 dias); `null` quando não em past_due. */
+  graceEndsAt: Date | null;
+  /** Default `new Date()`; injetável para testes determinísticos. */
+  now?: Date;
+}
+
+/**
+ * Deriva o {@link AccessState} de um usuário. Função pura e total.
+ *
+ * Ordem de decisão (motorista):
+ *   1. `subscriptionStatus === 'canceled'` ⇒ `canceled`.
+ *   2. `subscriptionStatus === 'active'` (assinante em dia) ⇒ `active`.
+ *   3. `subscriptionStatus === 'past_due'`:
+ *        - dentro do grace (`now <= graceEndsAt`, ou grace nulo) ⇒ `past_due`;
+ *        - grace esgotado (`now > graceEndsAt`) ⇒ `suspended`.
+ *   4. Caso `trial`/`blocked` sem assinatura paga:
+ *        - trial ainda válido (`trialEndsAt > now`) ⇒ `trial`;
+ *        - trial vencido/ausente ⇒ `suspended`.
+ *   5. Assinante (`isSubscribed === true`) sem rótulo conflitante ⇒ `active`.
+ *
+ * Embarcador/Admin ⇒ sempre `active`.
+ */
+export function computeAccessState(input: AccessInput): AccessState {
+  const { userType, isSubscribed, subscriptionStatus, trialEndsAt, graceEndsAt } = input;
+  const now = input.now ?? new Date();
+
+  // Embarcador/Admin: sem cobrança nesta spec; acesso pleno.
+  if (userType !== 'motorista') return 'active';
+
+  if (subscriptionStatus === 'canceled') return 'canceled';
+
+  if (subscriptionStatus === 'active' || isSubscribed) return 'active';
+
+  if (subscriptionStatus === 'past_due') {
+    if (graceEndsAt != null && now.getTime() > graceEndsAt.getTime()) {
+      return 'suspended';
+    }
+    return 'past_due';
+  }
+
+  // subscriptionStatus 'trial' ou 'blocked' (não assinante): decide pelo trial.
+  const trialValido = trialEndsAt != null && trialEndsAt.getTime() > now.getTime();
+  return trialValido ? 'trial' : 'suspended';
+}
+
+/**
+ * O Motorista PODE ver o feed de fretes? Verdadeiro em todos os estados —
+ * inclusive `suspended`/`canceled` (suspenso vê o feed, mas não interage).
+ * Embarcador/Admin sempre podem.
+ */
+export function canViewFeed(input: AccessInput): boolean {
+  // Todos os access_states permitem ver o feed; a restrição é só de interação.
+  // A função existe para simetria com `canInteract` e clareza nos call-sites.
+  void computeAccessState(input);
+  return true;
+}
+
+/**
+ * O Motorista PODE interagir (curtir, contato, chat, demais ações)? Verdadeiro
+ * em `trial`/`active`/`past_due`; falso em `suspended`/`canceled`.
+ * Embarcador/Admin sempre podem. Espelho TS de `motorista_can_interact(uuid)`.
+ */
+export function canInteract(input: AccessInput): boolean {
+  if (input.userType !== 'motorista') return true;
+  const state = computeAccessState(input);
+  return state === 'trial' || state === 'active' || state === 'past_due';
+}
