@@ -121,6 +121,21 @@ describe('Property 3: invariante de suspensão (vê feed, não interage)', () =>
     expect(canInteract(input)).toBe(false);
   });
 
+  it('motorista com subscription_status=blocked não interage mesmo com trial futuro', () => {
+    // Regressão (bug 058): blocked = suspenso por assinatura; trial futuro não libera.
+    const input: AccessInput = {
+      userType: 'motorista',
+      isSubscribed: false,
+      subscriptionStatus: 'blocked',
+      trialEndsAt: new Date(Date.UTC(2999, 0, 1)), // trial bem no futuro
+      graceEndsAt: null,
+      now: new Date(Date.UTC(2025, 0, 10)),
+    };
+    expect(computeAccessState(input)).toBe('suspended');
+    expect(canViewFeed(input)).toBe(true);
+    expect(canInteract(input)).toBe(false);
+  });
+
   it('past_due dentro do grace interage; após o grace vira suspended', () => {
     const base: AccessInput = {
       userType: 'motorista',

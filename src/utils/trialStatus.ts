@@ -359,6 +359,10 @@ export function computeAccessState(input: AccessInput): AccessState {
 
   if (subscriptionStatus === 'canceled') return 'canceled';
 
+  // 'blocked' = suspenso por assinatura (grace esgotado). Nega acesso mesmo
+  // que o trial_ends_at ainda esteja no futuro (paridade com SQL 058).
+  if (subscriptionStatus === 'blocked') return 'suspended';
+
   if (subscriptionStatus === 'active' || isSubscribed) return 'active';
 
   if (subscriptionStatus === 'past_due') {
@@ -368,7 +372,7 @@ export function computeAccessState(input: AccessInput): AccessState {
     return 'past_due';
   }
 
-  // subscriptionStatus 'trial' ou 'blocked' (não assinante): decide pelo trial.
+  // subscriptionStatus 'trial' (não assinante): decide pelo trial.
   const trialValido = trialEndsAt != null && trialEndsAt.getTime() > now.getTime();
   return trialValido ? 'trial' : 'suspended';
 }
