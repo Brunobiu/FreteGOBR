@@ -10,7 +10,7 @@
  *   - Histórico de cobranças do próprio motorista.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
@@ -78,8 +78,21 @@ export default function MotoristaPlanPage() {
   const [docType, setDocType] = useState<'cpf' | 'cnpj'>('cpf');
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [checkout, setCheckout] = useState<CreateSubscriptionResult | null>(null);
+
+  // Toast no canto: aparece ~5s e some sozinho (não empurra o formulário).
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = (msg: string) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(null), 5000);
+  };
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
 
   const [charges, setCharges] = useState<ChargeRow[]>([]);
   const [loadingCharges, setLoadingCharges] = useState(true);
@@ -102,20 +115,19 @@ export default function MotoristaPlanPage() {
   }, []);
 
   const handleSubscribe = async () => {
-    setError(null);
     if (docType === 'cnpj') {
-      setError('CNPJ indisponível no momento. Use seu CPF por enquanto.');
+      showToast('CNPJ indisponível no momento. Use seu CPF por enquanto.');
       return;
     }
     const onlyDigits = cpfCnpj.replace(/\D/g, '');
     if (onlyDigits.length !== 11) {
-      setError('Informe um CPF válido com 11 números.');
+      showToast('Informe um CPF válido com 11 números.');
       return;
     }
     if (method === 'credit_card') {
       // O cartão com tokenização será adicionado em etapa dedicada; por ora
-      // orientamos PIX/boleto, que rodam 100% dentro do app.
-      setError('Pagamento com cartão estará disponível em breve. Use PIX ou boleto por enquanto.');
+      // orientamos PIX, que roda 100% dentro do app.
+      showToast('Pagamento com cartão estará disponível em breve. Use PIX por enquanto.');
       return;
     }
 
@@ -129,7 +141,7 @@ export default function MotoristaPlanPage() {
       setCheckout(result);
     } catch (err) {
       const code = err instanceof SubscriptionError ? err.code : 'UNKNOWN';
-      setError(SUBSCRIPTION_ERROR_MESSAGES[code] ?? SUBSCRIPTION_ERROR_MESSAGES.UNKNOWN);
+      showToast(SUBSCRIPTION_ERROR_MESSAGES[code] ?? SUBSCRIPTION_ERROR_MESSAGES.UNKNOWN);
     } finally {
       setSubmitting(false);
     }
@@ -138,6 +150,17 @@ export default function MotoristaPlanPage() {
   return (
     <div className="min-h-screen bg-gray-100">
       <AppHeader />
+
+      {/* Toast no canto (fixo): aparece ~5s e some, sem mexer no layout. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-4 right-4 z-50 max-w-xs rounded-lg bg-gray-900 text-white text-sm px-4 py-3 shadow-lg animate-[fadeIn_0.2s_ease-out]"
+        >
+          {toast}
+        </div>
+      )}
 
       <main className="max-w-3xl mx-auto px-4 py-6">
         <button
@@ -194,7 +217,7 @@ export default function MotoristaPlanPage() {
             <div className="mt-6 bg-white border border-gray-200 rounded-xl p-4">
               <h2 className="text-sm font-semibold text-gray-800 mb-3">Forma de pagamento</h2>
               <div className="flex flex-wrap gap-2">
-                {(['pix', 'boleto', 'credit_card'] as PaymentMethod[]).map((m) => (
+                {(['pix', 'credit_card'] as PaymentMethod[]).map((m) => (
                   <button
                     key={m}
                     type="button"
@@ -219,11 +242,9 @@ export default function MotoristaPlanPage() {
                       type="button"
                       onClick={() => {
                         setDocType(dt);
-                        setError(
-                          dt === 'cnpj'
-                            ? 'CNPJ indisponível no momento. Use seu CPF por enquanto.'
-                            : null
-                        );
+                        if (dt === 'cnpj') {
+                          showToast('CNPJ indisponível no momento. Use seu CPF por enquanto.');
+                        }
                       }}
                       className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
                         docType === dt
@@ -248,12 +269,6 @@ export default function MotoristaPlanPage() {
                   className="w-full sm:w-64 text-sm border border-gray-300 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
-
-              {error && (
-                <p className="mt-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                  {error}
-                </p>
-              )}
 
               <button
                 type="button"
