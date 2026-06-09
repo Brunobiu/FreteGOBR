@@ -157,7 +157,7 @@ export default function MotoristaPlanPage() {
             <p className="text-sm text-gray-600 mt-1">
               {isExpired
                 ? 'Seu período gratuito acabou. Assine para voltar a interagir com os fretes.'
-                : `Você tem ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'} de teste grátis. Garanta o melhor preço assinando agora.`}
+                : `Seu teste grátis termina em ${daysLeft} ${daysLeft === 1 ? 'dia' : 'dias'}. Garanta o melhor preço assinando agora.`}
             </p>
           </div>
         )}
