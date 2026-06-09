@@ -25,6 +25,10 @@ import { useTrialStatus } from '../hooks/useTrialStatus';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
 import { getLikedFreteIds } from '../services/likes';
+import {
+  getCommunityPublicProfile,
+  type CommunityPublicProfile,
+} from '../services/communityPublic';
 import WelcomeLoading from '../components/WelcomeLoading';
 import AnunciosCarousel from '../components/AnunciosCarousel';
 import CommoditiesCarousel from '../components/CommoditiesCarousel';
@@ -91,6 +95,11 @@ export default function HomePage() {
   const [motoristaCalc, setMotoristaCalc] = useState<MotoristaCalcContext | null>(null);
   const [calcLoaded, setCalcLoaded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [communityProfile, setCommunityProfile] = useState<CommunityPublicProfile | null>(null);
+
+  useEffect(() => {
+    void getCommunityPublicProfile().then(setCommunityProfile).catch(() => {});
+  }, []);
 
   // Conjunto de fretes que o motorista já curtiu — hidrata os corações.
   const [likedFreteIds, setLikedFreteIds] = useState<Set<string>>(new Set());
@@ -580,6 +589,7 @@ export default function HomePage() {
                     setTimeout(() => setToast(null), 4000);
                   }}
                   hideStatus
+                  communityProfile={communityProfile}
                 />
               ))}
             </div>
@@ -611,6 +621,7 @@ export default function HomePage() {
       <FreteModal
         frete={selectedFrete}
         isOpen={isModalOpen}
+        communityProfile={communityProfile}
         onClose={() => {
           // Se o motorista chegou aqui via "Frete e retorno", volta
           // pro frete anterior em vez de fechar de vez. Stack vazia

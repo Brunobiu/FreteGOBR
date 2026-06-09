@@ -88,3 +88,44 @@ Núcleo puro (espelho TS da autoridade SQL): `src/utils/subscriptionPlans.ts`,
 `src/utils/billingNotifier.ts`.
 
 Documentação operacional da feature: `docs/assinaturas-asaas.md`.
+
+## Regression_Suite — feature Frete Comunidade
+
+Testes incorporados à suíte de regressão (rodam no pre-commit + CI). Núcleo
+puro + property-based (Properties 1–7 do design) + UI/serviço.
+
+Property tests (núcleo puro, `src/__tests__/`):
+
+- `cp1_community_sheet_roundtrip.property.test.ts` — round-trip do
+  Modelo_Planilha (Property 1: gerar CSV → parsear reproduz linhas).
+- `cp2_community_template_validation.property.test.ts` — Template_Validation
+  exata (Property 2: cabeçalho divergente ⇒ INVALID_TEMPLATE).
+- `cp3_community_row_validation.property.test.ts` — validação de linha
+  determinística e completa (Property 3).
+- `cp4_community_dedup.property.test.ts` — dedup por tupla completa, simétrico,
+  idempotente e estável (Property 4).
+- `cp5_community_expiry.property.test.ts` — Auto_Expiracao: visível sse
+  now < ref+5d, reset reabre janela, idempotência (Property 5).
+- `cp6_community_phone_deeplink.property.test.ts` — normalização de telefone
+  idempotente + WhatsApp_Deep_Link com domínio + null quando inválido (Property 6).
+- `cp7_community_city_precondition.property.test.ts` — City_Resolution é
+  pré-condição de publicação (Property 7).
+
+UI e serviço:
+
+- `src/__tests__/admin/comunidade/communityAdminUI.test.tsx` — gating
+  Stealth_404, preview editável, botão Publicar, contagem de duplicados.
+- `src/__tests__/admin/comunidade_service.test.ts` — `mapError` (códigos →
+  pt-BR canônico), filtros round-trip, validação de foto (MIME/limite).
+- `src/__tests__/communityDriverUI.test.tsx` — card/modal comunidade vs normal,
+  botão WhatsApp (deep-link), sem telefone oculta o botão, não-regressão do Chat.
+
+Núcleo puro (espelho TS da autoridade SQL): `src/utils/communitySheet.ts`,
+`src/utils/communityDedup.ts`, `src/utils/communityExpiry.ts`,
+`src/utils/communityFrete.ts`.
+
+Migrations: `061_frete_comunidade.sql` (colunas + perfil + dedup index),
+`062_frete_comunidade_rls.sql` (expiração + flag no feed),
+`063_frete_comunidade_rpcs.sql` (perfil, listagem, publicação, cron).
+
+Documentação operacional da feature: `docs/frete-comunidade.md`.

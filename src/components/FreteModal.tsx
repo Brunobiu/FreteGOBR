@@ -7,6 +7,7 @@ import { getEmbarcadorProfile } from '../services/embarcador';
 import { getOrCreateFreteConversation } from '../services/chatFrete';
 import type { MotoristaCalcContext } from '../services/motorista';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
+import { buildWhatsAppDeepLink } from '../utils/communityFrete';
 import { googleMapsUrl } from '../utils/coordParser';
 import { vehicleTypesCsvLabel } from '../data/vehicleTypes';
 import { bodyTypesCsvLabel } from '../data/bodyTypes';
@@ -34,6 +35,8 @@ interface FreteModalProps {
    * atual e abrir o detalhe do frete escolhido.
    */
   onSelectFreteRetorno?: (frete: Frete) => void;
+  /** Identidade visual do Frete Comunidade (foto + nome da marca). */
+  communityProfile?: { name: string; photoUrl: string | null } | null;
 }
 
 const FREIGHT_TYPE_LABELS: Record<string, string> = {
@@ -50,6 +53,7 @@ export default function FreteModal({
   embarcadorWhatsApp,
   motoristaCalc,
   onSelectFreteRetorno,
+  communityProfile,
 }: FreteModalProps) {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -125,7 +129,7 @@ export default function FreteModal({
         .catch(() => setProfileComplete(false))
         .finally(() => setCheckingProfile(false));
     }
-    if (isOpen && frete) {
+    if (isOpen && frete && frete.source !== 'comunidade' && frete.embarcadorId) {
       getEmbarcadorProfile(frete.embarcadorId)
         .then((p) => {
           if (p)
@@ -179,7 +183,7 @@ export default function FreteModal({
   };
 
   const handleOpenChat = async () => {
-    if (!user || !frete) return;
+    if (!user || !frete || !frete.embarcadorId) return;
     try {
       const conv = await getOrCreateFreteConversation(frete.id, user.id, frete.embarcadorId);
       onClose();
@@ -270,7 +274,36 @@ export default function FreteModal({
               </svg>
             </button>
 
-            {embarcadorProfile ? (
+            {frete.source === 'comunidade' ? (
+              <div className="flex items-center gap-3 pr-7">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                  {communityProfile?.photoUrl ? (
+                    <img
+                      src={communityProfile.photoUrl}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="text-xs font-semibold text-gray-500">C</span>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 leading-tight">
+                  <p className="text-xs font-semibold text-gray-800 truncate">Frete Comunidade</p>
+                  <p className="text-[11px] text-gray-600 truncate">
+                    Frete sugerido pela comunidade
+                  </p>
+                  {frete.communityCarrierName && (
+                    <p className="text-[10px] text-gray-400 truncate">
+                      <span className="text-gray-500">Transportadora: </span>
+                      {frete.communityCarrierName}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : embarcadorProfile ? (
               <div className="flex items-center gap-3 pr-7">
                 <div
                   className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center"
@@ -639,7 +672,38 @@ export default function FreteModal({
                   </button>
                 )}
 
-              {isAuthenticated && user?.userType === 'motorista' && profileComplete === true && (
+              {isAuthenticated &&
+                user?.userType === 'motorista' &&
+                profileComplete === true &&
+                frete.source === 'comunidade' &&
+                (() => {
+                  const waLink = buildWhatsAppDeepLink(frete.communityContactPhone ?? '');
+                  if (!waLink) {
+                    return (
+                      <span className="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs font-medium rounded">
+                        Contato indisponível
+                      </span>
+                    );
+                  }
+                  return (
+                    <a
+                      href={waLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded hover:bg-green-600 flex items-center gap-1"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                      WhatsApp
+                    </a>
+                  );
+                })()}
+
+              {isAuthenticated &&
+                user?.userType === 'motorista' &&
+                profileComplete === true &&
+                frete.source !== 'comunidade' && (
                 <button
                   onClick={handleOpenChat}
                   className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 flex items-center gap-1"

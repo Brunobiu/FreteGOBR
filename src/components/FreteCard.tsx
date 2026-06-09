@@ -32,6 +32,12 @@ interface FreteCardProps {
    * Embarcador (default false) continua vendo os 3 status.
    */
   hideStatus?: boolean;
+  /**
+   * Identidade visual do Frete Comunidade (foto + nome da marca). Quando o
+   * frete tem `source === 'comunidade'`, o card exibe um cabeçalho próprio
+   * "Frete Comunidade · Frete sugerido pela comunidade". Lido uma vez no feed.
+   */
+  communityProfile?: { name: string; photoUrl: string | null } | null;
 }
 
 export default function FreteCard({
@@ -43,6 +49,7 @@ export default function FreteCard({
   onLikeToggle,
   onLikeBlocked,
   hideStatus,
+  communityProfile,
 }: FreteCardProps) {
   const { isAuthenticated } = useAuth();
 
@@ -77,6 +84,25 @@ export default function FreteCard({
       onClick={onClick}
       className="bg-white border border-gray-300 rounded-md p-3 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer shadow-sm"
     >
+      {frete.source === 'comunidade' && (
+        <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100">
+          <div className="h-7 w-7 shrink-0 overflow-hidden rounded-full border border-gray-200 bg-gray-50">
+            {communityProfile?.photoUrl ? (
+              <img
+                src={communityProfile.photoUrl}
+                alt="Frete Comunidade"
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-gray-800 leading-tight">Frete Comunidade</p>
+            <p className="text-[10px] text-gray-500 leading-tight">
+              Frete sugerido pela comunidade
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header: rota com km inline + (status) + coracao.
           Compactado: o "Tipo de caminhao" saiu daqui pra liberar espaco
           vertical no card do motorista. A info continua disponivel ao

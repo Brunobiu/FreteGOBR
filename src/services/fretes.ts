@@ -8,9 +8,13 @@ import type { GeographicPoint } from '../types';
 
 export type FreteStatus = 'ativo' | 'encerrado' | 'cancelado';
 
+/** Origem do frete: embarcador real ou Frete Comunidade (spec frete-comunidade). */
+export type FreteSource = 'embarcador' | 'comunidade';
+
 export interface Frete {
   id: string;
-  embarcadorId: string;
+  /** `null` em Frete_Comunidade (não há embarcador real — ver migration 061). */
+  embarcadorId: string | null;
   origin: string;
   originLocation: GeographicPoint;
   destination: string;
@@ -62,6 +66,10 @@ export interface Frete {
   originPinnedLng?: number;
   destinationPinnedLat?: number;
   destinationPinnedLng?: number;
+  // Frete Comunidade (Migration 061) — preenchidos só quando source='comunidade'.
+  source?: FreteSource;
+  communityCarrierName?: string;
+  communityContactPhone?: string;
 }
 
 export interface CreateFreteData {
@@ -219,6 +227,12 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
     .single();
 
   if (error) {
+    // Dedup geral (Migration 061): índice único uq_fretes_dedup_active.
+    // Violação 23505 ⇒ frete idêntico já ativo. Mensagem canônica
+    // anti-enumeração (não revela o frete existente) — spec frete-comunidade Req 12.
+    if (error.code === '23505') {
+      throw new Error('Não foi possível concluir o cadastro.');
+    }
     throw new Error(`Erro ao criar frete: ${error.message}`);
   }
 
@@ -483,6 +497,9 @@ function mapFreteFromDb(
     origin_pinned_lng?: number | null;
     destination_pinned_lat?: number | null;
     destination_pinned_lng?: number | null;
+    source?: string | null;
+    community_carrier_name?: string | null;
+    community_contact_phone?: string | null;
   };
   // Parse PostGIS POINT format: "POINT(longitude latitude)" or WKB hex
   const parsePoint = (pointStr: string): GeographicPoint => {
@@ -590,6 +607,9 @@ function mapFreteFromDb(
     originPinnedLng: extra.origin_pinned_lng ?? undefined,
     destinationPinnedLat: extra.destination_pinned_lat ?? undefined,
     destinationPinnedLng: extra.destination_pinned_lng ?? undefined,
+    source: (extra.source as FreteSource | undefined) ?? undefined,
+    communityCarrierName: extra.community_carrier_name ?? undefined,
+    communityContactPhone: extra.community_contact_phone ?? undefined,
   };
 }
 

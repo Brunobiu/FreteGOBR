@@ -30,6 +30,7 @@ import FinanceiroConfiguracoesPage from '../../pages/admin/financeiro/Financeiro
 import FinanceiroDetailPage from '../../pages/admin/financeiro/FinanceiroDetailPage';
 import TrialListPage from '../../pages/admin/trial/TrialListPage';
 import SubscriptionsListPage from '../../pages/admin/subscriptions/SubscriptionsListPage';
+import CommunityListPage from '../../pages/admin/comunidade/CommunityListPage';
 import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
 import AdminWhatsAppPage from '../../pages/admin/AdminWhatsAppPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
@@ -62,6 +63,7 @@ export default function AdminLayoutRoute() {
             <Route path="financeiro/:id" element={<FinanceiroDetailPage />} />
             <Route path="trial" element={<TrialListPage />} />
             <Route path="assinaturas" element={<SubscriptionsListPage />} />
+            <Route path="frete-comunidade" element={<CommunityListPage />} />
             <Route path="marketing" element={<MarketingMetricsPage />} />
             <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
