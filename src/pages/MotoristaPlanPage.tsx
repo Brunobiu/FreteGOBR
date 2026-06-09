@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useAuth } from '../hooks/useAuth';
 import { useTrialStatus } from '../hooks/useTrialStatus';
 import {
   PLANS,
@@ -71,7 +72,16 @@ function maskCpf(value: string): string {
 export default function MotoristaPlanPage() {
   useDocumentTitle('Planos');
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { isSubscribed, daysLeft, isExpired } = useTrialStatus();
+
+  // Planos são exclusivos do motorista. Embarcador/admin não contratam:
+  // redireciona para a home em vez de deixar tentar (e tomar 403 no servidor).
+  useEffect(() => {
+    if (user && user.userType !== 'motorista') {
+      navigate('/', { replace: true });
+    }
+  }, [user, navigate]);
 
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('semestral');
   const [method, setMethod] = useState<PaymentMethod>('pix');
