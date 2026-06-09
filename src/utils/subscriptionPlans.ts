@@ -33,12 +33,13 @@ export interface Plan {
 
 /**
  * Catálogo imutável dos três planos. A ordem é a ordem de exibição na tela
- * (mensal → trimestral → semestral em destaque).
+ * (semestral em destaque primeiro → trimestral → mensal por último: melhor
+ * preço na frente).
  */
 export const PLANS: readonly Plan[] = [
-  { id: 'mensal', name: 'Mensal', months: 1, monthlyPrice: 39.9, recommended: false },
-  { id: 'trimestral', name: 'Trimestral', months: 3, monthlyPrice: 34.9, recommended: false },
   { id: 'semestral', name: 'Semestral', months: 6, monthlyPrice: 29.9, recommended: true },
+  { id: 'trimestral', name: 'Trimestral', months: 3, monthlyPrice: 34.9, recommended: false },
+  { id: 'mensal', name: 'Mensal', months: 1, monthlyPrice: 39.9, recommended: false },
 ] as const;
 
 /**

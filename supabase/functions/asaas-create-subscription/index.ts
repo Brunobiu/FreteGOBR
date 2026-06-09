@@ -247,6 +247,11 @@ serve(async (req) => {
   } catch (err) {
     console.error('[asaas-create-subscription] erro', err);
     const msg = String((err as Error)?.message ?? '');
+    const lower = msg.toLowerCase();
+    // CPF/CNPJ inválido: o Asaas devolve 400 com referência a cpfCnpj/cpf.
+    if (lower.includes('cpfcnpj') || lower.includes('cpf') || lower.includes('invalid_cpf')) {
+      return json({ error: 'INVALID_CPF', detail: msg.slice(0, 200) }, 400);
+    }
     if (msg.includes('asaas 4')) {
       // 4xx do Asaas (ex.: cartão recusado).
       return json({ error: 'ASAAS_CARD_FAILED', detail: msg.slice(0, 200) }, 400);

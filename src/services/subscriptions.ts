@@ -70,6 +70,7 @@ export interface CreateSubscriptionResult {
 export type SubscriptionErrorCode =
   | 'PERMISSION_DENIED'
   | 'INVALID_INPUT'
+  | 'INVALID_CPF'
   | 'ASAAS_CARD_FAILED'
   | 'ASAAS_UNAVAILABLE'
   | 'NOT_FOUND'
@@ -78,10 +79,11 @@ export type SubscriptionErrorCode =
 export const SUBSCRIPTION_ERROR_MESSAGES: Record<SubscriptionErrorCode, string> = {
   PERMISSION_DENIED: 'Você não tem permissão para esta ação.',
   INVALID_INPUT: 'Dados inválidos. Verifique os campos e tente novamente.',
+  INVALID_CPF: 'CPF inválido. Confira os números e tente de novo.',
   ASAAS_CARD_FAILED: 'Não foi possível validar seu cartão. Tente outra forma de pagamento.',
   ASAAS_UNAVAILABLE: 'Pagamento temporariamente indisponível. Tente novamente em instantes.',
   NOT_FOUND: 'Assinatura não encontrada.',
-  UNKNOWN: 'Não foi possível concluir a operação. Tente novamente.',
+  UNKNOWN: 'Não foi possível concluir agora. Tente novamente em instantes.',
 };
 
 export class SubscriptionError extends Error {
@@ -102,6 +104,7 @@ function mapError(raw: unknown): SubscriptionError {
   }
   if (msg.includes('ASAAS_CARD_FAILED')) return new SubscriptionError('ASAAS_CARD_FAILED');
   if (msg.includes('ASAAS_UNAVAILABLE')) return new SubscriptionError('ASAAS_UNAVAILABLE');
+  if (msg.includes('INVALID_CPF')) return new SubscriptionError('INVALID_CPF');
   if (msg.includes('INVALID_INPUT')) return new SubscriptionError('INVALID_INPUT');
   if (msg.includes('NOT_FOUND')) return new SubscriptionError('NOT_FOUND');
   return new SubscriptionError('UNKNOWN');

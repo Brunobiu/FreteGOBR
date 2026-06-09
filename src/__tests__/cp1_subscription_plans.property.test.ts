@@ -69,7 +69,7 @@ describe('Property 1: computePlanTotal — total dos planos', () => {
 // ============================================================================
 describe('Catálogo PLANS — invariantes estruturais', () => {
   it('contém exatamente os três planos esperados, na ordem de exibição', () => {
-    expect(PLANS.map((p) => p.id)).toEqual(['mensal', 'trimestral', 'semestral']);
+    expect(PLANS.map((p) => p.id)).toEqual(['semestral', 'trimestral', 'mensal']);
   });
 
   it('tem exatamente um plano recomendado e é o semestral', () => {
