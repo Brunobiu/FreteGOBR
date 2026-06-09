@@ -59,6 +59,15 @@ function formatChargeDate(iso: string | null): string {
   return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
+/** Aplica máscara de CPF (000.000.000-00) e limita a 11 dígitos. */
+function maskCpf(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  return digits
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d)/, '$1.$2')
+    .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+}
+
 export default function MotoristaPlanPage() {
   useDocumentTitle('Planos');
   const navigate = useNavigate();
@@ -66,6 +75,7 @@ export default function MotoristaPlanPage() {
 
   const [selectedPlan, setSelectedPlan] = useState<PlanId>('semestral');
   const [method, setMethod] = useState<PaymentMethod>('pix');
+  const [docType, setDocType] = useState<'cpf' | 'cnpj'>('cpf');
   const [cpfCnpj, setCpfCnpj] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,9 +103,13 @@ export default function MotoristaPlanPage() {
 
   const handleSubscribe = async () => {
     setError(null);
+    if (docType === 'cnpj') {
+      setError('CNPJ indisponível no momento. Use seu CPF por enquanto.');
+      return;
+    }
     const onlyDigits = cpfCnpj.replace(/\D/g, '');
-    if (onlyDigits.length < 11) {
-      setError('Informe um CPF válido para emitir a cobrança.');
+    if (onlyDigits.length !== 11) {
+      setError('Informe um CPF válido com 11 números.');
       return;
     }
     if (method === 'credit_card') {
@@ -197,13 +211,41 @@ export default function MotoristaPlanPage() {
               </div>
 
               <div className="mt-4">
-                <label className="block text-xs text-gray-600 mb-1">CPF do titular</label>
+                <label className="block text-xs text-gray-600 mb-1">Tipo de documento</label>
+                <div className="flex gap-2 mb-3">
+                  {(['cpf', 'cnpj'] as const).map((dt) => (
+                    <button
+                      key={dt}
+                      type="button"
+                      onClick={() => {
+                        setDocType(dt);
+                        setError(
+                          dt === 'cnpj'
+                            ? 'CNPJ indisponível no momento. Use seu CPF por enquanto.'
+                            : null
+                        );
+                      }}
+                      className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                        docType === dt
+                          ? 'border-brand-green bg-brand-green/10 text-brand-green font-semibold'
+                          : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                      }`}
+                    >
+                      {dt.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
+                <label className="block text-xs text-gray-600 mb-1">
+                  {docType === 'cpf' ? 'CPF do titular' : 'CNPJ do titular'}
+                </label>
                 <input
                   inputMode="numeric"
                   value={cpfCnpj}
-                  onChange={(e) => setCpfCnpj(e.target.value)}
+                  onChange={(e) => setCpfCnpj(maskCpf(e.target.value))}
                   placeholder="000.000.000-00"
-                  className="w-full sm:w-64 text-sm border border-gray-300 rounded-lg px-3 py-2"
+                  disabled={docType === 'cnpj'}
+                  className="w-full sm:w-64 text-sm border border-gray-300 rounded-lg px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400"
                 />
               </div>
 
@@ -216,7 +258,7 @@ export default function MotoristaPlanPage() {
               <button
                 type="button"
                 onClick={handleSubscribe}
-                disabled={submitting}
+                disabled={submitting || docType === 'cnpj'}
                 className="mt-4 w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 text-base font-semibold bg-brand-green text-white rounded-xl hover:bg-brand-greenDark transition-colors disabled:opacity-50"
               >
                 {submitting
