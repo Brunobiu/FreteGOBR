@@ -44,7 +44,14 @@ const ASAAS_BASE_URL = Deno.env.get('ASAAS_BASE_URL') ?? 'https://sandbox.asaas.
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers':
+        'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
+      'Access-Control-Max-Age': '86400',
+    },
   });
 
 // ─── Catálogo de planos (espelho de src/utils/subscriptionPlans.ts) ──────────
@@ -83,6 +90,20 @@ async function asaas(
 }
 
 serve(async (req) => {
+  // Preflight CORS (browser envia OPTIONS antes do POST real).
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers':
+          'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
   if (!ASAAS_API_KEY) return json({ error: 'ASAAS_UNAVAILABLE' }, 503);
