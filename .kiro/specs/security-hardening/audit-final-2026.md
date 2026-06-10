@@ -120,6 +120,34 @@ profundidade: bloquear execução quando `current_user IN ('authenticated','anon
 
 **Rollback:** `079_..._rollback.sql` (re-concede — NÃO recomendado).
 
+## R4 ✅ RESOLVIDO — `search_path` pinado nas funções SECURITY DEFINER próprias
+
+Migration 080: `ALTER FUNCTION ... SET search_path = public` nas 7 funções
+DEFINER do projeto sem search_path (`caller_conversa_com_embarcador/_motorista`,
+`get_conversation_peer`, `get_likers_of_frete`, `notify_new_message`,
+`shares_conversation_with`, `toggle_frete_like`). Fecha o risco de sequestro via
+search_path. Funções internas do PostGIS não são nossas (não tocadas).
+Verificado: 0 funções DEFINER próprias sem search_path; chat segue funcionando.
+
+## R5 ✅ VERIFICADO — Storage buckets
+
+- Buckets sensíveis **privados** (`public:false`): `documents` (CNH/CRLV, MIME
+  pdf/jpeg/png, 10MB) e `chat-attachments`. RLS por pasta do dono
+  (`foldername[1] = auth.uid()`) + admin. Prova: cliente vê só os próprios 14
+  objetos em `documents`, 0 de terceiros.
+- Buckets públicos só com asset de exibição (`avatars`, `company-logos`,
+  `commodity_icons`, `anuncios_images`, `community_profile`). "Listing" público
+  é baixo risco aqui. ⚪ Hardening opcional: definir mime/size limit nos buckets
+  `avatars`/`community_profile`/`company-logos` (hoje null). Não bloqueia.
+
+## R6 ✅ RESOLVIDO — Troca de email não revertia verificação
+
+Migration 081: estende `users_guard_sensitive_columns` — quando o cliente troca
+`email`, `email_verified` é forçado a `false`. O cliente continua impedido de
+SUBIR `email_verified` para `true` (só o fluxo de verificação via RPC definer
+faz isso). Verificado: trocar email ⇒ email_verified=false; cliente não
+consegue setar true; guard financeiro intacto. 97 testes passando.
+
 ## R8b ✅ VERIFICADO — Webhook Asaas (autenticidade + idempotência) e demais edges
 
 Agora que o pagamento só é destravado por `service_role`, auditei a edge
