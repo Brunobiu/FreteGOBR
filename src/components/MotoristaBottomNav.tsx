@@ -3,7 +3,10 @@
  *
  * Layout visual:
  *  - 4 itens (Inicio, Mapa, Tabela ANTT, Menu)
- *  - Fixo no rodape, nao some no scroll
+ *  - Fixo no rodape
+ *  - Auto-hide: desce (some) ao rolar a pagina para baixo e reaparece
+ *    ao rolar para cima ou ao chegar no topo. Da mais area de tela para
+ *    o conteudo enquanto o usuario explora a lista.
  *
  * O slot 4 ("Menu") navega para `/motorista/menu` — uma pagina dedicada
  * com tiles em grid (Perfil, Veiculo, Referencias, Contrato, Tema,
@@ -13,6 +16,7 @@
  * funcionalidade ainda atribuida e poluia visualmente.
  */
 
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useMotoristaCompletude } from '../hooks/useMotoristaCompletude';
@@ -22,6 +26,41 @@ export default function MotoristaBottomNav() {
   const location = useLocation();
   const { user } = useAuth();
   const { groups } = useMotoristaCompletude();
+
+  // ─── Auto-hide ao rolar ──────────────────────────────────────────────
+  // Esconde a barra quando o usuario rola para baixo (para ver mais
+  // conteudo) e mostra de volta quando rola para cima ou chega no topo.
+  const [hidden, setHidden] = useState(false);
+  const lastScrollY = useRef(0);
+
+  useEffect(() => {
+    // Limiar para evitar tremedeira em micro-rolagens.
+    const THRESHOLD = 8;
+    lastScrollY.current = window.scrollY;
+
+    const onScroll = () => {
+      const currentY = window.scrollY;
+      const delta = currentY - lastScrollY.current;
+
+      if (Math.abs(delta) < THRESHOLD) return;
+
+      // Perto do topo: sempre visivel.
+      if (currentY < 64) {
+        setHidden(false);
+      } else if (delta > 0) {
+        // Rolando para baixo → esconde.
+        setHidden(true);
+      } else {
+        // Rolando para cima → mostra.
+        setHidden(false);
+      }
+
+      lastScrollY.current = currentY;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   // So mostra alerta no botao Menu se for motorista logado e algum
   // grupo estiver incompleto.
@@ -59,7 +98,9 @@ export default function MotoristaBottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)]"
+      className={`fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 shadow-[0_-2px_8px_rgba(0,0,0,0.04)] transition-transform duration-300 ease-in-out ${
+        hidden ? 'translate-y-full' : 'translate-y-0'
+      }`}
       aria-label="Navegação inferior"
     >
       <div className="relative max-w-md mx-auto h-16 grid grid-cols-4 items-center px-2">
