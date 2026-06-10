@@ -120,6 +120,18 @@ profundidade: bloquear execução quando `current_user IN ('authenticated','anon
 
 **Rollback:** `079_..._rollback.sql` (re-concede — NÃO recomendado).
 
+## R9 ✅ VERIFICADO — RPCs administrativas têm guard interno
+
+As 15 RPCs admin sinalizadas pelo advisor (`admin_delete_user`,
+`admin_delete_frete`, `admin_extend_trial`, `admin_force_logout`,
+`admin_notify_user`, `rpc_create_broadcast`, `admin_blacklist_*`,
+`admin_list_*`, `admin_dashboard_metrics`, `admin_review_document`) **todas têm
+`is_admin_with_permission(...)` por dentro**. Mesmo com EXECUTE para
+`authenticated`, um não-admin recebe `permission_denied`.
+- Prova: chamada de `admin_extend_trial` por usuário comum (motorista de teste)
+  ⇒ bloqueada (`42501`). Os WARN do advisor para essas funções são ruído.
+**Ação:** nenhuma.
+
 ## R7 ✅ VERIFICADO — Isolamento entre usuários (read/write cruzado)
 
 Auditadas as policies e testado acesso cruzado real como cliente
