@@ -83,13 +83,45 @@ funcionando.
 
 ## Próximos findings (recon em andamento)
 
-- R2 🟡 `companies`, `company_embarcadores`, `asaas_webhook_events`,
-  `support_ticket_attempts`: RLS ON, 0 policies. Confirmar acesso só por
-  backend/definer (default-deny = ok) vs. rota cliente.
+## R2 ⚪ VERIFICADO — Tabelas com RLS sem policy (default-deny correto)
+
+`companies`, `company_embarcadores`, `asaas_webhook_events`,
+`support_ticket_attempts` têm RLS ON e 0 policies. **Não é vulnerabilidade:**
+RLS habilitado + nenhuma policy = deny total para `authenticated`/`anon`.
+- Nenhuma é referenciada no código cliente (grep vazio).
+- Prova: como cliente (`authenticated`), `SELECT count(*)` retornou 0 em todas;
+  `support_ticket_attempts` tem 1 linha real (visível só como `postgres`),
+  confirmando que o deny está ativo, não que a tabela está vazia.
+São acessadas apenas por RPC `SECURITY DEFINER`/backend. **Ação:** nenhuma;
+manter default-deny (não adicionar policy nem GRANT amplo).
+
+## R7 ✅ VERIFICADO — Isolamento entre usuários (read/write cruzado)
+
+Auditadas as policies e testado acesso cruzado real como cliente
+(`authenticated`, JWT do motorista de teste), tudo em transação rollback:
+
+- `documents` (CNH, CRLV, etc.): vê só os próprios (0 de outros; 14 próprios).
+  Admin via `is_admin_with_permission('USER_VIEW')`.
+- `subscriptions` / `subscription_charges`: SELECT só `user_id=auth.uid()`;
+  escrita `USING/CHECK false` (`*_no_dml`) — cliente NUNCA muta, só RPC definer.
+- `notifications`, `motorista_pis`, `motorista_references`, `device_tokens`:
+  0 linhas de outros usuários.
+- `conversations` / `messages` / `chat_messages`: escopados aos participantes
+  (`motorista_id`/`embarcador_id`/`user_id = auth.uid()`). Teste: 0 mensagens e
+  0 conversas de terceiros visíveis.
+- Público por design (baixo risco, intencional): `avaliacoes` (reputação) e
+  `frete_likes` (curtidas) têm SELECT `USING (true)`. Sem PII sensível exposta.
+
+**Conclusão:** isolamento entre usuários sólido nas tabelas de dados pessoais e
+financeiros. Nenhuma ação corretiva necessária.
+
+## Em investigação (próxima sessão)
+
 - R6 🟡 Troca de email pelo cliente — R1 impede mudar `email_verified`; mapear
-  o fluxo completo de troca de email.
-- R7 Isolamento de leitura/escrita cruzada: `documents`, `motoristas`,
-  `chat_messages`, `conversations`, `notifications`, `subscriptions`,
-  `frete_likes`, `avaliacoes`.
-- R5 ⚪ Buckets públicos com listagem ampla.
+  o fluxo completo de troca de email (garantir que trocar email reverta o
+  status verificado, hoje só via PATCH de `email`).
+- R5 ⚪ Buckets públicos com listagem ampla (`avatars`, `company-logos`,
+  `commodity_icons`, `anuncios_images`).
 - R4 ⚪ `function_search_path_mutable` em utilitárias/trigger.
+- RPCs financeiras (`subscription_mark_paid`/`_suspend`/`_reactivate`): validar
+  que só webhook/admin podem chamar (têm guard interno?).
