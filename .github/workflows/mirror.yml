@@ -50,5 +50,8 @@ jobs:
           host_path="${MIRROR_REPO_URL#https://}"
           remote_url="https://oauth2:${MIRROR_TOKEN}@${host_path}"
           git remote add mirror "$remote_url"
-          # --mirror replica todos os branches e tags exatamente como no origin.
-          git push --mirror mirror
+          # Empurra apenas branches e tags reais (não as refs internas de
+          # rastreamento, que o remoto rejeita com "deny updating a hidden ref").
+          # O '+' força a atualização (espelhamento idempotente).
+          git push --force mirror "+refs/heads/*:refs/heads/*"
+          git push --force mirror "+refs/tags/*:refs/tags/*"

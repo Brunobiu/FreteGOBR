@@ -41,10 +41,13 @@ o pipeline de qualidade (`ci.yml`) continua independente.
 Adiciona-se um guard: se `MIRROR_REPO_URL` estiver vazio, o job emite um aviso
 explicativo e encerra com erro orientado (em vez de um erro críptico de git).
 
-### Por que `--mirror`
+### Por que push explícito de heads/tags
 
-`git push --mirror` replica **todos** os refs (branches, tags) exatamente como
-estão no origin, garantindo R1.3. É idempotente: roda quantas vezes precisar.
+`git push --mirror` replicaria **todos** os refs, inclusive refs internas de
+rastreamento do GitHub (ex: `refs/pull/*`), que o remoto secundário rejeita com
+`deny updating a hidden ref`. Por isso o workflow empurra explicitamente apenas
+`refs/heads/*` (branches) e `refs/tags/*` (tags) com `--force`, garantindo R1.3
+de forma idempotente e compatível entre plataformas.
 
 ## 2. Documentação DR (`docs/DISASTER_RECOVERY.md`)
 
