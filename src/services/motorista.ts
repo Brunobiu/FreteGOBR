@@ -61,6 +61,7 @@ export interface MotoristaProfile {
 export interface UpdateMotoristaProfileData {
   name?: string;
   email?: string;
+  phone?: string;
   cpf?: string;
   vehicleType?: string;
   vehiclePlate?: string;
@@ -102,6 +103,10 @@ export interface MotoristaReference {
   userId: string;
   companyName: string;
   phone: string;
+  /** Caminho do CT-e no bucket documents ({user_id}/cte_*.ext). */
+  ctePath?: string | null;
+  /** Nome original do arquivo de CT-e. */
+  cteName?: string | null;
   createdAt: Date;
 }
 
@@ -200,6 +205,7 @@ export async function updateMotoristaProfile(
   const userUpdate: Record<string, string> = {};
   if (data.name !== undefined) userUpdate.name = capitalizeName(data.name);
   if (data.email !== undefined) userUpdate.email = data.email;
+  if (data.phone !== undefined) userUpdate.phone = data.phone;
   if (data.cpf !== undefined) userUpdate.cpf = data.cpf;
 
   if (Object.keys(userUpdate).length > 0) {
@@ -315,7 +321,7 @@ export async function getMotoristaCalcContext(userId: string): Promise<Motorista
 export async function getUserData(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, name, email, cpf, profile_photo_url')
+    .select('id, name, email, phone, cpf, profile_photo_url')
     .eq('id', userId)
     .maybeSingle();
 
@@ -328,6 +334,7 @@ export async function getUserData(userId: string) {
       id: userId,
       name: '',
       email: '',
+      phone: '',
       cpf: '',
       profilePhotoUrl: null as string | null,
     };
@@ -337,6 +344,7 @@ export async function getUserData(userId: string) {
     id: data.id,
     name: data.name,
     email: data.email,
+    phone: data.phone,
     cpf: data.cpf,
     profilePhotoUrl: data.profile_photo_url,
   };
@@ -349,7 +357,7 @@ export async function getUserData(userId: string) {
 export async function getMotoristaReferences(userId: string): Promise<MotoristaReference[]> {
   const { data, error } = await supabase
     .from('motorista_references')
-    .select('id, user_id, company_name, phone, created_at')
+    .select('id, user_id, company_name, phone, cte_file_path, cte_file_name, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: true });
 
@@ -362,6 +370,8 @@ export async function getMotoristaReferences(userId: string): Promise<MotoristaR
     userId: r.user_id,
     companyName: r.company_name,
     phone: r.phone,
+    ctePath: r.cte_file_path ?? null,
+    cteName: r.cte_file_name ?? null,
     createdAt: new Date(r.created_at),
   }));
 }
@@ -377,7 +387,7 @@ export async function getMotoristaReferences(userId: string): Promise<MotoristaR
  */
 export async function replaceMotoristaReferences(
   userId: string,
-  refs: { companyName: string; phone: string }[]
+  refs: { companyName: string; phone: string; ctePath?: string | null; cteName?: string | null }[]
 ): Promise<void> {
   // Passo 1: limpar tudo do usuário
   const { error: delErr } = await supabase
@@ -395,6 +405,8 @@ export async function replaceMotoristaReferences(
       user_id: userId,
       company_name: capitalizeName(r.companyName.trim()),
       phone: (r.phone ?? '').replace(/\D/g, ''),
+      cte_file_path: r.ctePath ?? null,
+      cte_file_name: r.cteName ?? null,
     }));
 
   if (rows.length === 0) return;
@@ -403,4 +415,39 @@ export async function replaceMotoristaReferences(
   if (insErr) {
     throw new Error(`Erro ao inserir referências: ${insErr.message}`);
   }
+}
+
+/**
+ * Faz upload de um CT-e (PDF ou imagem) de uma referência para o bucket
+ * `documents`, na pasta do próprio usuário ({user_id}/cte_<ts>.<ext>).
+ * NÃO cria linha em `documents` (CT-e não é um tipo de documento revisável);
+ * o caminho retornado é gravado em `motorista_references.cte_file_path`.
+ */
+export async function uploadReferenceCte(
+  userId: string,
+  file: File
+): Promise<{ path: string; name: string }> {
+  const ext = file.name.split('.').pop() ?? 'bin';
+  const path = `${userId}/cte_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { data, error } = await supabase.storage
+    .from('documents')
+    .upload(path, file, { cacheControl: '3600', upsert: false });
+  if (error || !data) {
+    throw new Error(`Erro ao enviar CT-e: ${error?.message ?? 'desconhecido'}`);
+  }
+  return { path: data.path, name: file.name };
+}
+
+/**
+ * Gera uma signed URL temporária para um arquivo no bucket `documents`
+ * a partir do seu caminho (usado para pré-visualizar CT-e/anexos).
+ */
+export async function getDocumentSignedUrlByPath(
+  path: string,
+  expiresIn = 3600
+): Promise<string | null> {
+  if (!path) return null;
+  const { data, error } = await supabase.storage.from('documents').createSignedUrl(path, expiresIn);
+  if (error || !data) return null;
+  return data.signedUrl;
 }

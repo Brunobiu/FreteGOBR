@@ -30,6 +30,16 @@ const MIN_RESPONSE_TIME = 500;
 export const DUPLICATE_IDENTIFIER_MESSAGE = 'Este CPF/telefone/e-mail já está cadastrado.';
 
 /**
+ * Mensagem canônica de identificador bloqueado por exclusão prévia (Feature 4).
+ *
+ * Quando um CPF/telefone consta na `account_deletion_blocklist` (conta excluída
+ * anteriormente), o cadastro é bloqueado e o usuário é orientado a falar com o
+ * suporte. A UI usa o código `ACCOUNT_BLOCKED` para exibir o botão de contato.
+ */
+export const ACCOUNT_BLOCKED_MESSAGE =
+  'Não foi possível criar a conta. Entre em contato com o suporte.';
+
+/**
  * Pré-check de disponibilidade de identificador (anti-fraude — UX).
  *
  * Espelha o padrão fail-open do `checkBlacklistGate`: chama a RPC
@@ -56,6 +66,29 @@ async function isIdentifierAvailable(
   } catch {
     // Fail-open em erro de rede.
     return true;
+  }
+}
+
+/**
+ * Pré-check de identificador bloqueado por exclusão prévia (Feature 4).
+ *
+ * Espelha o padrão fail-open: em erro de rede/RPC NÃO bloqueia o cadastro
+ * (retorna `false` = não bloqueado); o trigger `users_block_deleted_reuse`
+ * (BEFORE INSERT) é a barreira atômica/autoritativa. Só `phone`/`cpf` têm
+ * blocklist.
+ *
+ * @returns `true` somente quando a RPC indica explicitamente que está bloqueado.
+ */
+async function isIdentifierBlocked(pType: 'phone' | 'cpf', pValue: string): Promise<boolean> {
+  try {
+    const { data: blocked, error } = await supabase.rpc('is_identifier_blocked', {
+      p_type: pType,
+      p_value: pValue,
+    });
+    if (error) return false;
+    return blocked === true;
+  } catch {
+    return false;
   }
 }
 
@@ -96,6 +129,44 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     );
   }
 
+  // Revalidação servidor do aceite dos Termos (Feature 2 — Req 2.2).
+  // O cliente já bloqueia o submit sem aceite; aqui garantimos a invariante
+  // "nenhuma conta nova sem registro de aceite" mesmo se a chamada vier por
+  // outro caminho. O timestamp é definido pelo servidor (trigger 064).
+  if (!data.acceptedVersion || data.acceptedVersion.trim() === '') {
+    throw new AuthError(
+      'É necessário aceitar os Termos de Uso e a Política de Privacidade.',
+      'TERMS_NOT_ACCEPTED',
+      400
+    );
+  }
+
+  // E-mail é obrigatório no cadastro multi-step e precisa ter sido verificado
+  // ANTES (fluxo da migration 066). Validamos formato e a presença do token.
+  const normalizedEmail = (data.email ?? '').trim().toLowerCase();
+  if (!normalizedEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
+    throw new AuthError('Informe um e-mail válido.', 'INVALID_EMAIL', 400);
+  }
+  if (!data.emailVerificationToken || data.emailVerificationToken.trim() === '') {
+    throw new AuthError('E-mail não verificado.', 'EMAIL_NOT_VERIFIED', 400);
+  }
+
+  // Consome o token de verificação no servidor: garante que este e-mail foi
+  // verificado neste fluxo e que o token é válido/único (anti-fraude).
+  {
+    const { data: verified, error: tokenError } = await supabase.rpc('consume_signup_email_token', {
+      p_email: normalizedEmail,
+      p_token: data.emailVerificationToken,
+    });
+    if (tokenError || verified !== true) {
+      throw new AuthError(
+        'Verificação de e-mail expirada. Refaça a verificação.',
+        'EMAIL_NOT_VERIFIED',
+        400
+      );
+    }
+  }
+
   try {
     // Anti-fraude (UX/pré-check) — Requirements 8.1–8.4:
     // Antes de criar qualquer registro (e antes mesmo do signUp em Auth para não
@@ -109,24 +180,32 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     const optionalIdentifiers = data as Partial<{ cpf: string; email: string }>;
     const identifiersToCheck: Array<{ type: 'phone' | 'cpf' | 'email'; value: string }> = [
       { type: 'phone', value: data.phone },
+      { type: 'email', value: normalizedEmail },
     ];
     if (optionalIdentifiers.cpf && optionalIdentifiers.cpf.trim() !== '') {
       identifiersToCheck.push({ type: 'cpf', value: optionalIdentifiers.cpf });
-    }
-    if (optionalIdentifiers.email && optionalIdentifiers.email.trim() !== '') {
-      identifiersToCheck.push({ type: 'email', value: optionalIdentifiers.email });
     }
     for (const identifier of identifiersToCheck) {
       const available = await isIdentifierAvailable(identifier.type, identifier.value);
       if (!available) {
         throw new AuthError(DUPLICATE_IDENTIFIER_MESSAGE, 'DUPLICATE_IDENTIFIER', 409);
       }
+      // Anti-reuso (Feature 4): phone/cpf que constam na blocklist de contas
+      // excluídas são bloqueados — usuário é orientado a falar com o suporte.
+      if (identifier.type === 'phone' || identifier.type === 'cpf') {
+        const blocked = await isIdentifierBlocked(identifier.type, identifier.value);
+        if (blocked) {
+          throw new AuthError(ACCOUNT_BLOCKED_MESSAGE, 'ACCOUNT_BLOCKED', 403);
+        }
+      }
     }
 
-    // Register with Supabase Auth using phone as email format
-    // Note: Supabase requires email format, so we use phone@example.com
+    // Register with Supabase Auth using the user's REAL email as identity.
+    // Isso habilita login por e-mail e o reset de senha nativo do Supabase.
+    // O e-mail já foi verificado no fluxo pré-cadastro (066); a confirmação de
+    // e-mail nativa do Supabase deve ficar DESLIGADA no painel (Auth settings).
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: `${data.phone}@example.com`,
+      email: normalizedEmail,
       password: data.password,
       options: {
         data: {
@@ -141,7 +220,7 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     if (authError) {
       // Check for duplicate phone/email
       if (authError.message.includes('already registered')) {
-        throw new AuthError('Este telefone já está cadastrado', 'DUPLICATE_PHONE', 409);
+        throw new AuthError(DUPLICATE_IDENTIFIER_MESSAGE, 'DUPLICATE_IDENTIFIER', 409);
       }
       throw new AuthError(authError.message, 'REGISTRATION_FAILED', 400);
     }
@@ -174,15 +253,18 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     };
 
     // Create user record in users table
-    // Importante: NÃO salvamos o email sintético `{phone}@example.com` em
-    // `users.email`. Esse email é usado só pelo Supabase Auth para login;
-    // o email "real" do embarcador fica vazio até ser verificado via
-    // fluxo de OTP no perfil.
+    // O e-mail real é salvo e marcado como verificado (foi verificado no fluxo
+    // pré-cadastro — migration 066), tornando o cadastro completo e profissional.
     const { error: dbError } = await supabase.from('users').insert({
       id: authData.user.id,
       phone: data.phone,
       user_type: data.userType,
       name: data.name,
+      email: normalizedEmail,
+      email_verified: true,
+      // Registro de aceite (Feature 2). O trigger 064 carimba
+      // terms_accepted_at = now() no servidor quando terms_version vem preenchida.
+      terms_version: data.acceptedVersion,
     });
 
     if (dbError) {
@@ -194,6 +276,12 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
       // users + signOut) para não deixar usuário órfão em auth.users.
       if (dbError.message.includes('duplicate_identifier')) {
         await compensateUserRollback(DUPLICATE_IDENTIFIER_MESSAGE, 'DUPLICATE_IDENTIFIER', 409);
+      }
+      // Anti-reuso (Feature 4): o trigger `users_block_deleted_reuse` aborta o
+      // INSERT com `account_blocked:<campo>`. Mapeia para a mensagem canônica
+      // (orienta contato com suporte) e faz rollback compensatório.
+      if (dbError.message.includes('account_blocked')) {
+        await compensateUserRollback(ACCOUNT_BLOCKED_MESSAGE, 'ACCOUNT_BLOCKED', 403);
       }
       // Rollback do usuário em Auth: não temos privilégio para deletar
       // de auth.users via client, mas garantimos signOut para limpar token.
@@ -280,9 +368,37 @@ export async function login(credentials: LoginCredentials): Promise<AuthResponse
   const startTime = Date.now();
 
   try {
-    // Login with Supabase Auth using phone as email format
+    // O identificador pode ser e-mail OU telefone (login flexível).
+    const identifier = (credentials.phone ?? '').trim();
+    const isEmail = identifier.includes('@');
+
+    let loginEmail: string | null = null;
+
+    if (isEmail) {
+      loginEmail = identifier.toLowerCase();
+    } else {
+      // Telefone: resolve o e-mail de login via RPC (cobre contas novas, cuja
+      // identidade no Auth é o e-mail real). Fallback para o e-mail sintético
+      // legado `{phone}@example.com` das contas antigas.
+      const cleanPhone = identifier.replace(/\D/g, '');
+      try {
+        const { data: resolvedEmail } = await supabase.rpc('resolve_login_email', {
+          p_phone: cleanPhone,
+        });
+        if (typeof resolvedEmail === 'string' && resolvedEmail.length > 0) {
+          loginEmail = resolvedEmail;
+        }
+      } catch {
+        // fail-open: cai no fallback legado abaixo.
+      }
+      if (!loginEmail) {
+        loginEmail = `${cleanPhone}@example.com`;
+      }
+    }
+
+    // Login with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: `${credentials.phone}@example.com`,
+      email: loginEmail,
       password: credentials.password,
     });
 
@@ -364,6 +480,48 @@ async function ensureMinResponseTime(startTime: number): Promise<void> {
   const elapsed = Date.now() - startTime;
   if (elapsed < MIN_RESPONSE_TIME) {
     await new Promise((resolve) => setTimeout(resolve, MIN_RESPONSE_TIME - elapsed));
+  }
+}
+
+/**
+ * Solicita o e-mail de redefinição de senha (reset nativo do Supabase).
+ *
+ * Envia um link de redefinição para o e-mail informado. Por anti-enumeração,
+ * a função NÃO revela se o e-mail existe — o chamador deve sempre exibir a
+ * mesma mensagem de sucesso ("se houver conta, enviaremos o link").
+ *
+ * O link redireciona para `${origin}/redefinir-senha`, onde o usuário define a
+ * nova senha (a sessão de recuperação é estabelecida pelo Supabase via hash da
+ * URL).
+ */
+export async function requestPasswordReset(email: string): Promise<void> {
+  const trimmed = (email ?? '').trim().toLowerCase();
+  if (!trimmed || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    throw new AuthError('Informe um e-mail válido.', 'INVALID_EMAIL', 400);
+  }
+  const redirectTo =
+    typeof window !== 'undefined' ? `${window.location.origin}/redefinir-senha` : undefined;
+  // Best-effort / anti-enumeração: não propagamos erro de "não existe".
+  await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo });
+}
+
+/**
+ * Define a nova senha do usuário na sessão de recuperação corrente (após clicar
+ * no link do e-mail). Requer que o Supabase já tenha estabelecido a sessão de
+ * recovery a partir do hash da URL.
+ */
+export async function updatePasswordInRecovery(newPassword: string): Promise<void> {
+  const validation = validatePassword(newPassword);
+  if (!validation.isValid) {
+    throw new AuthError(validation.errors.join(', '), 'INVALID_PASSWORD', 400);
+  }
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+  if (error) {
+    throw new AuthError(
+      'Não foi possível redefinir a senha. Tente novamente.',
+      'RESET_FAILED',
+      400
+    );
   }
 }
 

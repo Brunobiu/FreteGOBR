@@ -3,17 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
 import PasswordInput from '../components/PasswordInput';
+import AccountDeletionModal from '../components/AccountDeletionModal';
+import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 
 export default function ConfiguracoesPage() {
   useDocumentTitle('Configurações');
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showDeletion, setShowDeletion] = useState(false);
+
+  const handleAccountDeleted = async () => {
+    // A conta e a sessão já foram removidas no servidor; limpa o estado local
+    // e leva o usuário para a tela de login.
+    try {
+      await logout();
+    } catch {
+      /* best-effort */
+    }
+    navigate('/login', { replace: true });
+  };
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,7 +122,30 @@ export default function ConfiguracoesPage() {
             </button>
           </form>
         </div>
+
+        {/* Privacidade — exclusão de conta (LGPD) */}
+        <div className="bg-white border border-red-200 rounded-lg p-5 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-1">Privacidade</h2>
+          <p className="text-xs text-gray-500 mb-4">
+            Você pode solicitar a exclusão da sua conta e dos seus dados pessoais. A ação é imediata
+            e irreversível.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowDeletion(true)}
+            className="px-4 py-2 border border-red-300 text-red-700 text-sm font-medium rounded-lg hover:bg-red-50 transition-colors"
+          >
+            Excluir minha conta e meus dados
+          </button>
+        </div>
       </main>
+
+      {showDeletion && (
+        <AccountDeletionModal
+          onClose={() => setShowDeletion(false)}
+          onDeleted={handleAccountDeleted}
+        />
+      )}
     </div>
   );
 }

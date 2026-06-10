@@ -6,16 +6,18 @@ import { z } from 'zod';
 import type { LoginCredentials } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
 import PasswordInput from './PasswordInput';
+import ForgotPasswordModal from './ForgotPasswordModal';
 import { checkBlacklistGate, GENERIC_LOGIN_MESSAGE } from '../services/admin/blacklist';
 
 const loginSchema = z.object({
   phone: z
     .string()
-    .min(1, 'Telefone é obrigatório')
-    .refine(
-      (val) => /^\d{10,11}$/.test(val.replace(/\D/g, '')),
-      'Telefone deve ter 10 ou 11 dígitos'
-    ),
+    .min(1, 'Informe seu e-mail ou telefone')
+    .refine((val) => {
+      const v = val.trim();
+      if (v.includes('@')) return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v);
+      return /^\d{10,11}$/.test(v.replace(/\D/g, ''));
+    }, 'Informe um e-mail ou telefone válido'),
   password: z.string().min(1, 'Senha é obrigatória'),
 });
 
@@ -37,6 +39,7 @@ export function LoginForm({
   const [selectedProfile, setSelectedProfile] = useState<'embarcador' | 'motorista' | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showForgot, setShowForgot] = useState(false);
 
   const honeypotRef = useRef<HTMLInputElement>(null);
 
@@ -88,13 +91,25 @@ export function LoginForm({
     }
 
     try {
-      const cleanPhone = data.phone.replace(/\D/g, '');
-      const { blocked } = await checkBlacklistGate('phone', cleanPhone, 'BLACKLIST_LOGIN_BLOCKED');
-      if (blocked) {
-        setError(GENERIC_LOGIN_MESSAGE);
-        return;
+      const raw = data.phone.trim();
+      const isEmail = raw.includes('@');
+      // Só aplica o gate de blacklist por telefone quando o identificador é
+      // telefone. Para e-mail, o gate por e-mail acontece no servidor.
+      if (!isEmail) {
+        const cleanPhone = raw.replace(/\D/g, '');
+        const { blocked } = await checkBlacklistGate(
+          'phone',
+          cleanPhone,
+          'BLACKLIST_LOGIN_BLOCKED'
+        );
+        if (blocked) {
+          setError(GENERIC_LOGIN_MESSAGE);
+          return;
+        }
+        await onSubmit({ ...data, phone: cleanPhone });
+      } else {
+        await onSubmit({ ...data, phone: raw.toLowerCase() });
       }
-      await onSubmit({ ...data, phone: cleanPhone });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
     } finally {
@@ -191,145 +206,139 @@ export function LoginForm({
 
   // ==================== FORMULARIO ====================
   return (
-    <div
-      className={`w-full md:max-w-4xl md:min-h-[480px] md:rounded-2xl md:overflow-hidden md:shadow-2xl md:border md:border-gray-200 ${showForm ? 'animate-fadeIn' : ''}`}
-    >
+    <>
       <div
-        className={`w-full flex flex-col md:flex-row ${selectedProfile === 'motorista' ? 'md:flex-row-reverse' : ''}`}
+        className={`w-full max-w-sm flex flex-col items-center ${showForm ? 'animate-fadeIn' : ''}`}
       >
-        {/* Lado do formulario — fundo branco/cinza claro */}
-        <div className="w-full md:w-1/2 flex flex-col items-center justify-center px-4 py-6 md:p-10 md:bg-gray-50">
-          {/* Logo */}
-          <img
-            src="/logo.png"
-            alt="FreteGO"
-            className="w-44 h-14 md:w-36 md:h-36 object-contain mb-3 md:mb-4"
+        {/* Logo */}
+        <img
+          src="/logo.png"
+          alt="FreteGO"
+          className="w-52 h-16 md:w-64 md:h-20 object-contain mb-3"
+        />
+
+        <h2 className="text-base md:text-xl font-bold text-gray-800 mb-0.5 text-center">
+          Bem-vindo, {selectedProfile === 'embarcador' ? 'Embarcador' : 'Motorista'}!
+        </h2>
+        <p className="text-[11px] text-gray-400 mb-4">Entre com seus dados</p>
+
+        {successMessage && (
+          <div className="w-full mb-3 p-2.5 bg-green-50 border border-green-300 rounded-lg">
+            <p className="text-xs text-green-700">{successMessage}</p>
+          </div>
+        )}
+
+        <form
+          onSubmit={handleSubmit(handleFormSubmit)}
+          className="w-full space-y-2.5"
+          autoComplete="off"
+        >
+          <input
+            ref={honeypotRef}
+            type="text"
+            name="website_url"
+            autoComplete="off"
+            tabIndex={-1}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              left: '-9999px',
+              top: '-9999px',
+              width: '1px',
+              height: '1px',
+              opacity: 0,
+            }}
           />
 
-          <h2 className="text-base md:text-lg font-bold text-gray-800 mb-1 text-center">
-            Bem-vindo, {selectedProfile === 'embarcador' ? 'Embarcador' : 'Motorista'}!
-          </h2>
-          <p className="text-[11px] md:text-xs text-gray-400 mb-4 md:mb-5">Entre com seus dados</p>
+          <div>
+            <input
+              type="text"
+              placeholder="E-mail ou WhatsApp"
+              autoComplete="username"
+              {...register('phone')}
+              onChange={(e) => {
+                // Só aplica máscara de telefone quando NÃO há letras (parece
+                // telefone). Se tiver qualquer letra, é e-mail: não formata.
+                if (!/[a-zA-Z@]/.test(e.target.value)) {
+                  e.target.value = formatPhone(e.target.value);
+                }
+                register('phone').onChange(e);
+              }}
+              maxLength={60}
+              disabled={isLoading}
+              className={`w-full px-3 py-2.5 bg-white border rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm shadow-sm ${errors.phone ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-300'}`}
+            />
+            {errors.phone && (
+              <p className="mt-0.5 text-[11px] text-red-500">{errors.phone.message}</p>
+            )}
+          </div>
 
-          {successMessage && (
-            <div className="w-full max-w-xs mb-3 p-2.5 bg-green-100 border border-green-300 rounded-lg md:bg-green-50">
-              <p className="text-xs text-green-700">{successMessage}</p>
+          <div>
+            <PasswordInput
+              placeholder="Senha"
+              autoComplete="one-time-code"
+              {...register('password')}
+              disabled={isLoading}
+              className={`w-full px-3 py-2.5 bg-white border rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm shadow-sm ${errors.password ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-300'}`}
+            />
+            {errors.password && (
+              <p className="mt-0.5 text-[11px] text-red-500">{errors.password.message}</p>
+            )}
+          </div>
+
+          {error && (
+            <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-xs text-red-600">{error}</p>
             </div>
           )}
 
-          <form
-            onSubmit={handleSubmit(handleFormSubmit)}
-            className="w-full max-w-xs space-y-3"
-            autoComplete="off"
-          >
-            <input
-              ref={honeypotRef}
-              type="text"
-              name="website_url"
-              autoComplete="off"
-              tabIndex={-1}
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                left: '-9999px',
-                top: '-9999px',
-                width: '1px',
-                height: '1px',
-                opacity: 0,
-              }}
-            />
-
-            <div>
-              <input
-                type="tel"
-                placeholder="WhatsApp..."
-                autoComplete="one-time-code"
-                {...register('phone')}
-                onChange={(e) => {
-                  e.target.value = formatPhone(e.target.value);
-                  register('phone').onChange(e);
-                }}
-                maxLength={17}
-                disabled={isLoading}
-                className={`w-full px-3.5 py-3 bg-white border border-gray-200 md:border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none text-sm font-medium shadow-sm ${errors.phone ? 'ring-2 ring-red-400 border-red-300' : ''}`}
-              />
-              {errors.phone && <p className="mt-1 text-xs text-red-500">{errors.phone.message}</p>}
-            </div>
-
-            <div>
-              <PasswordInput
-                placeholder="Senha"
-                autoComplete="one-time-code"
-                {...register('password')}
-                disabled={isLoading}
-                className={`w-full px-3.5 py-3 bg-white border border-gray-200 md:border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:border-transparent focus:outline-none text-sm font-medium shadow-sm ${errors.password ? 'ring-2 ring-red-400 border-red-300' : ''}`}
-              />
-              {errors.password && (
-                <p className="mt-1 text-xs text-red-500">{errors.password.message}</p>
-              )}
-            </div>
-
-            {error && (
-              <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-xs text-red-600">{error}</p>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full py-3 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold rounded-lg transition-all disabled:opacity-50 text-sm shadow-lg shadow-green-600/20"
-            >
-              {isLoading ? 'Entrando...' : 'Entrar'}
-            </button>
-
-            <div className="flex items-center justify-between pt-1">
-              <button
-                type="button"
-                className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                Esqueci minha senha
-              </button>
-              {onRegisterClick && (
-                <button
-                  type="button"
-                  onClick={onRegisterClick}
-                  className="text-xs font-semibold text-green-600 hover:text-green-700 transition-colors"
-                >
-                  Criar conta
-                </button>
-              )}
-            </div>
-          </form>
-
           <button
-            type="button"
-            onClick={() => {
-              setSelectedProfile(null);
-              setShowForm(false);
-            }}
-            className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            type="submit"
+            disabled={isLoading}
+            className="w-full py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold rounded-lg transition-all disabled:opacity-50 text-sm shadow-lg shadow-green-600/20"
           >
-            ← Voltar
+            {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
 
-          <Link
-            to="/contato"
-            className="mt-2 text-[11px] text-gray-400 hover:text-green-600 transition-colors"
-          >
-            Fale conosco
-          </Link>
-        </div>
+          <div className="flex items-center justify-between pt-1">
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              className="text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Esqueci minha senha
+            </button>
+            {onRegisterClick && (
+              <button
+                type="button"
+                onClick={onRegisterClick}
+                className="text-xs font-semibold text-green-600 hover:text-green-700 transition-colors"
+              >
+                Criar conta
+              </button>
+            )}
+          </div>
+        </form>
 
-        {/* Lado da imagem (so desktop) — imagem limpa, sem blur, sem texto */}
-        <div className="hidden md:block w-1/2">
-          <img
-            src="https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=800&q=80"
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedProfile(null);
+            setShowForm(false);
+          }}
+          className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          ← Voltar
+        </button>
+
+        <Link
+          to="/contato"
+          className="mt-2 text-[11px] text-gray-400 hover:text-green-600 transition-colors"
+        >
+          Fale conosco
+        </Link>
       </div>
-    </div>
+      {showForgot && <ForgotPasswordModal onClose={() => setShowForgot(false)} />}
+    </>
   );
 }

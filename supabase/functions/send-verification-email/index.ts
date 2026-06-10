@@ -35,6 +35,9 @@ const EDGE_SHARED_SECRET = Deno.env.get('EDGE_SHARED_SECRET') ?? '';
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
 const RESEND_FROM = Deno.env.get('RESEND_FROM') ?? 'FreteGO <onboarding@resend.dev>';
 const DEV_LOG = Deno.env.get('VERIFICATION_DEV_LOG') === 'true';
+// URL pública da logo exibida no cabeçalho do e-mail. Pode ser sobrescrita por
+// env (LOGO_URL) caso o domínio mude. Default: logo do site em produção.
+const LOGO_URL = Deno.env.get('LOGO_URL') ?? 'https://fretegobr.com.br/logo.png';
 
 /**
  * Comparacao em tempo constante para evitar timing attacks na verificacao
@@ -70,12 +73,10 @@ function buildEmailHtml(code: string): string {
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
-          <!-- Header verde FreteGO -->
+          <!-- Header com a logo FreteGO -->
           <tr>
-            <td style="background-color:#16a34a; padding:24px 32px; text-align:center;">
-              <h1 style="margin:0; color:#ffffff; font-size:24px; font-weight:700; letter-spacing:-0.02em;">
-                FreteGO
-              </h1>
+            <td style="background-color:#ffffff; padding:24px 32px; text-align:center; border-bottom:1px solid #e5e7eb;">
+              <img src="${LOGO_URL}" alt="FreteGO" height="44" style="height:44px; max-height:44px; width:auto; display:inline-block;" />
             </td>
           </tr>
 

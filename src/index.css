@@ -636,3 +636,21 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
     animation-delay: 0s;
   }
 }
+
+
+/* Shake (tremida) para código de verificação incorreto */
+@keyframes otpShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+.animate-otp-shake {
+  animation: otpShake 0.4s ease-in-out;
+}
+
+
+/* ===================== Campos do Login ===================== */
+/* (estilos antigos de login-field removidos — o login usa inputs padrão
+   com borda cinza, igual ao formulário de criar conta.) */

@@ -29,26 +29,26 @@ Plano incremental para o aceite obrigatório no cadastro. Depende da Feature 1 (
 
 ## Tasks
 
-- [ ] 1. Migration: colunas de aceite em `users`
+- [x] 1. Migration: colunas de aceite em `users`
   - Criar migration idempotente adicionando `terms_accepted_at timestamptz` e `terms_version text` em `public.users` (ambas nullable, com COMMENT). Criar par `_rollback.sql` documentado.
   - Usar a próxima numeração livre do repositório (verificar maior número atual em `supabase/migrations/`).
   - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 2. Adicionar checkbox de aceite ao RegisterForm
+- [x] 2. Adicionar checkbox de aceite ao RegisterForm
   - Em `src/components/RegisterForm.tsx`: campo `acceptTerms: z.boolean().refine(v===true, 'Você precisa aceitar os Termos de Uso e a Política de Privacidade.')`.
   - UI: checkbox + label com links para `/termos` e `/privacidade` (`target="_blank" rel="noopener"`); botão "Criar conta" desabilitado enquanto desmarcado; checkbox inicia desmarcado.
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 4.1_
 
-- [ ] 3. Enviar acceptedVersion no payload de cadastro
+- [x] 3. Enviar acceptedVersion no payload de cadastro
   - Estender `RegisterData` com `acceptedVersion: string`; no submit, preencher com `currentLegalVersion()` (Feature 1).
   - _Requirements: 2.2, 4.4_
 
-- [ ] 4. Persistir o registro de aceite no signup
+- [x] 4. Persistir o registro de aceite no signup
   - No fluxo de signup (RPC `register_with_terms` SECURITY DEFINER, ou insert + default/trigger): revalidar `acceptedVersion` não-vazio (erro `TERMS_NOT_ACCEPTED` se ausente); gravar `terms_accepted_at = now()` (servidor) e `terms_version = acceptedVersion` na mesma operação que cria a conta.
   - Garantir que falha ao gravar aceite falha o cadastro (sem conta órfã).
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 4.2, 4.3_
 
-- [ ] 5. Testes e validação final
+- [x] 5. Testes e validação final
   - Zod: rejeita `acceptTerms=false`/ausente com mensagem pt-BR; aceita `true`.
   - Payload: `acceptedVersion === currentLegalVersion()`.
   - Property (servidor): sem `acceptedVersion` não-vazio ⇒ nenhuma conta criada (Property 1); toda conta nova tem aceite completo (Property 2).

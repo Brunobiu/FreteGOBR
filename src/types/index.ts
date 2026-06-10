@@ -41,6 +41,14 @@ export interface RegisterData {
   name: string;
   userType: 'motorista' | 'embarcador';
   companyName?: string; // Required for embarcador
+  // Versão dos documentos legais aceita no cadastro (currentLegalVersion()).
+  // Obrigatória: o servidor revalida e grava terms_version + terms_accepted_at.
+  acceptedVersion: string;
+  // E-mail do usuário (cadastro multi-step). Verificado ANTES da conta existir.
+  email: string;
+  // Token emitido por confirm_signup_email_code; o servidor o consome para
+  // garantir que o e-mail foi verificado neste fluxo (migration 066).
+  emailVerificationToken: string;
 }
 
 export interface LoginCredentials {

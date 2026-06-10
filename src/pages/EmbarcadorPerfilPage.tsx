@@ -53,6 +53,7 @@ export default function EmbarcadorPerfilPage() {
   // Read-only
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   // Editable
   const [companyName, setCompanyName] = useState('');
@@ -243,17 +244,34 @@ export default function EmbarcadorPerfilPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Valida o telefone (10 ou 11 dígitos) antes de salvar.
+    const cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone && !/^\d{10,11}$/.test(cleanPhone)) {
+      setPhoneError('Telefone inválido (10 ou 11 dígitos).');
+      return;
+    }
+    setPhoneError(null);
+
     setIsSaving(true);
     setError(null);
     setSuccess(null);
     try {
-      // Não enviamos name (read-only), email (gerenciado pela RPC),
-      // whatsapp/phone (read-only) nem companyName (preenchido via CNPJ).
-      // O CNPJ já é persistido no handleCnpjChange.
       await updateEmbarcadorProfile(user.id, {
         branchState: branchState || null,
         branchCity: branchCity.trim() || null,
       });
+
+      // Telefone (WhatsApp) é editável: grava em users.phone e embarcadores.whatsapp.
+      if (cleanPhone) {
+        const { error: phoneErr } = await supabase
+          .from('users')
+          .update({ phone: cleanPhone })
+          .eq('id', user.id);
+        if (phoneErr) throw new Error(phoneErr.message);
+        await supabase.from('embarcadores').update({ whatsapp: cleanPhone }).eq('id', user.id);
+      }
+
       setSuccess('Perfil salvo com sucesso!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -362,10 +380,22 @@ export default function EmbarcadorPerfilPage() {
                 </p>
               </div>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Telefone</label>
-                <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-800 text-sm">
-                  {formatPhoneDisplay(phone) || '—'}
-                </p>
+                <label className="block text-xs text-gray-600 mb-1">Telefone (WhatsApp)</label>
+                <input
+                  type="tel"
+                  value={formatPhoneDisplay(phone)}
+                  onChange={(e) => {
+                    setPhone(e.target.value.replace(/\D/g, '').slice(0, 11));
+                    setPhoneError(null);
+                  }}
+                  placeholder="(00) 0 0000-0000"
+                  inputMode="numeric"
+                  maxLength={17}
+                  className={`w-full px-3 py-2 bg-white border rounded-lg text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    phoneError ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {phoneError && <p className="mt-1 text-[11px] text-red-600">{phoneError}</p>}
               </div>
             </div>
           </div>

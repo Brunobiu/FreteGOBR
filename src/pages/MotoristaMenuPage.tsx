@@ -19,6 +19,9 @@ import { useTheme } from '../hooks/useTheme';
 import { useTrialStatus } from '../hooks/useTrialStatus';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useMotoristaCompletude } from '../hooks/useMotoristaCompletude';
+import { useMotoristaDocStatus, type DocReviewStatus } from '../hooks/useMotoristaDocStatus';
+import { useDocRevalidation } from '../hooks/useDocRevalidation';
+import type { RevalidationGroup } from '../utils/docRevalidation';
 
 interface Tile {
   key: string;
@@ -28,6 +31,12 @@ interface Tile {
   badge?: { text: string; color: string };
   /** Se true, exibe alertinha "!" laranja indicando dados incompletos. */
   alert?: boolean;
+  /** Status de revisão dos documentos do grupo (selo azul/verde/vermelho). */
+  docStatus?: DocReviewStatus;
+  /** Grupo venceu a revalidação de 30 dias (selo amarelo "?"). */
+  revalExpired?: boolean;
+  /** Grupo está completo (selo verde ✓) — usado quando não há docStatus próprio. */
+  complete?: boolean;
 }
 
 export default function MotoristaMenuPage() {
@@ -37,6 +46,9 @@ export default function MotoristaMenuPage() {
   const { theme, toggleTheme } = useTheme();
   const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
   const { groups } = useMotoristaCompletude();
+  const { groups: docStatus } = useMotoristaDocStatus();
+  const { expiredGroups } = useDocRevalidation();
+  const isRevalExpired = (g: RevalidationGroup) => expiredGroups.includes(g);
 
   const planoBadge = isSubscribed
     ? { text: 'PRO', color: 'menu-badge-pro' }
@@ -51,6 +63,7 @@ export default function MotoristaMenuPage() {
       icon: <UserIcon />,
       onClick: () => navigate('/motorista/perfil'),
       alert: groups.perfil,
+      docStatus: docStatus.perfil,
     },
     {
       key: 'tracao',
@@ -58,6 +71,8 @@ export default function MotoristaMenuPage() {
       icon: <TruckIcon />,
       onClick: () => navigate('/motorista/tracao'),
       alert: groups.tracao,
+      docStatus: docStatus.tracao,
+      revalExpired: isRevalExpired('tracao'),
     },
     {
       key: 'carroceria',
@@ -65,6 +80,8 @@ export default function MotoristaMenuPage() {
       icon: <TrailerIcon />,
       onClick: () => navigate('/motorista/carroceria'),
       alert: groups.carroceria,
+      docStatus: docStatus.carroceria,
+      revalExpired: isRevalExpired('carroceria'),
     },
     {
       key: 'complemento',
@@ -72,6 +89,8 @@ export default function MotoristaMenuPage() {
       icon: <GaugeIcon />,
       onClick: () => navigate('/motorista/complemento'),
       alert: groups.complemento,
+      revalExpired: isRevalExpired('complemento'),
+      complete: !groups.complemento,
     },
     {
       key: 'referencias',
@@ -79,12 +98,16 @@ export default function MotoristaMenuPage() {
       icon: <ReferencesIcon />,
       onClick: () => navigate('/motorista/referencias'),
       alert: groups.referencias,
+      revalExpired: isRevalExpired('referencias'),
+      complete: !groups.referencias,
     },
     {
       key: 'contrato',
       label: 'Contrato',
       icon: <ContractIcon />,
       onClick: () => navigate('/motorista/contrato'),
+      docStatus: docStatus.contrato,
+      revalExpired: isRevalExpired('contrato'),
     },
     {
       key: 'tema',
@@ -139,15 +162,84 @@ export default function MotoristaMenuPage() {
                 {tile.label}
               </span>
 
-              {/* Alerta "!" laranja - dados incompletos */}
-              {tile.alert && !tile.badge && (
+              {/* Selo amarelo "?" — grupo venceu a revalidação de 30 dias.
+                  Tem prioridade sobre os demais selos: o motorista precisa
+                  confirmar para voltar a interagir. */}
+              {tile.revalExpired && !tile.badge ? (
                 <span
-                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm"
-                  title="Faltam dados para completar"
-                  aria-label="Faltam dados"
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-yellow-400 text-yellow-900 text-[11px] font-bold flex items-center justify-center shadow-sm"
+                  title="Confirme seus documentos (30 dias)"
+                  aria-label="Confirme seus documentos"
                 >
-                  !
+                  ?
                 </span>
+              ) : (
+                <>
+                  {/* Selo de status dos documentos — apenas um pontinho colorido,
+                  sem texto (laranja=faltam dados, azul=em análise, verde=confirmado).
+                  Tem prioridade sobre o "!" de campos incompletos. */}
+                  {tile.docStatus && tile.docStatus !== 'nenhum' && !tile.badge && (
+                    <span
+                      className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full text-white text-[11px] font-bold flex items-center justify-center shadow-sm ${
+                        tile.docStatus === 'aprovado'
+                          ? 'bg-green-500'
+                          : tile.docStatus === 'rejeitado'
+                            ? 'bg-red-500'
+                            : 'bg-blue-500'
+                      }`}
+                      title={
+                        tile.docStatus === 'aprovado'
+                          ? 'Documentos confirmados'
+                          : tile.docStatus === 'rejeitado'
+                            ? 'Documento recusado — reenvie'
+                            : 'Documentos em análise'
+                      }
+                      aria-label={
+                        tile.docStatus === 'aprovado'
+                          ? 'Documentos confirmados'
+                          : tile.docStatus === 'rejeitado'
+                            ? 'Documento recusado'
+                            : 'Documentos em análise'
+                      }
+                    >
+                      {tile.docStatus === 'aprovado'
+                        ? '✓'
+                        : tile.docStatus === 'rejeitado'
+                          ? '!'
+                          : '?'}
+                    </span>
+                  )}
+
+                  {/* Alerta "!" laranja - dados incompletos (só quando não há selo
+                  de documento nem badge de plano). */}
+                  {tile.alert &&
+                    !tile.badge &&
+                    (!tile.docStatus || tile.docStatus === 'nenhum') && (
+                      <span
+                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-orange-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm"
+                        title="Faltam dados para completar"
+                        aria-label="Faltam dados"
+                      >
+                        !
+                      </span>
+                    )}
+
+                  {/* Selo verde "✓" - grupo completo (sem docStatus próprio, sem
+                  alerta de dados faltando e sem badge). Ex: Complemento e
+                  Referências, que não têm documento revisável próprio. */}
+                  {tile.complete &&
+                    !tile.alert &&
+                    !tile.badge &&
+                    (!tile.docStatus || tile.docStatus === 'nenhum') && (
+                      <span
+                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-green-500 text-white text-[11px] font-bold flex items-center justify-center shadow-sm"
+                        title="Preenchido"
+                        aria-label="Preenchido"
+                      >
+                        ✓
+                      </span>
+                    )}
+                </>
               )}
 
               {/* Badge (Planos) */}

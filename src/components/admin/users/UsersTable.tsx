@@ -15,6 +15,8 @@ interface Props {
   canSelect: boolean;
   isMasterAdminId: (id: string) => boolean;
   isSelfId: (id: string) => boolean;
+  /** Mapa userId -> nº de documentos pendentes (badge na linha). */
+  pendingByUser?: Record<string, number>;
 }
 
 const STATUS_BADGES: Record<string, { label: string; cls: string }> = {
@@ -72,6 +74,7 @@ export default function UsersTable({
   canSelect,
   isMasterAdminId,
   isSelfId,
+  pendingByUser,
 }: Props) {
   const selectableIds = rows
     .filter((r) => !isMasterAdminId(r.id) && !isSelfId(r.id))
@@ -204,13 +207,23 @@ export default function UsersTable({
                   {formatDate(u.last_activity_at)}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <Link
-                    to={`/admin/users/${u.id}`}
-                    className="text-cyan-400 hover:text-cyan-300 text-sm"
-                    aria-label={`Abrir detalhe de ${u.name}`}
-                  >
-                    →
-                  </Link>
+                  <div className="flex items-center justify-end gap-2">
+                    {(pendingByUser?.[u.id] ?? 0) > 0 && (
+                      <span
+                        title={`${pendingByUser![u.id]} documento(s) recusado(s)`}
+                        className="min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold"
+                      >
+                        {pendingByUser![u.id]}
+                      </span>
+                    )}
+                    <Link
+                      to={`/admin/users/${u.id}`}
+                      className="text-cyan-400 hover:text-cyan-300 text-sm"
+                      aria-label={`Abrir detalhe de ${u.name}`}
+                    >
+                      →
+                    </Link>
+                  </div>
                 </td>
               </tr>
             );

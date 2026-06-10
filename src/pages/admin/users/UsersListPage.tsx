@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 import {
   bulkToggleActive,
   exportUsersCSV,
+  getPendingDocCountsByUser,
   isMasterAdmin,
   listUsers,
   parseUsersFiltersFromQuery,
@@ -34,6 +35,7 @@ export default function UsersListPage() {
   const selfId = session?.userId ?? null;
 
   const [data, setData] = useState<UsersListResult | null>(null);
+  const [pendingByUser, setPendingByUser] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -55,6 +57,10 @@ export default function UsersListPage() {
         const result = await listUsers(filters);
         if (cancelled) return;
         setData(result);
+        // Busca contagem de documentos pendentes por usuário (badge na linha).
+        void getPendingDocCountsByUser(result.rows.map((r) => r.id)).then((counts) => {
+          if (!cancelled) setPendingByUser(counts);
+        });
       } catch (err) {
         if (cancelled) return;
         setError((err as Error).message);
@@ -215,6 +221,7 @@ export default function UsersListPage() {
           return u ? isMasterAdmin(u) : false;
         }}
         isSelfId={(id) => id === selfId}
+        pendingByUser={pendingByUser}
       />
 
       {data && data.total > 0 && (

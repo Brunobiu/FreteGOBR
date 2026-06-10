@@ -172,7 +172,12 @@ export default function UserDetailPage() {
         onUnban={() => void handleUnban()}
       />
 
-      <UserDocumentsBlock documents={bundle.documents} error={bundle.errors.documents} />
+      <UserDocumentsBlock
+        documents={bundle.documents}
+        error={bundle.errors.documents}
+        canEdit={canEdit}
+        onReload={() => void loadBundle()}
+      />
 
       <UserFretesBlock
         userType={user.user_type}

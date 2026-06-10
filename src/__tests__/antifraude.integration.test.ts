@@ -44,7 +44,16 @@ vi.mock('../services/supabase', () => {
     supabase: {
       rpc: (name: string, args: Record<string, unknown>) => {
         rpcSpy(name, args);
-        // Resultado controlável pelo teste (data/error).
+        // RPCs do fluxo de e-mail pré-cadastro (066) têm resultado fixo "feliz",
+        // para não interferir nas asserções de anti-fraude (que controlam o
+        // resultado de is_identifier_available via __afRpcResult).
+        if (name === 'consume_signup_email_token') {
+          return Promise.resolve({ data: true, error: null });
+        }
+        if (name === 'is_identifier_blocked') {
+          return Promise.resolve({ data: false, error: null });
+        }
+        // Resultado controlável pelo teste (data/error) — is_identifier_available.
         return (globalThis as Record<string, unknown>).__afRpcResult as Promise<unknown>;
       },
       auth: {
@@ -128,6 +137,9 @@ const validMotoristaData: RegisterData = {
   password: 'Senha123!',
   name: 'João Motorista',
   userType: 'motorista',
+  acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
+  email: 'joao.motorista@exemplo.com',
+  emailVerificationToken: '44444444-4444-4444-4444-444444444444',
 };
 
 describe('Anti-fraude integration — auth.register (Feature: trial-e-bloqueio, Task 4.6)', () => {

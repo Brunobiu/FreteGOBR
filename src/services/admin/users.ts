@@ -69,6 +69,8 @@ export interface UserDocument {
   id: string;
   document_type: string;
   file_name: string;
+  file_path: string;
+  status: string;
   uploaded_at: string;
 }
 
@@ -454,7 +456,7 @@ export async function getUserDetail(id: string): Promise<UserDetailBundle> {
       : supabase.from('embarcadores').select('location').eq('id', id).maybeSingle(),
     supabase
       .from('documents')
-      .select('id, document_type, file_name, created_at')
+      .select('id, document_type, file_name, file_path, status, created_at')
       .eq('user_id', id)
       .order('created_at', { ascending: false })
       .limit(50),
@@ -498,6 +500,8 @@ export async function getUserDetail(id: string): Promise<UserDetailBundle> {
       id: d.id,
       document_type: d.document_type,
       file_name: d.file_name,
+      file_path: d.file_path,
+      status: d.status ?? 'pendente',
       uploaded_at: d.created_at,
     }));
   } else {
@@ -1388,4 +1392,104 @@ export async function listAdmins(): Promise<AdminUserRow[]> {
 export async function countActiveSuperAdmins(): Promise<number> {
   const { data } = await supabase.rpc('count_active_super_admins');
   return typeof data === 'number' ? data : 0;
+}
+
+// ===================== Documentos: visualizar e revisar =====================
+
+/**
+ * Gera uma URL assinada (TTL 10 min) para o admin visualizar o documento.
+ * Usa `file_path` (path real no bucket 'documents'), não `file_name`.
+ */
+export async function getDocumentSignedUrl(filePath: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage.from('documents').createSignedUrl(filePath, 600);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Aprova ou recusa um documento (gated USER_EDIT no servidor via RPC
+ * `admin_review_document`). Retorna o novo status.
+ */
+export async function reviewDocument(
+  documentId: string,
+  approve: boolean,
+  reason?: string
+): Promise<'aprovado' | 'rejeitado'> {
+  const { data, error } = await supabase.rpc('admin_review_document', {
+    p_document_id: documentId,
+    p_approve: approve,
+    p_reason: reason ?? null,
+  });
+  if (error) {
+    if (/permission_denied/i.test(error.message)) {
+      throw new UsersServiceError('PERMISSION_DENIED');
+    }
+    if (/NOT_FOUND/i.test(error.message)) {
+      throw new UsersServiceError('NOT_FOUND');
+    }
+    throw new Error(error.message);
+  }
+  return (data as { status: 'aprovado' | 'rejeitado' }).status;
+}
+
+/**
+ * Conta usuários com documentos pendentes de revisão (badge do menu lateral).
+ * Retorna o nº de usuários distintos com pelo menos 1 documento `pendente`.
+ */
+export async function countUsersWithPendingDocuments(): Promise<number> {
+  try {
+    // Modelo de aprovação imediata: o sinal acionável para o admin é documento
+    // RECUSADO (o motorista fica bloqueado até reenviar). Contamos usuários
+    // não-admin com pelo menos 1 documento recusado.
+    const { data: docs, error } = await supabase
+      .from('documents')
+      .select('user_id, document_type')
+      .eq('status', 'rejeitado');
+    if (error || !docs) return 0;
+
+    const candidateIds = Array.from(
+      new Set(docs.filter((d) => d.document_type !== 'profile_photo').map((d) => d.user_id))
+    );
+    if (candidateIds.length === 0) return 0;
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, user_type')
+      .in('id', candidateIds);
+    const nonAdmin = new Set((users ?? []).filter((u) => u.user_type !== 'admin').map((u) => u.id));
+    return nonAdmin.size;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Retorna um mapa `userId -> nº de documentos pendentes` para os usuários
+ * informados. Usado para exibir o badge de pendência na lista de usuários.
+ * A foto de perfil (profile_photo) NÃO conta como documento a revisar.
+ */
+export async function getPendingDocCountsByUser(
+  userIds: string[]
+): Promise<Record<string, number>> {
+  const result: Record<string, number> = {};
+  if (userIds.length === 0) return result;
+  try {
+    const { data, error } = await supabase
+      .from('documents')
+      .select('user_id, document_type')
+      .eq('status', 'rejeitado')
+      .in('user_id', userIds);
+    if (error || !data) return result;
+    for (const d of data) {
+      if (d.document_type === 'profile_photo') continue;
+      result[d.user_id] = (result[d.user_id] ?? 0) + 1;
+    }
+    return result;
+  } catch {
+    return result;
+  }
 }

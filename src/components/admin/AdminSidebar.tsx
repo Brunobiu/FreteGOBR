@@ -6,10 +6,12 @@
  */
 
 import { NavLink } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { useAdminPermission } from '../../hooks/useAdminPermission';
 import { useAdminContext } from './AdminProvider';
 import type { AdminAction } from '../../services/admin/permissions';
 import { supabase } from '../../services/supabase';
+import { countUsersWithPendingDocuments } from '../../services/admin/users';
 
 function resolvePhotoSrc(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -135,7 +137,7 @@ interface Props {
   onClose: () => void;
 }
 
-function MenuLink({ item }: { item: MenuItem }) {
+function MenuLink({ item, badge }: { item: MenuItem; badge?: number }) {
   const { allowed } = useAdminPermission(item.permission ?? 'USER_VIEW');
   if (item.permission && !allowed) return null;
   return (
@@ -153,7 +155,12 @@ function MenuLink({ item }: { item: MenuItem }) {
       <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={item.icon} />
       </svg>
-      <span className="truncate">{item.label}</span>
+      <span className="truncate flex-1">{item.label}</span>
+      {badge != null && badge > 0 && (
+        <span className="ml-auto shrink-0 min-w-[18px] h-[18px] px-1 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </NavLink>
   );
 }
@@ -161,6 +168,25 @@ function MenuLink({ item }: { item: MenuItem }) {
 export default function AdminSidebar({ open, onClose }: Props) {
   const { session, logout } = useAdminContext();
   const initial = (session?.displayName ?? 'A').charAt(0).toUpperCase();
+  const [pendingDocs, setPendingDocs] = useState(0);
+
+  // Conta usuários com documentos pendentes (badge em "Usuarios"). Atualiza ao
+  // montar e quando um documento é revisado em outro lugar do painel.
+  useEffect(() => {
+    let active = true;
+    const load = () => {
+      void countUsersWithPendingDocuments().then((n) => {
+        if (active) setPendingDocs(n);
+      });
+    };
+    load();
+    const onReview = () => load();
+    window.addEventListener('fretego-docs-reviewed', onReview);
+    return () => {
+      active = false;
+      window.removeEventListener('fretego-docs-reviewed', onReview);
+    };
+  }, []);
 
   return (
     <>
@@ -208,7 +234,11 @@ export default function AdminSidebar({ open, onClose }: Props) {
         {/* Itens principais */}
         <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
           {ITEMS.map((it) => (
-            <MenuLink key={it.to} item={it} />
+            <MenuLink
+              key={it.to}
+              item={it}
+              badge={it.to === '/admin/users' ? pendingDocs : undefined}
+            />
           ))}
         </nav>
 

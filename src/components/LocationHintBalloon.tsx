@@ -73,10 +73,11 @@ export default function LocationHintBalloon({
             transition-all duration-300 ease-out
             ${shown ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}`}
         >
-          {/* Setinha apontando pra cima-direita (pill de GPS no header). */}
+          {/* Setinha apontando para o PILL DE LOCALIZAÇÃO no header (fica à
+              esquerda do sininho). Por isso o offset maior à direita. */}
           <span
             aria-hidden="true"
-            className="absolute -top-2 right-6 w-4 h-4 bg-blue-600 border-l border-t border-blue-500 rotate-45"
+            className="absolute -top-2 right-16 sm:right-24 w-4 h-4 bg-blue-600 border-l border-t border-blue-500 rotate-45"
           />
 
           <div className="relative px-3 py-2.5 sm:px-4 sm:py-3 flex items-start gap-2.5">

@@ -41,6 +41,15 @@ vi.mock('../services/supabase', () => ({
         eq: vi.fn().mockResolvedValue({ error: null }),
       }),
     })),
+    // RPCs usadas no register: pré-checks de identificador + consumo do token
+    // de verificação de e-mail. Defaults "felizes": disponível, não bloqueado,
+    // token válido.
+    rpc: vi.fn((fn: string) => {
+      if (fn === 'consume_signup_email_token') return Promise.resolve({ data: true, error: null });
+      if (fn === 'is_identifier_available') return Promise.resolve({ data: true, error: null });
+      if (fn === 'is_identifier_blocked') return Promise.resolve({ data: false, error: null });
+      return Promise.resolve({ data: null, error: null });
+    }),
   },
 }));
 
@@ -55,6 +64,9 @@ describe('Unit Tests - AuthService', () => {
       password: 'Senha123!',
       name: 'João Silva',
       userType: 'motorista',
+      acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
+      email: 'joao@exemplo.com',
+      emailVerificationToken: '11111111-1111-1111-1111-111111111111',
     };
 
     const validEmbarcadorData: RegisterData = {
@@ -63,6 +75,9 @@ describe('Unit Tests - AuthService', () => {
       name: 'Maria Santos',
       userType: 'embarcador',
       companyName: 'Transportes ABC',
+      acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
+      email: 'maria@exemplo.com',
+      emailVerificationToken: '22222222-2222-2222-2222-222222222222',
     };
 
     it('should reject password with less than 8 characters', async () => {
@@ -81,6 +96,9 @@ describe('Unit Tests - AuthService', () => {
         password: 'Senha123!',
         name: 'Maria Santos',
         userType: 'embarcador',
+        acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
+        email: 'maria@exemplo.com',
+        emailVerificationToken: '22222222-2222-2222-2222-222222222222',
         // Missing companyName
       };
 

@@ -8,6 +8,8 @@ import {
   updateMotoristaProfile,
   getMotoristaReferences,
   replaceMotoristaReferences,
+  uploadReferenceCte,
+  getDocumentSignedUrlByPath,
 } from '../services/motorista';
 import {
   uploadDocument,
@@ -112,6 +114,13 @@ interface ReferenciaLocal {
   companyName: string;
   phone: string;
   persisted: boolean;
+  /** CT-e já salvo no storage (caminho + nome). */
+  ctePath?: string | null;
+  cteName?: string | null;
+  /** URL assinada para pré-visualizar o CT-e já salvo. */
+  cteUrl?: string | null;
+  /** Arquivo de CT-e selecionado e ainda não enviado (sobe ao salvar). */
+  ctePendingFile?: File | null;
 }
 
 // ─── Componente de Slot de Documento (com câmera ou arquivo) ────────────────
@@ -126,44 +135,47 @@ interface DocSlotProps {
 
 function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
   const cameraRef = useRef<HTMLInputElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const galleryRef = useRef<HTMLInputElement>(null);
+  const pdfRef = useRef<HTMLInputElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const status = doc?.status ?? (doc ? 'pendente' : undefined);
   const canDelete = doc && status !== 'aprovado';
-  const isImageOnly = slot.accept === IMG_ONLY;
-  const isPdfOnly = slot.accept === PDF_ONLY;
+  const allowsImage = slot.accept === IMG_ONLY || slot.accept === PDF_IMG;
+  const allowsPdf = slot.accept === PDF_ONLY || slot.accept === PDF_IMG;
 
   const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     onUpload(slot.type, file);
     e.target.value = '';
+    setMenuOpen(false);
   };
 
   const statusBadge = (() => {
     if (!doc) {
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500">
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-gray-400 text-white">
           Não enviado
         </span>
       );
     }
     if (status === 'aprovado') {
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">
-          ✓ Aprovado
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-600 text-white">
+          ✓ Doc. confirmado
         </span>
       );
     }
     if (status === 'rejeitado') {
       return (
-        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700">
-          Rejeitado
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-600 text-white">
+          Recusado
         </span>
       );
     }
     return (
-      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-100 text-yellow-700">
-        Aguardando
+      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-600 text-white">
+        Pendente
       </span>
     );
   })();
@@ -215,74 +227,49 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
       </div>
 
       {status !== 'aprovado' && (
-        <div className="flex items-center gap-1 shrink-0">
-          {/* Slots PDF-only nao exibem camera */}
-          {!isPdfOnly && (
+        <div className="relative shrink-0">
+          {/* Inputs ocultos: câmera, galeria e PDF. */}
+          {allowsImage && (
+            <>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept={IMG_ONLY}
+                capture="environment"
+                hidden
+                disabled={uploading}
+                onChange={handlePick}
+              />
+              <input
+                ref={galleryRef}
+                type="file"
+                accept={IMG_ONLY}
+                hidden
+                disabled={uploading}
+                onChange={handlePick}
+              />
+            </>
+          )}
+          {allowsPdf && (
             <input
-              ref={cameraRef}
+              ref={pdfRef}
               type="file"
-              accept={isImageOnly ? IMG_ONLY : 'image/*'}
-              capture="environment"
+              accept={PDF_ONLY}
               hidden
               disabled={uploading}
               onChange={handlePick}
             />
           )}
-          <input
-            ref={fileRef}
-            type="file"
-            accept={slot.accept}
-            hidden
-            disabled={uploading}
-            onChange={handlePick}
-          />
-          {!isPdfOnly && (
-            <button
-              type="button"
-              onClick={() => cameraRef.current?.click()}
-              disabled={uploading}
-              aria-label="Tirar foto"
-              title="Tirar foto"
-              className="w-7 h-7 flex items-center justify-center bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-md disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
-                />
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
-                />
-              </svg>
-            </button>
-          )}
+
+          {/* Único botão: clipe. Abre o menuzinho de opções. */}
           <button
             type="button"
-            onClick={() => fileRef.current?.click()}
+            onClick={() => setMenuOpen((v) => !v)}
             disabled={uploading}
-            aria-label={
-              uploading
-                ? 'Enviando'
-                : doc
-                  ? 'Trocar arquivo'
-                  : isPdfOnly
-                    ? 'Anexar PDF'
-                    : 'Escolher arquivo'
-            }
-            title={
-              uploading
-                ? 'Enviando...'
-                : doc
-                  ? 'Trocar arquivo'
-                  : isPdfOnly
-                    ? 'Anexar PDF'
-                    : 'Escolher arquivo'
-            }
+            aria-label={doc ? 'Trocar arquivo' : 'Enviar arquivo'}
+            title={doc ? 'Trocar arquivo' : 'Enviar arquivo'}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
             className="w-7 h-7 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md disabled:opacity-50"
           >
             {uploading ? (
@@ -308,6 +295,92 @@ function DocSlot({ slot, doc, uploading, onUpload, onDelete }: DocSlotProps) {
               </svg>
             )}
           </button>
+
+          {menuOpen && !uploading && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
+              <div
+                role="menu"
+                className="absolute right-0 mt-1 w-44 bg-white border border-gray-200 rounded-lg shadow-xl py-1 z-50"
+              >
+                {allowsImage && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => cameraRef.current?.click()}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                    Tirar uma foto
+                  </button>
+                )}
+                {allowsImage && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => galleryRef.current?.click()}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg
+                      className="w-4 h-4 text-blue-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      />
+                    </svg>
+                    Galeria de fotos
+                  </button>
+                )}
+                {allowsPdf && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => pdfRef.current?.click()}
+                    className="flex items-center gap-2 w-full px-3 py-2 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    <svg
+                      className="w-4 h-4 text-red-600"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                    Enviar PDF
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -480,7 +553,136 @@ function ProfilePhotoBlock({
   );
 }
 
+// ─── Controle de CT-e por referência ───────────────────────────────────────
+
+/**
+ * Selo + botão para anexar o CT-e (PDF ou imagem) de uma referência.
+ * Mostra o nome do arquivo e link "ver" quando há CT-e (salvo ou recém
+ * escolhido), além de permitir trocar/remover.
+ */
+function ReferenceCteControl({
+  cteName,
+  cteUrl,
+  onPick,
+  onClear,
+}: {
+  cteName?: string | null;
+  cteUrl?: string | null;
+  onPick: (file: File) => void;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const hasCte = !!cteName;
+  return (
+    <div className="flex items-center gap-2 pt-1.5 border-t border-gray-200">
+      <input
+        ref={inputRef}
+        type="file"
+        accept={PDF_IMG}
+        hidden
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.target.value = '';
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-[11px] font-medium hover:bg-blue-100"
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+          />
+        </svg>
+        {hasCte ? 'Trocar CT-e' : 'Anexar CT-e (PDF ou foto)'}
+      </button>
+      {hasCte && (
+        <span className="flex items-center gap-1.5 min-w-0 text-[10px] text-gray-500">
+          {cteUrl ? (
+            <a
+              href={cteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline truncate max-w-[120px]"
+            >
+              {cteName}
+            </a>
+          ) : (
+            <span className="truncate max-w-[120px]">{cteName}</span>
+          )}
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-red-500 hover:text-red-700"
+            title="Remover CT-e"
+          >
+            remover
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Página principal ────────────────────────────────────────────────────────
+
+/**
+ * Botão "+" para adicionar um novo contrato de arrendamento (PDF ou imagem).
+ */
+function ContratoAddButton({
+  uploading,
+  onPick,
+}: {
+  uploading: boolean;
+  onPick: (file: File) => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept={PDF_IMG}
+        hidden
+        disabled={uploading}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.target.value = '';
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        aria-label="Adicionar contrato"
+        title="Adicionar contrato"
+        className="w-7 h-7 flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-sm disabled:opacity-50"
+      >
+        {uploading ? (
+          <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" opacity="0.25" />
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.5}
+              d="M12 4v16m8-8H4"
+            />
+          </svg>
+        )}
+      </button>
+    </>
+  );
+}
 
 /**
  * Bloco de endereco colapsavel: quando ja preenchido, mostra so o resumo
@@ -525,154 +727,93 @@ function AddressBlock(props: AddressBlockProps) {
     fieldErrorUf,
   } = props;
 
-  const isFilled = Boolean(cep && street);
-  const [editing, setEditing] = useState(!isFilled);
-
-  // Quando o endereco fica preenchido (apos lookup CEP, por exemplo),
-  // colapsa automaticamente.
-  useEffect(() => {
-    if (isFilled) setEditing(false);
-    // sem else — quando esvazia, deixamos como esta (motorista pode ter
-    // limpo manualmente e quer que continue em edicao).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isFilled && !editing]);
-
-  const summary = [
-    street,
-    number && `nº ${number}`,
-    complement,
-    neighborhood,
-    city && uf ? `${city}/${uf}` : city || uf,
-    cep && formatCep(cep),
-  ]
-    .filter(Boolean)
-    .join(', ');
-
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-semibold text-gray-700">Endereço</h3>
-        {isFilled && !editing && (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setEditing(true)}
-              className="text-[11px] text-blue-600 hover:text-blue-800 px-1.5 py-0.5"
-            >
-              Editar
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (confirm('Remover o endereço cadastrado?')) {
-                  props.onClear();
-                  setEditing(true);
-                }
-              }}
-              className="text-[11px] text-red-500 hover:text-red-700 px-1.5 py-0.5"
-            >
-              Excluir
-            </button>
-          </div>
-        )}
       </div>
 
-      {!editing && isFilled ? (
-        <p className="text-xs text-gray-700 leading-relaxed">{summary}</p>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <div className="col-span-1">
-              <label className="block text-[10px] text-gray-600 mb-0.5">CEP</label>
-              <input
-                type="text"
-                value={formatCep(cep)}
-                onChange={(e) => props.onCepChange(sanitizeCep(e.target.value))}
-                placeholder="00000-000"
-                maxLength={9}
-                inputMode="numeric"
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="col-span-1 sm:col-span-3">
-              <label className="block text-[10px] text-gray-600 mb-0.5">Logradouro</label>
-              <input
-                type="text"
-                value={street}
-                onChange={(e) => props.onStreetChange(e.target.value)}
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-600 mb-0.5">Número</label>
-              <input
-                type="text"
-                value={number}
-                onChange={(e) => props.onNumberChange(e.target.value)}
-                maxLength={10}
-                placeholder="123"
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block text-[10px] text-gray-600 mb-0.5">Complemento</label>
-              <input
-                type="text"
-                value={complement}
-                onChange={(e) => props.onComplementChange(e.target.value)}
-                placeholder="Apto 101"
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-600 mb-0.5">Bairro</label>
-              <input
-                type="text"
-                value={neighborhood}
-                onChange={(e) => props.onNeighborhoodChange(e.target.value)}
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div className="col-span-1 sm:col-span-3">
-              <label className="block text-[10px] text-gray-600 mb-0.5">Cidade</label>
-              <input
-                type="text"
-                value={city}
-                onChange={(e) => props.onCityChange(e.target.value)}
-                className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
-              />
-            </div>
-            <div>
-              <label className="block text-[10px] text-gray-600 mb-0.5">UF</label>
-              <input
-                type="text"
-                value={uf}
-                onChange={(e) => props.onUfChange(e.target.value.toUpperCase().slice(0, 2))}
-                maxLength={2}
-                placeholder="GO"
-                data-error={fieldErrorUf ? 'true' : undefined}
-                className={`w-full px-2 py-1.5 bg-white border rounded-md text-gray-800 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                  fieldErrorUf ? 'border-red-400' : 'border-gray-300'
-                }`}
-              />
-            </div>
-          </div>
-          {cepLoading && (
-            <p className="mt-1 text-[10px] text-gray-500">Buscando endereço pelo CEP...</p>
-          )}
-          {cepError && <p className="mt-1 text-[10px] text-red-600">{cepError}</p>}
-          {fieldErrorUf && <p className="mt-1 text-[10px] text-red-600">{fieldErrorUf}</p>}
-          {isFilled && (
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="mt-2 text-[11px] text-gray-600 hover:text-gray-900 underline"
-            >
-              Concluir edição
-            </button>
-          )}
-        </>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="col-span-1">
+          <label className="block text-[10px] text-gray-600 mb-0.5">CEP</label>
+          <input
+            type="text"
+            value={formatCep(cep)}
+            onChange={(e) => props.onCepChange(sanitizeCep(e.target.value))}
+            placeholder="00000-000"
+            maxLength={9}
+            inputMode="numeric"
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div className="col-span-1 sm:col-span-3">
+          <label className="block text-[10px] text-gray-600 mb-0.5">Logradouro</label>
+          <input
+            type="text"
+            value={street}
+            onChange={(e) => props.onStreetChange(e.target.value)}
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-600 mb-0.5">Número</label>
+          <input
+            type="text"
+            value={number}
+            onChange={(e) => props.onNumberChange(e.target.value)}
+            maxLength={10}
+            placeholder="123"
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className="block text-[10px] text-gray-600 mb-0.5">Complemento</label>
+          <input
+            type="text"
+            value={complement}
+            onChange={(e) => props.onComplementChange(e.target.value)}
+            placeholder="Apto 101"
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-600 mb-0.5">Bairro</label>
+          <input
+            type="text"
+            value={neighborhood}
+            onChange={(e) => props.onNeighborhoodChange(e.target.value)}
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div className="col-span-1 sm:col-span-3">
+          <label className="block text-[10px] text-gray-600 mb-0.5">Cidade</label>
+          <input
+            type="text"
+            value={city}
+            onChange={(e) => props.onCityChange(e.target.value)}
+            className="w-full px-2 py-1.5 bg-white border border-gray-300 rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          />
+        </div>
+        <div>
+          <label className="block text-[10px] text-gray-600 mb-0.5">UF</label>
+          <input
+            type="text"
+            value={uf}
+            onChange={(e) => props.onUfChange(e.target.value.toUpperCase().slice(0, 2))}
+            maxLength={2}
+            placeholder="GO"
+            data-error={fieldErrorUf ? 'true' : undefined}
+            className={`w-full px-2 py-1.5 bg-white border rounded-md text-gray-800 text-sm uppercase focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              fieldErrorUf ? 'border-red-400' : 'border-gray-300'
+            }`}
+          />
+        </div>
+      </div>
+      {cepLoading && (
+        <p className="mt-1 text-[10px] text-gray-500">Buscando endereço pelo CEP...</p>
       )}
+      {cepError && <p className="mt-1 text-[10px] text-red-600">{cepError}</p>}
+      {fieldErrorUf && <p className="mt-1 text-[10px] text-red-600">{fieldErrorUf}</p>}
     </div>
   );
 }
@@ -683,15 +824,24 @@ function AddressBlock(props: AddressBlockProps) {
  * minimalista no estilo "back + titulo" para liberar espaco vertical
  * em telas pequenas.
  */
-function ProfileTopBar({ onBack }: { onBack: () => void }) {
+function ProfileTopBar({
+  onBack,
+  onSave,
+  saveDisabled,
+  saving,
+}: {
+  onBack: () => void;
+  onSave?: () => void;
+  saveDisabled?: boolean;
+  saving?: boolean;
+}) {
   return (
     <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-gray-200">
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-3">
+      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-2 flex items-center gap-2">
         <button
           type="button"
           onClick={onBack}
-          aria-label="Voltar aos fretes"
-          className="-ml-1 p-1.5 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
+          className="inline-flex items-center gap-1 -ml-1 px-1.5 py-1.5 text-gray-600 hover:text-gray-900 rounded-md hover:bg-gray-100"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -701,15 +851,19 @@ function ProfileTopBar({ onBack }: { onBack: () => void }) {
               d="M15 19l-7-7 7-7"
             />
           </svg>
+          <span className="text-[11px] sm:text-xs">Voltar</span>
         </button>
-        <h1 className="text-sm sm:text-base font-semibold text-gray-800 flex-1">Meu Perfil</h1>
-        <button
-          type="button"
-          onClick={onBack}
-          className="text-[11px] sm:text-xs text-gray-500 hover:text-gray-800"
-        >
-          Voltar aos fretes
-        </button>
+        <div className="flex-1" />
+        {onSave && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saveDisabled}
+            className="px-4 py-1.5 bg-blue-600 text-white text-xs sm:text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -737,7 +891,7 @@ const VIEW_TITLES: Record<MotoristaPerfilView, string> = {
   carroceria: 'Carroceria',
   complemento: 'Complemento do Veículo',
   referencias: 'Referências',
-  contrato: 'Contrato de Arrendamento',
+  contrato: 'Contratos de Arrendamento',
 };
 
 export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPageProps = {}) {
@@ -751,6 +905,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
 
   // === Dados pessoais ========================================================
   const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [emailVerifiedAtServer, setEmailVerifiedAtServer] = useState<string | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -808,8 +963,13 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
 
   // === Documentos ===========================================================
   const [documents, setDocuments] = useState<Record<string, DocRecord>>({});
+  // Contratos de arrendamento: lista (o motorista pode ter vários — uma carreta
+  // arrendada, um dolly de terceiro, etc). Diferente dos demais docs (1 por tipo).
+  const [contratoDocs, setContratoDocs] = useState<DocRecord[]>([]);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-  const [showExtraCarretas, setShowExtraCarretas] = useState(false);
+  // Quantas carretas estão visíveis na Carroceria (1..4). Começa em 1 e o
+  // motorista adiciona/remove uma de cada vez.
+  const [carretaCount, setCarretaCount] = useState(1);
 
   // === Erros por campo ======================================================
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -851,21 +1011,33 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     try {
       setIsLoading(true);
 
-      const [userData, profile, { data: rawDocs }, verifStatus, { data: pisRow }, refsList] =
+      const [userData, profile, { data: rawDocs }, verifStatus, pisRow, refsList] =
         await Promise.all([
           getUserData(user.id),
-          getMotoristaProfile(user.id),
+          getMotoristaProfile(user.id).catch(() => null),
           supabase
             .from('documents')
             .select('*')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false }),
-          getVerificationStatus(),
-          supabase.from('motorista_pis').select('pis_number').eq('user_id', user.id).maybeSingle(),
+          getVerificationStatus().catch(() => ({ emailVerified: false })),
+          (async () => {
+            try {
+              const r = await supabase
+                .from('motorista_pis')
+                .select('pis_number')
+                .eq('user_id', user.id)
+                .maybeSingle();
+              return r.data;
+            } catch {
+              return null;
+            }
+          })(),
           getMotoristaReferences(user.id).catch(() => []),
         ]);
 
       setName(userData.name ? capitalizeName(userData.name) : '');
+      setPhone(userData.phone ? formatPhoneBR(userData.phone) : '');
       setEmailInput(userData.email || '');
       setEmailVerifiedAtServer(verifStatus.emailVerified ? userData.email || '' : null);
       setCpf(userData.cpf || '');
@@ -920,12 +1092,47 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           companyName: r.companyName,
           phone: r.phone,
           persisted: true,
+          ctePath: r.ctePath ?? null,
+          cteName: r.cteName ?? null,
+          cteUrl: null,
+          ctePendingFile: null,
         }))
       );
+      // Gera as URLs assinadas dos CT-e já salvos (em paralelo, sem travar o load).
+      void (async () => {
+        const withCte = refsList.filter((r) => r.ctePath);
+        if (withCte.length === 0) return;
+        const urls = await Promise.all(
+          withCte.map(
+            async (r) => [r.id, await getDocumentSignedUrlByPath(r.ctePath as string)] as const
+          )
+        );
+        const urlById = new Map(urls);
+        setReferences((prev) =>
+          prev.map((ref) =>
+            urlById.has(ref.id) ? { ...ref, cteUrl: urlById.get(ref.id) ?? null } : ref
+          )
+        );
+      })();
 
       if (rawDocs) {
         const docsMap: Record<string, DocRecord> = {};
+        const contratoList: DocRecord[] = [];
         for (const d of rawDocs) {
+          // Contratos de arrendamento: coleta TODOS (lista, não 1 por tipo).
+          if (d.document_type === 'contrato_arrendamento') {
+            contratoList.push({
+              id: d.id,
+              documentType: d.document_type,
+              fileName: d.file_name,
+              fileSize: d.file_size,
+              mimeType: d.mime_type,
+              uploadedAt: new Date(d.created_at),
+              status: d.status ?? 'pendente',
+              rejectionReason: d.rejection_reason ?? undefined,
+            });
+            continue;
+          }
           if (!docsMap[d.document_type]) {
             docsMap[d.document_type] = {
               id: d.id,
@@ -956,22 +1163,43 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
 
         setDocuments(docsMap);
 
-        const hasExtra = ['crlv_carreta_2', 'crlv_carreta_3', 'crlv_carreta_4'].some(
-          (t) => docsMap[t]
+        // URLs assinadas dos contratos (lista).
+        const contratoWithUrls = await Promise.all(
+          contratoList.map(async (doc) => {
+            try {
+              return { ...doc, url: await getSignedUrl(doc.id) };
+            } catch {
+              return doc;
+            }
+          })
         );
-        if (hasExtra) setShowExtraCarretas(true);
+        setContratoDocs(contratoWithUrls);
+
+        // Define quantas carretas exibir com base nos documentos já enviados.
+        let maxCarreta = 1;
+        for (let n = 4; n >= 2; n--) {
+          if (docsMap[`crlv_carreta_${n}`] || docsMap[`rntrc_carreta_${n}`]) {
+            maxCarreta = n;
+            break;
+          }
+        }
+        setCarretaCount(maxCarreta);
       }
     } catch (err) {
       setTopError(err instanceof Error ? err.message : 'Erro ao carregar perfil');
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user) return;
     loadAll();
-  }, [user, loadAll]);
+    // Só recarrega quando troca o usuário (id), não a cada refreshUser()
+    // (ex: upload de foto) — senão limpa os campos não salvos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // ─── Scroll para a seção via hash (#veiculo, #dados-pessoais...) ─────────
   // Usado pelo MotoristaMenuSheet, que navega com hash pra abrir a página
@@ -1122,7 +1350,10 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     setTopError(null);
     try {
       const existing = documents[docType];
-      if (existing && existing.status !== 'aprovado') {
+      // Mantém histórico: documentos RECUSADOS nunca são apagados (evidência
+      // para o admin). Só substituímos um envio ainda 'pendente' (reenvio
+      // antes de revisão) para não acumular duplicado sem revisão.
+      if (existing && existing.status === 'pendente') {
         await deleteDocument(existing.id);
       }
       const doc = await uploadDocument(user.id, docType, file);
@@ -1141,7 +1372,9 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           fileSize: doc.fileSize,
           mimeType: doc.mimeType,
           uploadedAt: doc.uploadedAt,
-          status: 'pendente',
+          // Status real definido pelo servidor (trigger 072): 'aprovado' no 1º
+          // envio, 'pendente' quando já houve recusa anterior.
+          status: doc.status ?? 'aprovado',
           url,
         },
       }));
@@ -1173,11 +1406,77 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     }
   };
 
+  // ─── Handlers de contratos de arrendamento (lista) ───────────────────────
+  // O motorista pode ter VÁRIOS contratos (uma carreta arrendada, um dolly de
+  // terceiro, etc). Cada upload cria uma nova linha 'contrato_arrendamento'.
+  const handleContratoAdd = async (file: File) => {
+    if (!user) return;
+    const isPdf = file.type === 'application/pdf';
+    const isImg = file.type.startsWith('image/');
+    if (!isPdf && !isImg) {
+      setTopError('O contrato deve ser um PDF ou uma imagem.');
+      return;
+    }
+    if (file.size > MAX_SIZE) {
+      setTopError('Arquivo muito grande. Máximo permitido: 5MB.');
+      return;
+    }
+    setUploadingDoc('contrato_arrendamento');
+    setTopError(null);
+    try {
+      const doc = await uploadDocument(user.id, 'contrato_arrendamento', file);
+      let url: string | undefined;
+      try {
+        url = await getSignedUrl(doc.id);
+      } catch {
+        // ignore
+      }
+      setContratoDocs((prev) => [
+        ...prev,
+        {
+          id: doc.id,
+          documentType: 'contrato_arrendamento',
+          fileName: doc.fileName,
+          fileSize: doc.fileSize,
+          mimeType: doc.mimeType,
+          uploadedAt: doc.uploadedAt,
+          status: doc.status ?? 'aprovado',
+          url,
+        },
+      ]);
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Erro no upload');
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
+
+  const handleContratoDelete = async (docId: string) => {
+    const doc = contratoDocs.find((d) => d.id === docId);
+    if (!doc || doc.status === 'aprovado') return;
+    if (!confirm('Deletar este contrato?')) return;
+    try {
+      await deleteDocument(doc.id);
+      setContratoDocs((prev) => prev.filter((d) => d.id !== docId));
+    } catch (err) {
+      setTopError(err instanceof Error ? err.message : 'Erro ao deletar');
+    }
+  };
+
   // ─── Handlers de referências ────────────────────────────────────────────
   const addReference = () => {
     setReferences((prev) => [
       ...prev,
-      { id: `tmp_${Date.now()}_${prev.length}`, companyName: '', phone: '', persisted: false },
+      {
+        id: `tmp_${Date.now()}_${prev.length}`,
+        companyName: '',
+        phone: '',
+        persisted: false,
+        ctePath: null,
+        cteName: null,
+        cteUrl: null,
+        ctePendingFile: null,
+      },
     ]);
     markDirty('dadosPessoais');
   };
@@ -1188,6 +1487,22 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
   const removeReference = (id: string) => {
     setReferences((prev) => prev.filter((r) => r.id !== id));
     markDirty('dadosPessoais');
+  };
+  /** Seleciona um arquivo de CT-e (PDF ou imagem) para uma referência. */
+  const pickReferenceCte = (id: string, file: File) => {
+    if (file.size > MAX_SIZE) {
+      setTopError('Arquivo muito grande. Máximo permitido: 5MB.');
+      return;
+    }
+    const isPdf = file.type === 'application/pdf';
+    const isImg = file.type.startsWith('image/');
+    if (!isPdf && !isImg) {
+      setTopError('O CT-e deve ser um PDF ou uma imagem.');
+      return;
+    }
+    // Prévia local imediata (objeto URL) até salvar e gerar a signed URL.
+    const localUrl = URL.createObjectURL(file);
+    updateReference(id, { ctePendingFile: file, cteName: file.name, cteUrl: localUrl });
   };
 
   // ─── Handler "Sou eu o proprietário" ────────────────────────────────────
@@ -1204,7 +1519,13 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     markDirty('proprietario');
   };
 
-  const countDocs = (types: string[]) => types.filter((t) => documents[t]).length;
+  // Após salvar com sucesso numa sub-tela (perfil/tracao/etc), volta ao menu
+  // do motorista — comportamento pedido pelo produto.
+  const redirectToMenuIfSubview = () => {
+    if (view !== 'all') {
+      setTimeout(() => navigate('/motorista/menu'), 600);
+    }
+  };
 
   // ─── Save Dados Pessoais ────────────────────────────────────────────────
   const handleSaveDadosPessoais = async () => {
@@ -1214,6 +1535,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     const trimmedName = name.trim();
     if (!trimmedName) errs.name = 'Informe seu nome completo';
     if (emailDirty) errs.email = 'Verifique o novo e-mail antes de salvar';
+    if (phone.trim() && !isValidPhoneBR(phone)) errs.phone = 'Telefone inválido (10 ou 11 dígitos)';
     if (pis && pis.length !== 11) errs.pis = 'PIS deve ter exatamente 11 dígitos';
     if (addressUf && !/^[A-Z]{2}$/.test(addressUf)) errs.addressUf = 'UF deve ter 2 letras';
 
@@ -1245,6 +1567,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     try {
       await updateMotoristaProfile(user.id, {
         name: trimmedName,
+        phone: sanitizePhone(phone) || undefined,
         cpf: cpf || undefined,
         rgNumber: rgNumber || undefined,
         addressCep: sanitizeCep(addressCep) || undefined,
@@ -1262,15 +1585,35 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           .upsert({ user_id: user.id, pis_number: pis }, { onConflict: 'user_id' });
       }
 
+      // Sobe os CT-e pendentes (novos arquivos) antes de regravar as referências.
+      const refsToSave: {
+        companyName: string;
+        phone: string;
+        ctePath?: string | null;
+        cteName?: string | null;
+      }[] = [];
+      for (const r of references) {
+        let ctePath = r.ctePath ?? null;
+        let cteName = r.cteName ?? null;
+        if (r.ctePendingFile) {
+          const up = await uploadReferenceCte(user.id, r.ctePendingFile);
+          ctePath = up.path;
+          cteName = up.name;
+        }
+        refsToSave.push({
+          companyName: r.companyName,
+          phone: sanitizePhone(r.phone),
+          ctePath,
+          cteName,
+        });
+      }
       // Replace-all de referências (filtra vazias dentro do service)
-      await replaceMotoristaReferences(
-        user.id,
-        references.map((r) => ({ companyName: r.companyName, phone: sanitizePhone(r.phone) }))
-      );
+      await replaceMotoristaReferences(user.id, refsToSave);
 
       setDirty((p) => ({ ...p, dadosPessoais: false }));
       setSecaoFeedback('dadosPessoais', { type: 'success', msg: 'Seção salva.' });
       setTimeout(() => setSecaoFeedback('dadosPessoais', null), 3000);
+      redirectToMenuIfSubview();
     } catch (err) {
       setSecaoFeedback('dadosPessoais', {
         type: 'error',
@@ -1371,6 +1714,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
       setDirty((p) => ({ ...p, veiculo: false }));
       setSecaoFeedback('veiculo', { type: 'success', msg: 'Seção salva.' });
       setTimeout(() => setSecaoFeedback('veiculo', null), 3000);
+      redirectToMenuIfSubview();
     } catch (err) {
       setSecaoFeedback('veiculo', {
         type: 'error',
@@ -1425,11 +1769,15 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     setDirty((p) => ({ ...p, contrato: false }));
     setSecaoFeedback('contrato', { type: 'success', msg: 'Seção salva.' });
     setTimeout(() => setSecaoFeedback('contrato', null), 3000);
+    redirectToMenuIfSubview();
   };
 
   // ─── Helper de rodapé "Salvar" por seção ────────────────────────────────
+  // Em sub-telas (perfil/tracao/etc) o botão Salvar vive no topo (ProfileTopBar),
+  // então aqui mostramos só o feedback. Na view 'all' mantém o botão no rodapé.
   const SectionFooter = ({ section, onSave }: { section: SecaoKey; onSave: () => void }) => {
     const fb = sectionFeedback[section];
+    const showButton = view === 'all';
     return (
       <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between gap-2 flex-wrap">
         {fb ? (
@@ -1447,19 +1795,34 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             {dirty[section] ? 'Há alterações não salvas' : '—'}
           </span>
         )}
-        <button
-          type="button"
-          onClick={onSave}
-          disabled={!dirty[section] || saving[section]}
-          className="min-h-[44px] px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving[section] ? 'Salvando...' : 'Salvar'}
-        </button>
+        {showButton && (
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={!dirty[section] || saving[section]}
+            className="min-h-[44px] px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving[section] ? 'Salvando...' : 'Salvar'}
+          </button>
+        )}
       </div>
     );
   };
 
   // ─── Render ─────────────────────────────────────────────────────────────────
+
+  // Mapeia a view atual para a seção/salvamento correspondente, para o botão
+  // "Salvar" do topo (fora do formulário) e o redirect ao menu após salvar.
+  const viewSaveMap: Partial<Record<MotoristaPerfilView, { section: SecaoKey; save: () => void }>> =
+    {
+      perfil: { section: 'dadosPessoais', save: handleSaveDadosPessoais },
+      referencias: { section: 'dadosPessoais', save: handleSaveDadosPessoais },
+      tracao: { section: 'veiculo', save: handleSaveVeiculo },
+      carroceria: { section: 'veiculo', save: handleSaveVeiculo },
+      complemento: { section: 'veiculo', save: handleSaveVeiculo },
+      contrato: { section: 'contrato', save: handleSaveContrato },
+    };
+  const currentSave = view !== 'all' ? viewSaveMap[view] : undefined;
 
   if (isLoading) {
     return (
@@ -1472,7 +1835,14 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <ProfileTopBar onBack={() => navigate(-1)} />
+      <ProfileTopBar
+        onBack={() => navigate(-1)}
+        onSave={currentSave ? currentSave.save : undefined}
+        saveDisabled={
+          currentSave ? !dirty[currentSave.section] || saving[currentSave.section] : false
+        }
+        saving={currentSave ? saving[currentSave.section] : false}
+      />
       <main className="max-w-3xl mx-auto px-3 sm:px-4 py-3">
         {topError && (
           <div
@@ -1493,9 +1863,6 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           >
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold text-gray-800">Dados Pessoais</h2>
-              <span className="text-[11px] text-gray-500">
-                {countDocs(TIPOS_PESSOAIS)}/{TIPOS_PESSOAIS.length} documentos
-              </span>
             </div>
 
             {/* Foto de perfil — compacta no canto direito + campos ao lado */}
@@ -1613,6 +1980,31 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 )}
                 {fieldErrors.email && (
                   <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.email}</p>
+                )}
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[11px] text-gray-600 mb-0.5">
+                  Telefone (WhatsApp)
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(formatPhoneBR(e.target.value));
+                    markDirty('dadosPessoais');
+                    setFieldErrors((p) => ({ ...p, phone: '' }));
+                  }}
+                  placeholder="(00) 0 0000-0000"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  maxLength={17}
+                  data-error={fieldErrors.phone ? 'true' : undefined}
+                  className={`w-full px-2.5 py-1.5 bg-white border rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                    fieldErrors.phone ? 'border-red-400' : 'border-gray-300'
+                  }`}
+                />
+                {fieldErrors.phone && (
+                  <p className="mt-0.5 text-[10px] text-red-600">{fieldErrors.phone}</p>
                 )}
               </div>
             </div>
@@ -1734,10 +2126,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             {/* Referências profissionais */}
             <div data-bloco="referencias" className="mt-3 pt-3 border-t border-gray-100">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold text-gray-700">
-                  Referências profissionais{' '}
-                  <span className="font-normal text-gray-400">(opcional)</span>
-                </h3>
+                <h3 className="text-xs font-semibold text-gray-700">Referências profissionais</h3>
                 <button
                   type="button"
                   onClick={addReference}
@@ -1755,6 +2144,10 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                   </svg>
                 </button>
               </div>
+              <p className="text-[11px] text-gray-500 mb-2">
+                Adicione transportadoras com quem você já carregou: nome, telefone e o CT-e daquele
+                frete (PDF ou foto). Toque no + para adicionar quantas quiser.
+              </p>
               {references.length === 0 ? (
                 <p className="text-[11px] text-gray-500">Nenhuma referência cadastrada ainda.</p>
               ) : (
@@ -1762,76 +2155,93 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                   {references.map((r) => (
                     <div
                       key={r.id}
-                      className="relative flex flex-col sm:flex-row gap-1.5 p-2 border border-gray-200 rounded-md bg-gray-50"
+                      className="relative flex flex-col gap-1.5 p-2 border border-gray-200 rounded-md bg-gray-50"
                     >
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={r.companyName}
-                          onChange={(e) =>
-                            updateReference(r.id, { companyName: e.target.value.slice(0, 80) })
-                          }
-                          onBlur={(e) =>
-                            updateReference(r.id, { companyName: capitalizeName(e.target.value) })
-                          }
-                          maxLength={80}
-                          placeholder="Nome da empresa"
-                          data-error={fieldErrors[`ref_${r.id}_name`] ? 'true' : undefined}
-                          className={`w-full px-2 py-1.5 bg-white border rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                            fieldErrors[`ref_${r.id}_name`] ? 'border-red-400' : 'border-gray-300'
-                          }`}
-                        />
-                        {fieldErrors[`ref_${r.id}_name`] && (
-                          <p className="mt-0.5 text-[10px] text-red-600">
-                            {fieldErrors[`ref_${r.id}_name`]}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-start gap-1.5">
+                      <div className="flex flex-col sm:flex-row gap-1.5">
                         <div className="flex-1">
                           <input
                             type="text"
-                            value={formatPhoneBR(r.phone)}
+                            value={r.companyName}
                             onChange={(e) =>
-                              updateReference(r.id, { phone: sanitizePhone(e.target.value) })
+                              updateReference(r.id, { companyName: e.target.value.slice(0, 80) })
                             }
-                            inputMode="tel"
-                            placeholder="(00) 00000-0000"
-                            data-error={fieldErrors[`ref_${r.id}_phone`] ? 'true' : undefined}
+                            onBlur={(e) =>
+                              updateReference(r.id, { companyName: capitalizeName(e.target.value) })
+                            }
+                            maxLength={80}
+                            placeholder="Nome da transportadora"
+                            data-error={fieldErrors[`ref_${r.id}_name`] ? 'true' : undefined}
                             className={`w-full px-2 py-1.5 bg-white border rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                              fieldErrors[`ref_${r.id}_phone`]
-                                ? 'border-red-400'
-                                : 'border-gray-300'
+                              fieldErrors[`ref_${r.id}_name`] ? 'border-red-400' : 'border-gray-300'
                             }`}
                           />
-                          {fieldErrors[`ref_${r.id}_phone`] && (
+                          {fieldErrors[`ref_${r.id}_name`] && (
                             <p className="mt-0.5 text-[10px] text-red-600">
-                              {fieldErrors[`ref_${r.id}_phone`]}
+                              {fieldErrors[`ref_${r.id}_name`]}
                             </p>
                           )}
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeReference(r.id)}
-                          aria-label="Remover referência"
-                          title="Remover"
-                          className="w-8 h-8 shrink-0 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        <div className="flex items-start gap-1.5">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={formatPhoneBR(r.phone)}
+                              onChange={(e) =>
+                                updateReference(r.id, { phone: sanitizePhone(e.target.value) })
+                              }
+                              inputMode="tel"
+                              placeholder="(00) 00000-0000"
+                              data-error={fieldErrors[`ref_${r.id}_phone`] ? 'true' : undefined}
+                              className={`w-full px-2 py-1.5 bg-white border rounded-md text-gray-800 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+                                fieldErrors[`ref_${r.id}_phone`]
+                                  ? 'border-red-400'
+                                  : 'border-gray-300'
+                              }`}
                             />
-                          </svg>
-                        </button>
+                            {fieldErrors[`ref_${r.id}_phone`] && (
+                              <p className="mt-0.5 text-[10px] text-red-600">
+                                {fieldErrors[`ref_${r.id}_phone`]}
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeReference(r.id)}
+                            aria-label="Remover referência"
+                            title="Remover"
+                            className="w-8 h-8 shrink-0 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                              />
+                            </svg>
+                          </button>
+                        </div>
                       </div>
+
+                      {/* CT-e da carga (PDF ou imagem) */}
+                      <ReferenceCteControl
+                        cteName={r.cteName}
+                        cteUrl={r.cteUrl}
+                        onPick={(file) => pickReferenceCte(r.id, file)}
+                        onClear={() =>
+                          updateReference(r.id, {
+                            ctePendingFile: null,
+                            cteName: null,
+                            ctePath: null,
+                            cteUrl: null,
+                          })
+                        }
+                      />
                     </div>
                   ))}
                 </div>
@@ -1850,10 +2260,15 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4 scroll-mt-20"
           >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-semibold text-gray-800">Veículo</h2>
-              <span className="text-[11px] text-gray-500">
-                {countDocs(TIPOS_VEICULO)}/{TIPOS_VEICULO.length} documentos
-              </span>
+              <h2 className="text-base font-semibold text-gray-800">
+                {view === 'tracao'
+                  ? 'Tração // Cavalo'
+                  : view === 'carroceria'
+                    ? 'Carroceria'
+                    : view === 'complemento'
+                      ? 'Complemento do Veículo'
+                      : 'Veículo'}
+              </h2>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2193,15 +2608,6 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                   onDelete={handleDocDelete}
                 />
               </div>
-              <div data-grupo="carroceria">
-                <DocSlot
-                  slot={{ type: 'crlv_carreta_1', label: 'CRLV da carreta 1', accept: PDF_IMG }}
-                  doc={documents.crlv_carreta_1}
-                  uploading={uploadingDoc === 'crlv_carreta_1'}
-                  onUpload={handleDocUpload}
-                  onDelete={handleDocDelete}
-                />
-              </div>
 
               {/* Tipo de RNTRC (ANTT) — Pessoa Física ou Jurídica */}
               <div
@@ -2245,90 +2651,89 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
 
               <div data-grupo="tracao">
                 <DocSlot
-                  slot={{ type: 'rntrc_cavalo', label: 'RNTRC do cavalo', accept: PDF_IMG }}
+                  slot={{ type: 'rntrc_cavalo', label: 'ANTT', accept: PDF_IMG }}
                   doc={documents.rntrc_cavalo}
                   uploading={uploadingDoc === 'rntrc_cavalo'}
                   onUpload={handleDocUpload}
                   onDelete={handleDocDelete}
                 />
               </div>
-              <div data-grupo="carroceria">
-                <DocSlot
-                  slot={{
-                    type: 'rntrc_carreta_1',
-                    label: 'RNTRC da carreta 1',
-                    accept: PDF_IMG,
-                    optional: true,
-                  }}
-                  doc={documents.rntrc_carreta_1}
-                  uploading={uploadingDoc === 'rntrc_carreta_1'}
-                  onUpload={handleDocUpload}
-                  onDelete={handleDocDelete}
-                />
-              </div>
+              {/* ── Carroceria: carretas (1..4), uma de cada vez ──────────── */}
+              <div data-grupo="carroceria" className="space-y-3">
+                {Array.from({ length: carretaCount }, (_, i) => i + 1).map((n) => {
+                  // Rótulo por posição: 1, 2, Dolly (3), Carreta 3 (4).
+                  // As CHAVES de documento (crlv_carreta_3/_4) são mantidas; só o
+                  // texto exibido muda.
+                  const isDolly = n === 3;
+                  const cardLabel = isDolly ? 'Dolly' : n === 4 ? 'Carreta 3' : `Carreta ${n}`;
+                  const crlvLabel = isDolly
+                    ? 'CRLV do Dolly'
+                    : `CRLV da ${cardLabel.toLowerCase()}`;
+                  const anttLabel = isDolly
+                    ? 'ANTT do Dolly'
+                    : `ANTT da ${cardLabel.toLowerCase()}`;
+                  return (
+                    <div
+                      key={`carreta-${n}`}
+                      className="relative rounded-lg border border-gray-200 p-3 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-gray-700">{cardLabel}</p>
+                        {/* X para remover — só na última e quando há mais de uma */}
+                        {n === carretaCount && carretaCount > 1 && (
+                          <button
+                            type="button"
+                            aria-label={`Remover ${cardLabel}`}
+                            title="Remover este item"
+                            onClick={async () => {
+                              // Remove documentos enviados desta carreta antes de ocultar.
+                              for (const t of [`crlv_carreta_${n}`, `rntrc_carreta_${n}`]) {
+                                if (documents[t]) await handleDocDelete(t);
+                              }
+                              setCarretaCount((c) => Math.max(1, c - 1));
+                            }}
+                            className="w-6 h-6 flex items-center justify-center rounded-full text-red-500 hover:bg-red-50"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                      <DocSlot
+                        slot={{
+                          type: `crlv_carreta_${n}`,
+                          label: crlvLabel,
+                          accept: PDF_IMG,
+                          optional: n > 1,
+                        }}
+                        doc={documents[`crlv_carreta_${n}`]}
+                        uploading={uploadingDoc === `crlv_carreta_${n}`}
+                        onUpload={handleDocUpload}
+                        onDelete={handleDocDelete}
+                      />
+                      <DocSlot
+                        slot={{
+                          type: `rntrc_carreta_${n}`,
+                          label: anttLabel,
+                          accept: PDF_IMG,
+                          optional: n > 1,
+                        }}
+                        doc={documents[`rntrc_carreta_${n}`]}
+                        uploading={uploadingDoc === `rntrc_carreta_${n}`}
+                        onUpload={handleDocUpload}
+                        onDelete={handleDocDelete}
+                      />
+                    </div>
+                  );
+                })}
 
-              <div data-grupo="carroceria">
-                {!showExtraCarretas && (
+                {carretaCount < 4 && (
                   <button
                     type="button"
-                    onClick={() => setShowExtraCarretas(true)}
+                    onClick={() => setCarretaCount((c) => Math.min(4, c + 1))}
                     className="text-[11px] text-blue-600 hover:underline"
                   >
                     + adicionar mais carretas
                   </button>
-                )}
-
-                {showExtraCarretas && (
-                  <>
-                    <DocSlot
-                      slot={{
-                        type: 'crlv_carreta_2',
-                        label: 'CRLV da carreta 2',
-                        accept: PDF_IMG,
-                        optional: true,
-                      }}
-                      doc={documents.crlv_carreta_2}
-                      uploading={uploadingDoc === 'crlv_carreta_2'}
-                      onUpload={handleDocUpload}
-                      onDelete={handleDocDelete}
-                    />
-                    <DocSlot
-                      slot={{
-                        type: 'rntrc_carreta_2',
-                        label: 'RNTRC da carreta 2',
-                        accept: PDF_IMG,
-                        optional: true,
-                      }}
-                      doc={documents.rntrc_carreta_2}
-                      uploading={uploadingDoc === 'rntrc_carreta_2'}
-                      onUpload={handleDocUpload}
-                      onDelete={handleDocDelete}
-                    />
-                    <DocSlot
-                      slot={{
-                        type: 'crlv_carreta_3',
-                        label: 'CRLV da carreta 3',
-                        accept: PDF_IMG,
-                        optional: true,
-                      }}
-                      doc={documents.crlv_carreta_3}
-                      uploading={uploadingDoc === 'crlv_carreta_3'}
-                      onUpload={handleDocUpload}
-                      onDelete={handleDocDelete}
-                    />
-                    <DocSlot
-                      slot={{
-                        type: 'crlv_carreta_4',
-                        label: 'CRLV da carreta 4',
-                        accept: PDF_IMG,
-                        optional: true,
-                      }}
-                      doc={documents.crlv_carreta_4}
-                      uploading={uploadingDoc === 'crlv_carreta_4'}
-                      onUpload={handleDocUpload}
-                      onDelete={handleDocDelete}
-                    />
-                  </>
                 )}
               </div>
 
@@ -2360,22 +2765,6 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
               </div>
             </div>
 
-            {/* Toggle proprietário */}
-            <div data-grupo="tracao" className="mt-4 pt-3 border-t border-gray-100">
-              <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isNotOwner}
-                  onChange={(e) => {
-                    setIsNotOwner(e.target.checked);
-                    markDirty('veiculo');
-                  }}
-                  className="rounded text-blue-600 focus:ring-2 focus:ring-blue-500"
-                />
-                <span>O caminhão NÃO é meu (é de outro proprietário)</span>
-              </label>
-            </div>
-
             <SectionFooter section="veiculo" onSave={handleSaveVeiculo} />
           </section>
 
@@ -2389,9 +2778,6 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
             >
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-semibold text-gray-800">Proprietário</h2>
-                <span className="text-[11px] text-gray-500">
-                  {countDocs(TIPOS_PROPRIETARIO)}/{TIPOS_PROPRIETARIO.length} documentos
-                </span>
               </div>
 
               <button
@@ -2501,7 +2887,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           )}
 
           {/* ──────────────────────────────────────────────────────────────────
-              SEÇÃO 4 — Contrato de Arrendamento (apenas se isNotOwner)
+              SEÇÃO 4 — Contratos de Arrendamento (apenas se isNotOwner)
               ────────────────────────────────────────────────────────────────── */}
           {isNotOwner && (
             <section
@@ -2509,39 +2895,102 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
               className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
             >
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold text-gray-800">Contrato de Arrendamento</h2>
-                <span className="text-[11px] text-gray-500">
-                  {countDocs(TIPOS_CONTRATO)}/{TIPOS_CONTRATO.length} documento
-                </span>
+                <h2 className="text-base font-semibold text-gray-800">Contratos de Arrendamento</h2>
+                <ContratoAddButton
+                  uploading={uploadingDoc === 'contrato_arrendamento'}
+                  onPick={handleContratoAdd}
+                />
               </div>
               <p className="text-[11px] text-gray-500 mb-3">
-                Anexe o contrato de arrendamento em PDF (máximo 5MB).
+                O contrato de arrendamento comprova que você usa uma carreta/cavalo alugado ou
+                emprestado de terceiro. Anexe em PDF ou foto (máximo 5MB cada). Toque no + para
+                adicionar quantos contratos precisar.
               </p>
-              <DocSlot
-                slot={{
-                  type: 'contrato_arrendamento',
-                  label: 'Contrato de arrendamento (PDF)',
-                  accept: PDF_ONLY,
-                }}
-                doc={documents.contrato_arrendamento}
-                uploading={uploadingDoc === 'contrato_arrendamento'}
-                onUpload={handleDocUpload}
-                onDelete={handleDocDelete}
-              />
+
+              {contratoDocs.length === 0 ? (
+                <p className="text-[11px] text-gray-500">Nenhum contrato adicionado ainda.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {contratoDocs.map((doc, idx) => (
+                    <li
+                      key={doc.id}
+                      className="flex items-center justify-between gap-2 p-2 bg-white border border-gray-200 rounded-md"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[12px] font-medium text-gray-800 leading-tight">
+                          Contrato {idx + 1}
+                          {doc.status === 'rejeitado' && (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-600 text-white">
+                              Recusado
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                          {doc.fileName}
+                          {doc.url && (
+                            <>
+                              {' · '}
+                              <a
+                                href={doc.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:underline"
+                              >
+                                ver
+                              </a>
+                            </>
+                          )}
+                        </p>
+                        {doc.status === 'rejeitado' && doc.rejectionReason && (
+                          <p className="text-[10px] text-red-600 mt-0.5">
+                            Motivo: {doc.rejectionReason}
+                          </p>
+                        )}
+                      </div>
+                      {doc.status !== 'aprovado' && (
+                        <button
+                          type="button"
+                          onClick={() => handleContratoDelete(doc.id)}
+                          aria-label="Remover contrato"
+                          title="Remover"
+                          className="w-8 h-8 shrink-0 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                            />
+                          </svg>
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <SectionFooter section="contrato" onSave={handleSaveContrato} />
             </section>
           )}
 
-          {/* Botão voltar */}
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              className="min-h-[44px] px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-            >
-              ← Voltar
-            </button>
-          </div>
+          {/* Botão voltar — só na view completa ('all'); nas sub-telas o
+              "Voltar" já vive no topo (ProfileTopBar). Evita botão duplicado. */}
+          {view === 'all' && (
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="min-h-[44px] px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                ← Voltar
+              </button>
+            </div>
+          )}
         </form>
       </main>
 
