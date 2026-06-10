@@ -79,3 +79,11 @@ supabase/.temp/
 
 # Local build artifacts/outputs (ad-hoc captures)
 build_out.txt
+
+# Backups do banco (gerados localmente; contem dados — NUNCA commitar)
+backups/
+*.sql.gz
+db_backup_*.sql
+
+# Ferramentas portáteis baixadas localmente (ex: pg_dump portátil)
+tools/

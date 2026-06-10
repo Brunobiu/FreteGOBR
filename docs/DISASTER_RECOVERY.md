@@ -112,15 +112,17 @@ Cenário: conta/repo suspenso, GitHub fora do ar, perda de acesso.
 Cenário: projeto Supabase corrompido, deletado ou fora do ar.
 
 **Pré-requisito (ação manual sua, recomendada AGORA):**
-- Ative **Point-in-Time Recovery (PITR)** ou backups diários no painel do
-  Supabase (Settings → Database → Backups). No plano free há apenas backup
-  limitado — considere um dump periódico manual:
-  ```bash
-  # Dump completo do schema + dados (rode periodicamente e guarde fora do Supabase)
-  supabase db dump --db-url "postgresql://...":  > backup_$(date +%Y%m%d).sql
+- No plano **free** o Supabase não faz backup automático. Faça **dump manual
+  periódico** com o script do projeto (ver §7 abaixo — passo a passo completo).
+  Em uma frase:
+  ```powershell
+  .\scripts\backup-db.ps1
   ```
+- Ao lançar com clientes reais, considere o plano **Pro (~US$ 25/mês)**, que
+  liga backup diário automático + PITR no painel (Settings → Database → Backups).
 
-**Restauração:**
+**Restauração:** ver §7.4 para restaurar a partir de um `.gz` gerado pelo script.
+Para recriar o projeto do zero:
 1. Criar um novo projeto Supabase (ou restaurar o existente via painel).
 2. Reaplicar as migrations em ordem a partir de `supabase/migrations/`:
    - Via integração GitHub (push na main reaplica), **ou**
@@ -174,7 +176,7 @@ Todas com degradação controlada — a queda de qualquer uma **não** derruba o
 | Espelhamento do repo a cada push | ✅ Sim (após setup) | Criar conta secundária, gerar PAT, cadastrar 2 secrets |
 | Reaplicar migrations no Supabase | ⚠️ Parcial | Via push GitHub↔Supabase; manual se o GitHub cair |
 | Deploy do frontend | ✅ Sim (Vercel) | Manual se a Vercel cair (§4.3) |
-| Backup do banco (PITR/dump) | ❌ Não | **Ativar no painel Supabase / rodar dump periódico** |
+| Backup do banco (dump) | ⚙️ Semi-auto | **Rodar `scripts/backup-db.ps1`** — ou agendar no Windows (§7.5) |
 | Backup do Storage | ❌ Não | Exportar arquivos periodicamente |
 | Cópia dos secrets do Vault/Edge | ❌ Não | Guardar cópia segura offline |
 | Documentação de recuperação | ✅ Sim | Manter este doc atualizado |
@@ -183,7 +185,7 @@ Todas com degradação controlada — a queda de qualquer uma **não** derruba o
 
 - [ ] Criar conta no GitLab/Codeberg e repo espelho.
 - [ ] Gerar PAT e cadastrar `MIRROR_REPO_URL` + `MIRROR_TOKEN` nos secrets do GitHub.
-- [ ] Ativar PITR/backup no Supabase (ou agendar dump periódico).
+- [ ] Ativar PITR/backup no Supabase (ou agendar dump periódico — ver §7.5).
 - [ ] Exportar e guardar offline: secrets do Vault/Edge e service key.
 - [ ] Testar uma restauração de dump em projeto Supabase de teste (fire drill).
 - [ ] Confirmar Redirect URLs do Supabase Auth para produção (ver pendência
@@ -197,3 +199,118 @@ Todas com degradação controlada — a queda de qualquer uma **não** derruba o
 - npm
 - Git
 - Supabase CLI (para restauração de banco/functions): `npm i -g supabase`
+
+---
+
+## 7. Backup manual do banco — guia completo
+
+No plano free do Supabase **não há backup automático**. Este projeto inclui
+dois scripts que resolvem isso sem precisar instalar nada com permissão de
+administrador e sem Docker:
+
+- `scripts/setup-pgdump.ps1` — baixa um **pg_dump portátil** (binários oficiais
+  do PostgreSQL) para `tools/pgsql/`. Roda **uma única vez**.
+- `scripts/backup-db.ps1` — gera o backup completo (schema + dados) num arquivo
+  `.sql` comprimido (`.gz`) dentro de `backups/`. Roda sempre que quiser.
+
+As pastas `tools/` e `backups/` são **gitignored** — nada disso vai pro Git.
+
+### 7.1 — Pré-requisito: a connection string (uma vez)
+
+O script lê a string de conexão, nesta ordem:
+
+1. Variável de ambiente `SUPABASE_DB_URL`; ou
+2. Arquivo `Credencial/supabase_db_url.txt` (gitignored), com a string numa
+   única linha.
+
+Onde pegar: painel Supabase → botão **Connect** → aba **Session pooler**
+(porta 5432) → copie a URL e **troque `[YOUR-PASSWORD]` pela senha real do
+banco** (Settings → Database → Database password; se esqueceu, clique em
+*Reset database password*).
+
+> A senha pode conter caracteres especiais (`@`, `:`, `#`, etc). O script
+> separa a senha da URL e a passa de forma segura via `PGPASSWORD`, então
+> não há problema.
+
+### 7.2 — Primeira vez (instalar o pg_dump portátil)
+
+```powershell
+.\scripts\setup-pgdump.ps1
+```
+
+Baixa ~300 MB e extrai para `tools/pgsql/`. Só precisa fazer isso uma vez
+(ou se trocar de computador).
+
+### 7.3 — Fazer um backup (sempre que quiser)
+
+```powershell
+.\scripts\backup-db.ps1
+```
+
+Gera `backups\db_backup_AAAAMMDD_HHmm.sql.gz`. Mantém automaticamente os **10
+backups mais recentes** e apaga os antigos (ajustável com `-KeepLast`).
+
+> **Importante:** a pasta `backups\` fica só no seu computador. De tempos em
+> tempos, copie o `.gz` mais recente para um lugar **fora do PC**: Google Drive,
+> OneDrive, Dropbox ou um HD externo. Se o computador morrer, o backup precisa
+> sobreviver em outro lugar.
+
+### 7.4 — Restaurar um backup
+
+Para restaurar num projeto Supabase (novo ou existente):
+
+```powershell
+# 1. Descomprimir o .gz desejado
+$gz = ".\backups\db_backup_AAAAMMDD_HHmm.sql.gz"
+$sql = $gz -replace '\.gz$',''
+$in = [IO.File]::OpenRead($gz)
+$g  = New-Object IO.Compression.GzipStream($in, [IO.Compression.CompressionMode]::Decompress)
+$out = [IO.File]::Create($sql)
+$g.CopyTo($out); $out.Close(); $g.Close(); $in.Close()
+
+# 2. Restaurar com o psql portátil (mesma pasta do pg_dump), usando a
+#    connection string do banco DESTINO:
+$env:PGPASSWORD = "<senha-do-banco-destino>"
+$env:PGSSLMODE  = "require"
+.\tools\pgsql\bin\psql.exe --host=<host> --port=5432 --username=<usuario> --dbname=postgres --file=$sql
+Remove-Item Env:\PGPASSWORD
+```
+
+> Restaurar **sobrescreve** dados. Faça em projeto de teste antes de mexer em
+> produção. O dump usa `--no-owner --no-privileges`, então é portável entre
+> projetos Supabase diferentes.
+
+### 7.5 — Como NÃO esquecer de rodar
+
+Backup manual só protege se for feito com regularidade. Opções, da mais
+confiável para a menos:
+
+**Opção A — Agendar automático no Windows (recomendado).** O Windows roda o
+script sozinho, sem você lembrar. Crie a tarefa (uma vez, num PowerShell comum):
+
+```powershell
+$projeto = "c:\Users\bruno\BRUNO\Meus Projetos\FreteGO\FreteGO"
+$acao = New-ScheduledTaskAction -Execute "powershell.exe" `
+  -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$projeto\scripts\backup-db.ps1`"" `
+  -WorkingDirectory $projeto
+# Toda segunda-feira às 10h:
+$gatilho = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Monday -At 10:00
+Register-ScheduledTask -TaskName "FreteGO Backup Semanal" -Action $acao -Trigger $gatilho `
+  -Description "Backup semanal do banco Supabase do FreteGO"
+```
+
+Depois é só conferir a pasta `backups\` de vez em quando. Para remover a
+tarefa: `Unregister-ScheduledTask -TaskName "FreteGO Backup Semanal"`.
+
+**Opção B — Lembrete manual.** Coloque um lembrete recorrente no celular
+(ex: toda segunda) com o texto: *"Rodar `.\scripts\backup-db.ps1` no FreteGO e
+subir o .gz pro Drive"*.
+
+**Opção C — Antes de mudanças grandes.** Independente do agendamento, rode um
+backup manual **sempre antes** de aplicar uma migration grande, mexer em dados
+em massa ou fazer qualquer operação arriscada no banco.
+
+> Frequência sugerida enquanto está em plano free: **semanal** + **antes de
+> mudanças grandes**. Ao ter clientes reais e movimento diário de dados, migre
+> para o plano Pro (backup diário automático) — backup manual semanal não
+> basta quando há dados novos importantes todo dia.
