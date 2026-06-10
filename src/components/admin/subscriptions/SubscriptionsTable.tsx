@@ -18,6 +18,7 @@ import {
 } from '../../../services/admin/subscriptions';
 
 const STATUS_BADGE: Record<SubscriptionStatus, string> = {
+  pending: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
   active: 'bg-green-500/15 text-green-300 border-green-500/30',
   past_due: 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30',
   suspended: 'bg-red-500/15 text-red-300 border-red-500/30',

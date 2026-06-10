@@ -180,7 +180,7 @@ sobrescreve `is_admin` com a verdade do servidor (`users.is_superuser` ou
 | R7 | isolamento entre usuários | — | ✅ verificado (sólido) |
 | R8b | webhook Asaas + edges | — | ✅ verificado (auth ok) |
 | R9 | RPCs admin | — | ✅ verificado (guard ok) |
-| R10 | status active prematuro | 🟡 | 📋 registrado (cosmético) |
+| R10 | status active prematuro | 🟡 | ✅ corrigido (083) |
 
 **3 críticos + 1 alto + 2 médios/baixos corrigidos; 5 áreas verificadas.**
 
@@ -221,7 +221,16 @@ exige `user_type='motorista'`. Seguro.
 - `assistant-ai`, `meta-marketing-read`, `asaas-create-subscription`:
   `verify_jwt:true` (exigem JWT de usuário).
 
-## R10 🟡 — `create-subscription` grava `subscriptions.status='active'` antes do pagamento
+## R10 ✅ RESOLVIDO — `create-subscription` gravava `active` antes do pagamento
+
+Migration 083 adiciona `pending` ao CHECK de `subscriptions.status`. A edge
+`asaas-create-subscription` (redeployada, v4) passa a gravar `status='pending'`
+no checkout; o webhook (`subscription_mark_paid`) promove para `active` só na
+confirmação real. Admin: label "Aguardando pagamento" + badge azul; tipo
+`SubscriptionStatus` estendido. Não afeta acesso (gate lê `users`, não
+`subscriptions`). tsc/build limpos; 232 testes passando.
+
+## R10-original 🟡 — `create-subscription` grava `subscriptions.status='active'` antes do pagamento
 
 **Não é falha de segurança** (o gate de acesso `motorista_can_interact` lê
 `users.subscription_status`/`is_subscribed`, que essa função NÃO altera — só o

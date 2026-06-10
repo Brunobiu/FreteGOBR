@@ -213,7 +213,7 @@ serve(async (req) => {
         user_id: authUser.id,
         plan,
         payment_method: paymentMethod,
-        status: 'active', // provisório; webhook reconcilia (mark_paid/past_due)
+        status: 'pending', // aguarda confirmação do pagamento; webhook promove para 'active' (mark_paid)
         auto_recurring: paymentMethod === 'credit_card',
         started_at: startedAt,
         next_charge_at: null,

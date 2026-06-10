@@ -21,7 +21,7 @@ import { supabase } from '../supabase';
 export type SubscriptionGroup = 'a_vencer' | 'pagas' | 'inadimplentes' | 'todos';
 
 /** Status cru da assinatura (subscriptions.status). */
-export type SubscriptionStatus = 'active' | 'past_due' | 'suspended' | 'canceled';
+export type SubscriptionStatus = 'pending' | 'active' | 'past_due' | 'suspended' | 'canceled';
 
 export type SubscriptionSort = 'next_charge_asc' | 'next_charge_desc' | 'started_desc';
 
@@ -188,6 +188,7 @@ const METHOD_LABELS: Record<SubscriptionRow['payment_method'], string> = {
 };
 
 const STATUS_LABELS: Record<SubscriptionStatus, string> = {
+  pending: 'Aguardando pagamento',
   active: 'Ativa',
   past_due: 'Em atraso',
   suspended: 'Suspensa',
