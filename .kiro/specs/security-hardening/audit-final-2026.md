@@ -148,6 +148,50 @@ SUBIR `email_verified` para `true` (só o fluxo de verificação via RPC definer
 faz isso). Verificado: trocar email ⇒ email_verified=false; cliente não
 consegue setar true; guard financeiro intacto. 97 testes passando.
 
+## R11 ✅ RESOLVIDO — Impersonação de "Suporte" no chat (`is_admin` controlado pelo cliente)
+
+**Evidência:** `chat.ts > sendMessage` recebe `isAdmin` e insere direto em
+`chat_messages.is_admin`; a RLS de INSERT só valida `sender_id=auth.uid()`, não
+o valor de `is_admin`. Um usuário comum numa conversa de suporte podia inserir
+mensagem com `is_admin=true` e se passar por "Suporte FreteGO" (phishing — ex:
+pedir senha). A tabela `messages` (motorista↔embarcador) não tem `is_admin`.
+
+**Correção:** Migration 082 — trigger BEFORE INSERT `chat_messages_set_is_admin`
+sobrescreve `is_admin` com a verdade do servidor (`users.is_superuser` ou
+`user_type='admin'` do remetente). Cliente não decide mais.
+
+**Validação (rollback):** usuário comum inserindo `is_admin=true` ⇒ gravado como
+`false`. Impersonação bloqueada.
+
+---
+
+# RESUMO FINAL DA AUDITORIA
+
+| # | Achado | Sev | Status |
+|---|--------|-----|--------|
+| R1 | UPDATE direto em `users` (escalonamento/bypass) | 🔴 | ✅ corrigido (077) |
+| R3 | INSERT forja privilégio no cadastro | 🔴 | ✅ corrigido (078) |
+| R8 | RPCs financeiras executáveis pelo cliente | 🔴 | ✅ corrigido (079) |
+| R11 | Impersonação de Suporte no chat | 🟠 | ✅ corrigido (082) |
+| R4 | search_path em RPCs definer | ⚪ | ✅ corrigido (080) |
+| R6 | troca de email não revertia verificação | 🟡 | ✅ corrigido (081) |
+| R2 | tabelas RLS sem policy | ⚪ | ✅ verificado (seguro) |
+| R5 | storage buckets | ⚪ | ✅ verificado (privados ok) |
+| R7 | isolamento entre usuários | — | ✅ verificado (sólido) |
+| R8b | webhook Asaas + edges | — | ✅ verificado (auth ok) |
+| R9 | RPCs admin | — | ✅ verificado (guard ok) |
+| R10 | status active prematuro | 🟡 | 📋 registrado (cosmético) |
+
+**3 críticos + 1 alto + 2 médios/baixos corrigidos; 5 áreas verificadas.**
+
+## Pendências NÃO-código (responsabilidade do usuário / operacional)
+- `ASAAS_WEBHOOK_TOKEN`, `EDGE_SHARED_SECRET`, `SERVICE_ROLE_KEY` setados e
+  fortes em produção (são as chaves que protegem pagamento/edges).
+- Habilitar "Leaked Password Protection" no Supabase Auth (advisor) — opcional.
+- R10 (cosmético): decidir se `create-subscription` deve gravar `pending` em vez
+  de `active` antes do webhook confirmar.
+- Hardening opcional R5: mime/size limit nos buckets públicos sem limite.
+
 ## R8b ✅ VERIFICADO — Webhook Asaas (autenticidade + idempotência) e demais edges
 
 Agora que o pagamento só é destravado por `service_role`, auditei a edge
