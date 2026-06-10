@@ -34,7 +34,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.ibge.gov.br https://nominatim.openstreetmap.org https://router.project-osrm.org https://api.open-meteo.com https://brasilapi.com.br https://viacep.com.br; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.ibge.gov.br https://nominatim.openstreetmap.org https://router.project-osrm.org https://api.open-meteo.com https://brasilapi.com.br https://viacep.com.br; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
         }
       ]
     }
