@@ -95,6 +95,31 @@ RLS habilitado + nenhuma policy = deny total para `authenticated`/`anon`.
 São acessadas apenas por RPC `SECURITY DEFINER`/backend. **Ação:** nenhuma;
 manter default-deny (não adicionar policy nem GRANT amplo).
 
+## R8 🔴 RESOLVIDO — RPCs financeiras executáveis por qualquer usuário (bypass + sabotagem)
+**Evidência (banco):** `subscription_mark_paid`, `subscription_mark_past_due`,
+`subscription_suspend`, `subscription_reactivate` são `SECURITY DEFINER`,
+recebem `p_user_id` arbitrário, **não checam `auth.uid()` nem admin nem segredo
+de webhook**, e têm `EXECUTE` concedido a `anon` E `authenticated` (a 057 fez
+`REVOKE ALL FROM PUBLIC`, mas o default privilege do Supabase re-concedeu a
+anon/authenticated).
+
+**Exploits:**
+- `subscription_mark_paid('<meu_id>')` ⇒ assinatura paga grátis (active,
+  is_subscribed=true, ciclo avançado).
+- `subscription_suspend('<id_de_outro>')` / `subscription_mark_past_due(...)`
+  ⇒ suspende/bloqueia a conta de qualquer outro usuário (sabotagem/DoS de conta).
+
+**Chamadores legítimos:** apenas o webhook Asaas (edge function, `service_role`)
+e o cron `run_billing_notifications` (definer, owner postgres). Nenhuma chamada
+do frontend (grep confirmou). `cancel_my_subscription` é a única voltada ao
+usuário e já tem guard `auth.uid()`.
+
+**Correção:** Migration 079 — `REVOKE EXECUTE ... FROM anon, authenticated,
+PUBLIC` nas 4 RPCs de transição, mantendo `service_role` e `postgres`. Defesa em
+profundidade: bloquear execução quando `current_user IN ('authenticated','anon')`.
+
+**Rollback:** `079_..._rollback.sql` (re-concede — NÃO recomendado).
+
 ## R7 ✅ VERIFICADO — Isolamento entre usuários (read/write cruzado)
 
 Auditadas as policies e testado acesso cruzado real como cliente
