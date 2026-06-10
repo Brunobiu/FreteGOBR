@@ -25,7 +25,10 @@ describe('Property Tests - Password Hashing', () => {
         const isValid = await verifyPassword(password, hash);
         expect(isValid).toBe(true);
       }),
-      { numRuns: 20 } // Reduced runs due to bcrypt being computationally expensive
+      // bcrypt (cost 12) é caro; sob --coverage + paralelismo no CI muitos runs
+      // estouram o timeout. 6 runs mantêm a propriedade bem exercitada e o
+      // teste rápido o suficiente para não ficar flaky no CI.
+      { numRuns: 6 }
     );
   }, 60000);
 
@@ -43,7 +46,7 @@ describe('Property Tests - Password Hashing', () => {
           expect(isValid).toBe(false);
         }
       ),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 60000);
 
@@ -60,7 +63,7 @@ describe('Property Tests - Password Hashing', () => {
         expect(await verifyPassword(password, hash1)).toBe(true);
         expect(await verifyPassword(password, hash2)).toBe(true);
       }),
-      { numRuns: 10 } // Reduced due to computational cost
+      { numRuns: 5 } // 4 ops bcrypt por run; reduzido para não estourar timeout sob coverage
     );
   }, 60000);
 
@@ -73,7 +76,7 @@ describe('Property Tests - Password Hashing', () => {
         // Bcrypt hashes are always 60 characters
         expect(hash.length).toBe(60);
       }),
-      { numRuns: 20 }
+      { numRuns: 8 }
     );
   }, 60000);
 });

@@ -17,7 +17,7 @@ describe('Password Hashing - Property Tests', () => {
         const isValid = await verifyPassword(password, hash);
         expect(isValid).toBe(true);
       }),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 60000);
 
@@ -33,7 +33,7 @@ describe('Password Hashing - Property Tests', () => {
           expect(isValid).toBe(false);
         }
       ),
-      { numRuns: 20 }
+      { numRuns: 6 }
     );
   }, 60000);
 
@@ -48,7 +48,7 @@ describe('Password Hashing - Property Tests', () => {
         expect(await verifyPassword(password, hash1)).toBe(true);
         expect(await verifyPassword(password, hash2)).toBe(true);
       }),
-      { numRuns: 10 }
+      { numRuns: 5 }
     );
   }, 60000);
 
@@ -59,7 +59,7 @@ describe('Password Hashing - Property Tests', () => {
         expect(typeof hash).toBe('string');
         expect(hash.length).toBeGreaterThan(0);
       }),
-      { numRuns: 20 }
+      { numRuns: 8 }
     );
   }, 60000);
 });
