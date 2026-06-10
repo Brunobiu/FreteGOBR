@@ -120,6 +120,44 @@ profundidade: bloquear execução quando `current_user IN ('authenticated','anon
 
 **Rollback:** `079_..._rollback.sql` (re-concede — NÃO recomendado).
 
+## R8b ✅ VERIFICADO — Webhook Asaas (autenticidade + idempotência) e demais edges
+
+Agora que o pagamento só é destravado por `service_role`, auditei a edge
+`asaas-webhook` (a única porta que confirma pagamento):
+- **Autenticidade:** valida header `asaas-access-token` contra
+  `ASAAS_WEBHOOK_TOKEN` com comparação de tempo constante (`safeEq`); 401 em
+  divergência; **fail-closed** se o secret não estiver setado. POST forjado sem
+  o token é rejeitado.
+- `verify_jwt: false` é correto (Asaas não envia JWT Supabase); a auth é o token.
+- **Idempotência:** INSERT em `asaas_webhook_events` com `asaas_event_id` UNIQUE;
+  duplicado ⇒ 200 sem efeito.
+- Usa `SERVICE_ROLE_KEY` (escreve ignorando RLS) — correto.
+**Ação:** nenhuma. ⚠️ Operacional: garantir que `ASAAS_WEBHOOK_TOKEN` esteja
+realmente setado no ambiente de produção (sem ele, fail-closed = nenhum
+pagamento confirma; com valor fraco = risco). Não dá pra ler o valor pelo MCP.
+
+`asaas-create-subscription`: valida JWT do usuário, fixa
+`externalReference = authUser.id` (impede redirecionar confirmação para outro),
+exige `user_type='motorista'`. Seguro.
+
+**Demais edges (`verify_jwt:false`):** todas exigem `Authorization: Bearer
+<SERVICE_ROLE_KEY>` (ou `EDGE_SHARED_SECRET`), 401 caso contrário:
+- `send-push-notification` ✅ (chamada via pg_net/trigger com service-role).
+- `send-verification-email` ✅ (service-role OU edge-shared-secret).
+- `meta-capi-forward`, `assistant-monitor`: mesmo padrão Bearer-secret; não são
+  caminho financeiro/privilégio. Auditoria detalhada de baixa prioridade.
+- `assistant-ai`, `meta-marketing-read`, `asaas-create-subscription`:
+  `verify_jwt:true` (exigem JWT de usuário).
+
+## R10 🟡 — `create-subscription` grava `subscriptions.status='active'` antes do pagamento
+
+**Não é falha de segurança** (o gate de acesso `motorista_can_interact` lê
+`users.subscription_status`/`is_subscribed`, que essa função NÃO altera — só o
+webhook altera após confirmação real). Porém é incorreção de dado: um checkout
+PIX/boleto ainda `pending` aparece como assinatura `active` em `subscriptions`
+(pode enganar UI/`list_my_charges`). Sugestão: gravar `status='past_due'` ou
+um estado `pending` até o webhook confirmar. Decisão do usuário; não bloqueia.
+
 ## R9 ✅ VERIFICADO — RPCs administrativas têm guard interno
 
 As 15 RPCs admin sinalizadas pelo advisor (`admin_delete_user`,
