@@ -1,0 +1,54 @@
+name: Mirror
+
+# Espelha o repositório para um remoto secundário (GitLab/Gitea/Codeberg) a
+# cada push na main. Camada de redundância: se o GitHub ficar indisponível,
+# existe uma cópia íntegra e atualizada em outra plataforma.
+#
+# Ver docs/DISASTER_RECOVERY.md para o procedimento de recuperação.
+#
+# AÇÃO MANUAL NECESSÁRIA (uma vez): configurar os secrets abaixo em
+# GitHub → Settings → Secrets and variables → Actions:
+#   - MIRROR_REPO_URL : URL HTTPS do repo secundário
+#                       (ex: https://gitlab.com/seu-usuario/fretego.git)
+#   - MIRROR_TOKEN    : Personal Access Token do GitLab/Gitea com escopo de
+#                       escrita (write_repository). NUNCA hardcoded aqui.
+
+on:
+  push:
+    branches: [main]
+  # Permite disparo manual pela aba Actions.
+  workflow_dispatch:
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout completo (todos os refs)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validar secrets de mirror
+        env:
+          MIRROR_REPO_URL: ${{ secrets.MIRROR_REPO_URL }}
+        run: |
+          if [ -z "$MIRROR_REPO_URL" ]; then
+            echo "::error::Secret MIRROR_REPO_URL ausente. Configure-o em" \
+              "Settings > Secrets and variables > Actions para ativar o espelhamento." \
+              "Veja docs/DISASTER_RECOVERY.md."
+            exit 1
+          fi
+
+      - name: Espelhar para o remoto secundário
+        env:
+          MIRROR_REPO_URL: ${{ secrets.MIRROR_REPO_URL }}
+          MIRROR_TOKEN: ${{ secrets.MIRROR_TOKEN }}
+        run: |
+          # Monta a URL autenticada sem vazar o token nos logs.
+          # Formato: https://oauth2:<token>@host/caminho.git
+          # Remove o prefixo https:// e reanexa com as credenciais embutidas.
+          host_path="${MIRROR_REPO_URL#https://}"
+          remote_url="https://oauth2:${MIRROR_TOKEN}@${host_path}"
+          git remote add mirror "$remote_url"
+          # --mirror replica todos os branches e tags exatamente como no origin.
+          git push --mirror mirror
