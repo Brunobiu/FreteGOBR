@@ -50,14 +50,42 @@ disparar. Corrigido para `SECURITY INVOKER`.
 
 ---
 
+## R3 🔴 RESOLVIDO — Forja de privilégio/financeiro no INSERT de cadastro (`users`)
+
+**Evidência:** `users_insert_policy` = `WITH CHECK (true)` e o único trigger de
+INSERT relevante (`users_set_trial_defaults`) só preenche `trial_ends_at`.
+Nenhuma sanitização de colunas sensíveis.
+
+**Exploit (provado em transação, rollback):** um usuário no fluxo de cadastro
+(role `authenticated`, com sessão recém-criada) faz o INSERT da própria linha
+incluindo `is_superuser=true, subscription_status='active', is_subscribed=true`
+— e o registro nasce assim. Pior que R1: `is_superuser=true` é exatamente o que
+`admin/auth.ts` (`adminLogin`/`validate_admin_session`) checa no gate de acesso
+ao painel; `subscription_status='active'` dá assinatura grátis.
+
+**Correção:** Migration 078 — trigger `users_guard_insert` (**SECURITY INVOKER**)
+que, quando `current_user IN ('authenticated','anon')`:
+- pina `id := auth.uid()` (anon sem uid ⇒ rejeita);
+- valida `user_type IN ('motorista','embarcador')` (bloqueia `admin`);
+- força defaults seguros: `is_superuser=false`, `admin_username=null`,
+  `is_subscribed=false`, `subscription_status='trial'`, `documents_blocked=false`,
+  `is_active=true`, `ban_reason/banned_at/banned_by=null`,
+  `trial_ends_at=null` (deixa `users_set_trial_defaults` recomputar);
+- `email_verified` é deixado como o cliente envia (forjá-lo é baixa severidade —
+  apenas marca email como verificado, sem ganho financeiro/privilégio; o fluxo
+  real de verificação usa `signup_email_verifications`). Tratado como R6.
+
+**Validação:** INSERT do cliente com colunas forjadas ⇒ valores sobrescritos
+para defaults seguros; cadastro legítimo (motorista/embarcador) segue
+funcionando.
+
+**Rollback:** `078_..._rollback.sql`.
+
 ## Próximos findings (recon em andamento)
 
 - R2 🟡 `companies`, `company_embarcadores`, `asaas_webhook_events`,
   `support_ticket_attempts`: RLS ON, 0 policies. Confirmar acesso só por
   backend/definer (default-deny = ok) vs. rota cliente.
-- R3 🟡 INSERT com `WITH CHECK (true)` em `users`/`motoristas`/`embarcadores`:
-  o guard R1 cobre UPDATE; validar que o cadastro (INSERT) não forja
-  `user_type`/`is_superuser`/colunas financeiras na criação.
 - R6 🟡 Troca de email pelo cliente — R1 impede mudar `email_verified`; mapear
   o fluxo completo de troca de email.
 - R7 Isolamento de leitura/escrita cruzada: `documents`, `motoristas`,
