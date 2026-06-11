@@ -344,7 +344,7 @@ export function getAvailablePlans(userType: 'motorista' | 'embarcador'): Plan[] 
  * Retorna a assinatura atual do usuário (placeholder)
  * Sempre retorna plano gratuito até que pagamentos sejam implementados
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 export async function getCurrentSubscription(_userId: string): Promise<Subscription | null> {
   // Placeholder: sempre retorna null (plano gratuito)
   // Quando implementar, buscar do banco de dados
@@ -356,9 +356,8 @@ export async function getCurrentSubscription(_userId: string): Promise<Subscript
  * Sempre retorna false até que pagamentos sejam implementados
  */
 export async function hasFeatureAccess(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   _feature: string
 ): Promise<boolean> {
   // Placeholder: sempre retorna false
@@ -371,9 +370,8 @@ export async function hasFeatureAccess(
  * Sempre retorna false até que pagamentos sejam implementados
  */
 export async function checkPlanLimit(
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _userId: string,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   _limitType: 'fretesPerMonth' | 'contactsPerDay'
 ): Promise<{ exceeded: boolean; current: number; limit: number }> {
   // Placeholder: sempre retorna não excedido

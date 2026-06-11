@@ -25,7 +25,7 @@ export default class MapaFretesBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error) {
     // Logamos no console para debug, mas não engasgamos a UI inteira.
-    // eslint-disable-next-line no-console
+
     console.warn('[MapaFretesBoundary] Mapa crashou e foi escondido:', error);
   }
 

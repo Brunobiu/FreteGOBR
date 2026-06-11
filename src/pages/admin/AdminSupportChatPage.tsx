@@ -87,7 +87,6 @@ export default function AdminSupportChatPage() {
     if (selectedId) loadMessages(selectedId);
     setReplyText('');
     setFeedback(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
   const handleReply = async (e: React.FormEvent) => {

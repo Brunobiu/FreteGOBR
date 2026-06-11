@@ -172,7 +172,6 @@ export function ModalVerificacaoEmail({
           <div className="flex justify-center gap-2 my-6">
             {digits.map((digit, index) => (
               <input
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 key={index}
                 ref={(el) => (inputsRef.current[index] = el)}
                 type="text"

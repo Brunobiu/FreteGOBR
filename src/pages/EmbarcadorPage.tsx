@@ -125,37 +125,12 @@ export default function EmbarcadorPage() {
     const freteId = data.id as string | undefined;
     if (!freteId) return;
     const { updateFrete } = await import('../services/fretes');
-    await updateFrete(freteId, {
-      origin: data.origin,
-      originLocation: data.originLocation,
-      destination: data.destination,
-      destinationLocation: data.destinationLocation,
-      cargoType: data.cargoType,
-      product: data.product,
-      productSlug: data.productSlug as string | null | undefined,
-      cargoSpecies: data.cargoSpecies,
-      vehicleType: data.vehicleType,
-      weight: data.weight,
-      value: data.value,
-      deadline: data.deadline,
-      loadingTime: data.loadingTime,
-      unloadingTime: data.unloadingTime,
-      specifications: data.specifications,
-      onuNumber: data.onuNumber,
-      temperature: data.temperature,
-      weightUnit: data.weightUnit,
-      freightType: data.freightType,
-      occupancyPercentage: data.occupancyPercentage,
-      bodyTypes: data.bodyTypes,
-      requiresLona: data.requiresLona,
-      requiresTracker: data.requiresTracker,
-      requiresInsurance: data.requiresInsurance,
-      valueKnown: data.valueKnown,
-      priceCalculation: data.priceCalculation,
-      paymentMethods: data.paymentMethods,
-      advancePercentage: data.advancePercentage,
-      distanceKm: data.distanceKm as number | undefined,
-    });
+    // Repassa o payload inteiro do formulário. `updateFrete` só lê as chaves
+    // conhecidas (ignora `id`/`embarcadorId`), então não há risco em mandar
+    // tudo — e isso garante PARIDADE com a criação: nenhum campo fica de fora
+    // da edição por esquecimento. (Bug histórico: local de carregamento/entrega
+    // e pins do mapa não salvavam ao editar porque eram listados na mão.)
+    await updateFrete(freteId, data as Parameters<typeof updateFrete>[1]);
     setIsFormOpen(false);
     setEditingFrete(null);
     await loadFretes();

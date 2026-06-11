@@ -101,7 +101,6 @@ export default function BlacklistDetailPage() {
       );
       setReloadKey((k) => k + 1);
     } catch (err) {
-      // eslint-disable-next-line no-alert
       alert((err as Error).message ?? 'Falha ao reativar.');
     } finally {
       setReactivating(false);

@@ -35,7 +35,6 @@ export default function BlacklistRemoveModal({ entry, onClose, onRemoved }: Prop
         reason: reason.trim() ? reason.trim() : undefined,
       });
       if ('skipped' in result && result.skipped) {
-        // eslint-disable-next-line no-alert
         window.alert('Esta entrada já estava removida.');
         onRemoved();
         onClose();

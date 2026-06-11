@@ -2,16 +2,18 @@ import { useEffect, useState } from 'react';
 import type { Frete } from '../services/fretes';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { getDocumentsByUser } from '../services/documents';
-import { getEmbarcadorProfile } from '../services/embarcador';
+import { getDocumentsByUser, resolveProfilePhotoUrl } from '../services/documents';
+import { getEmbarcadorPublicCard } from '../services/embarcador';
+import { formatCnpj } from '../services/cnpj';
+import { listActiveCommodities } from '../services/commodities';
 import { getOrCreateFreteConversation } from '../services/chatFrete';
 import type { MotoristaCalcContext } from '../services/motorista';
 import { calculateFreteFinanceiro, formatCurrencyBRL } from '../utils/calculoFrete';
 import { buildWhatsAppDeepLink } from '../utils/communityFrete';
-import { googleMapsUrl } from '../utils/coordParser';
 import { vehicleTypesCsvLabel } from '../data/vehicleTypes';
 import { bodyTypesCsvLabel } from '../data/bodyTypes';
 import FreteMiniMap from './FreteMiniMap';
+import RotaTimeline from './RotaTimeline';
 import FreteRetornoModal from './FreteRetornoModal';
 
 const REQUIRED_DOCS = [
@@ -60,9 +62,13 @@ export default function FreteModal({
   const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const [checkingProfile, setCheckingProfile] = useState(false);
   const [returnSearchOpen, setReturnSearchOpen] = useState(false);
+  /** URL da imagem sem fundo do produto (categoria), exibida no modal. */
+  const [productImageUrl, setProductImageUrl] = useState<string | null>(null);
   const [embarcadorProfile, setEmbarcadorProfile] = useState<{
     companyName: string;
     companyLogoUrl: string | null;
+    cnpj: string | null;
+    photoUrl: string | null;
     userName: string | null;
     branchState: string | null;
     branchCity: string | null;
@@ -130,20 +136,61 @@ export default function FreteModal({
         .finally(() => setCheckingProfile(false));
     }
     if (isOpen && frete && frete.source !== 'comunidade' && frete.embarcadorId) {
-      getEmbarcadorProfile(frete.embarcadorId)
-        .then((p) => {
-          if (p)
-            setEmbarcadorProfile({
-              companyName: p.companyName || '',
-              companyLogoUrl: p.companyLogoUrl ?? null,
-              userName: p.userName ?? null,
-              branchState: p.branchState ?? null,
-              branchCity: p.branchCity ?? null,
-            });
+      const embId = frete.embarcadorId;
+      getEmbarcadorPublicCard(embId)
+        .then(async (p) => {
+          if (!p) return;
+          // Foto: prioriza a foto de perfil do embarcador; senao usa o logo
+          // da empresa; senao cai na inicial (render).
+          let photo: string | null = null;
+          if (p.profilePhotoUrl) {
+            try {
+              photo = await resolveProfilePhotoUrl(p.profilePhotoUrl);
+            } catch {
+              photo = null;
+            }
+          }
+          setEmbarcadorProfile({
+            companyName: p.companyName || '',
+            companyLogoUrl: p.companyLogoUrl,
+            cnpj: p.cnpj,
+            photoUrl: photo,
+            userName: p.userName,
+            branchState: p.branchState,
+            branchCity: p.branchCity,
+          });
         })
         .catch(() => {});
     }
   }, [isOpen, isAuthenticated, user, frete]);
+
+  // Busca a imagem SEM fundo da categoria do produto (exibida à direita do
+  // bloco de carga). Casa por productSlug; se não houver imagem sem fundo
+  // cadastrada, fica null e nada é exibido.
+  useEffect(() => {
+    if (!isOpen || !frete) {
+      setProductImageUrl(null);
+      return;
+    }
+    const slug = frete.productSlug;
+    if (!slug) {
+      setProductImageUrl(null);
+      return;
+    }
+    let cancelled = false;
+    listActiveCommodities()
+      .then((cats) => {
+        if (cancelled) return;
+        const match = cats.find((c) => c.slug === slug);
+        setProductImageUrl(match?.imageNoBgUrl || null);
+      })
+      .catch(() => {
+        if (!cancelled) setProductImageUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, frete]);
 
   if (!mounted || !frete) return null;
 
@@ -238,9 +285,9 @@ export default function FreteModal({
       <div className="fixed inset-0 flex items-end md:items-center justify-center pointer-events-none">
         <div
           onClick={(e) => e.stopPropagation()}
-          className={`relative bg-white border border-gray-200 shadow-xl pointer-events-auto
+          className={`relative bg-gray-900 border border-gray-700 shadow-xl pointer-events-auto
             w-full md:max-w-2xl
-            h-[80vh] md:h-[80vh]
+            h-[90vh] md:h-[88vh]
             rounded-t-2xl md:rounded-lg
             flex flex-col overflow-hidden
             transform transition duration-300 ease-out
@@ -250,33 +297,23 @@ export default function FreteModal({
                 : 'translate-y-full opacity-0 md:translate-y-4 md:scale-95'
             }`}
         >
-          {/* Handle de arrasto visual (apenas mobile, indica bottom sheet). */}
-          <div className="md:hidden flex justify-center pt-2 pb-1 shrink-0">
+          {/* Handle de arrasto: clicável para fechar o modal (substitui o X).
+              No desktop também aparece, servindo de botão de fechar discreto. */}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="flex justify-center pt-2.5 pb-1.5 shrink-0 w-full focus:outline-none"
+          >
             <span className="block h-1 w-10 rounded-full bg-gray-300" aria-hidden="true" />
-          </div>
+          </button>
 
-          {/* Cabecalho fixo: perfil do embarcador + botao de fechar.
+          {/* Cabecalho fixo: perfil do embarcador.
               Permanece visivel enquanto o motorista rola o miolo. */}
-          <div className="relative shrink-0 bg-white border-b border-gray-200 px-3 sm:px-4 py-3">
-            <button
-              onClick={onClose}
-              type="button"
-              aria-label="Fechar"
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 p-1 z-10"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-
+          <div className="relative shrink-0 bg-gray-900 px-3 sm:px-4 py-2.5">
             {frete.source === 'comunidade' ? (
               <div className="flex items-center gap-3 pr-7">
-                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center">
                   {communityProfile?.photoUrl ? (
                     <img
                       src={communityProfile.photoUrl}
@@ -287,31 +324,31 @@ export default function FreteModal({
                       }}
                     />
                   ) : (
-                    <span className="text-xs font-semibold text-gray-500">C</span>
+                    <span className="text-xs font-semibold text-gray-400">C</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 leading-tight">
-                  <p className="text-xs font-semibold text-gray-800 truncate">Frete Comunidade</p>
-                  <p className="text-[11px] text-gray-600 truncate">
+                  <p className="text-xs font-semibold text-gray-100 truncate">Frete Comunidade</p>
+                  <p className="text-[11px] text-gray-400 truncate">
                     Frete sugerido pela comunidade
                   </p>
                   {frete.communityCarrierName && (
-                    <p className="text-[10px] text-gray-400 truncate">
-                      <span className="text-gray-500">Transportadora: </span>
+                    <p className="text-[10px] text-gray-500 truncate">
+                      <span className="text-gray-400">Transportadora: </span>
                       {frete.communityCarrierName}
                     </p>
                   )}
                 </div>
               </div>
             ) : embarcadorProfile ? (
-              <div className="flex items-center gap-3 pr-7">
+              <div className="flex items-center gap-3">
                 <div
-                  className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center"
+                  className="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-gray-800 border border-gray-700 overflow-hidden shrink-0 flex items-center justify-center"
                   aria-hidden="true"
                 >
-                  {embarcadorProfile.companyLogoUrl ? (
+                  {embarcadorProfile.photoUrl || embarcadorProfile.companyLogoUrl ? (
                     <img
-                      src={embarcadorProfile.companyLogoUrl}
+                      src={embarcadorProfile.photoUrl ?? embarcadorProfile.companyLogoUrl ?? ''}
                       alt=""
                       className="w-full h-full object-cover"
                       onError={(e) => {
@@ -319,34 +356,52 @@ export default function FreteModal({
                       }}
                     />
                   ) : (
-                    <span className="text-xs font-semibold text-gray-500">
-                      {(embarcadorProfile.companyName || '?').charAt(0).toUpperCase()}
+                    <span className="text-sm font-semibold text-gray-400">
+                      {(embarcadorProfile.userName || embarcadorProfile.companyName || '?')
+                        .charAt(0)
+                        .toUpperCase()}
                     </span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1 leading-tight">
-                  {embarcadorProfile.userName && (
-                    <p className="text-xs font-semibold text-gray-800 truncate">
-                      {embarcadorProfile.userName}
-                    </p>
-                  )}
+                  <p className="text-sm font-semibold text-gray-100 truncate">
+                    {embarcadorProfile.userName || embarcadorProfile.companyName || 'Embarcador'}
+                  </p>
                   {embarcadorProfile.companyName && (
-                    <p className="text-[11px] text-gray-600 truncate">
+                    <p className="text-xs text-gray-400 truncate">
                       {embarcadorProfile.companyName}
+                      {embarcadorProfile.cnpj && ` — ${formatCnpj(embarcadorProfile.cnpj)}`}
                     </p>
                   )}
                   {(embarcadorProfile.branchState || embarcadorProfile.branchCity) && (
-                    <p className="text-[10px] text-gray-400 truncate">
-                      <span className="text-gray-500">Filial: </span>
+                    <p className="text-[10px] text-gray-500 truncate">
+                      <span className="text-gray-400">Filial: </span>
                       {[embarcadorProfile.branchCity, embarcadorProfile.branchState?.toUpperCase()]
                         .filter(Boolean)
                         .join(' · ')}
                     </p>
                   )}
                 </div>
+
+                {/* Ícone de perfil (placeholder): futuramente abrirá o perfil
+                    público do embarcador para o motorista. Sem ação por ora.
+                    Estilo cartão/carteirinha, contorno, sem fundo. */}
+                <svg
+                  aria-hidden="true"
+                  className="shrink-0 w-6 h-6 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  viewBox="0 0 24 24"
+                >
+                  <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                  <circle cx="9" cy="10" r="2" />
+                  <path strokeLinecap="round" d="M6 15.5c0-1.4 1.3-2.5 3-2.5s3 1.1 3 2.5" />
+                  <path strokeLinecap="round" d="M15 9.5h3.5M15 12.5h3.5M15 15.5h3" />
+                </svg>
               </div>
             ) : (
-              <div className="text-xs font-semibold text-gray-700 pr-7">Detalhes do Frete</div>
+              <div className="text-xs font-semibold text-gray-300 pr-7">Detalhes do Frete</div>
             )}
           </div>
 
@@ -355,114 +410,139 @@ export default function FreteModal({
           <div className="flex-1 overflow-y-auto p-3 sm:p-4">
             <h2 className="sr-only">Detalhes do Frete</h2>
 
-            {/* Mini-mapa da rota origem -> destino. Substitui visualmente o
-                titulo "Detalhes do Frete" (mantido apenas para leitores de
-                tela). Cada frete tem o seu — ao trocar de frete, o componente
-                refaz o fetch da rota OSRM e reenquadra. */}
-            <div className="mb-3">
-              <FreteMiniMap frete={frete} />
+            {/* Card "tracking": o mapa preenche todo o fundo; um degradê
+                (escuro→transparente da esquerda) funde o mapa com a área de
+                texto, e a timeline origem→destino fica POR CIMA, à esquerda.
+                Clicar no mapa (lado direito visível) expande em tela cheia.
+
+                z-index: o mapa fica em z-0 (a classe `z-0` + position cria um
+                stacking context que PRENDE as camadas internas do Leaflet —
+                que têm z-index alto). Sem isso, os tiles/marcadores do Leaflet
+                pintam por cima do degradê e do texto. O degradê vai em z-10 e
+                a timeline em z-20. */}
+            <div className="mb-3 relative w-full h-32 sm:h-36 rounded-xl overflow-hidden border border-gray-700 bg-gray-900 isolate">
+              {/* Fundo: mapa sem moldura, preenchendo o card todo. */}
+              <div className="absolute inset-0 z-0">
+                <FreteMiniMap frete={frete} bare />
+              </div>
+              {/* Degradê por cima do mapa: escuro e sólido na esquerda, começa
+                  a clarear só a partir do MEIO para a direita (deixa a rota
+                  aparecer à direita). */}
+              <div
+                className="absolute inset-0 z-10 pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(10,15,25,0.99) 0%, rgba(10,15,25,0.98) 50%, rgba(10,15,25,0.75) 70%, rgba(10,15,25,0.2) 90%, rgba(10,15,25,0) 100%)',
+                }}
+              />
+              {/* Timeline por cima, centralizada na vertical, à esquerda. */}
+              <div className="absolute inset-y-0 left-0 z-20 w-[58%] sm:w-[54%] flex flex-col justify-center pl-3 pr-2 pointer-events-none">
+                <div className="pointer-events-auto w-full">
+                  <RotaTimeline
+                    dark
+                    origem={{
+                      cidade: frete.origin,
+                      local: frete.originDetail,
+                      lat: frete.originPinnedLat,
+                      lng: frete.originPinnedLng,
+                    }}
+                    destino={{
+                      cidade: frete.destination,
+                      local: frete.destinationDetail,
+                      lat: frete.destinationPinnedLat,
+                      lng: frete.destinationPinnedLng,
+                    }}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Origem → Destino com detalhes embutidos */}
-            <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="bg-blue-50 border border-blue-200 rounded p-2">
-                <p className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide mb-0.5">
-                  Origem
-                </p>
-                <p className="text-xs font-semibold text-gray-800 break-words">{frete.origin}</p>
-                {frete.originDetail && (
-                  <p className="text-[11px] text-gray-700 mt-0.5 break-words">
-                    📍 {frete.originDetail}
-                  </p>
+            {/* Cabeçalho da carga: quilometragem (esquerda) + data de
+                postagem (direita), com linha clara de separação. */}
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <span className="text-xs text-gray-500">
+                {frete.distanceKm ? `${frete.distanceKm.toLocaleString('pt-BR')} km` : ''}
+              </span>
+              <span className="text-[11px] text-gray-400">
+                Postado em{' '}
+                {new Date(frete.createdAt).toLocaleString('pt-BR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </span>
+            </div>
+            <div className="border-t border-gray-700 mb-3" />
+
+            {/* Carga — label em cima, valor embaixo, sem caixas. À direita,
+                quando houver, a imagem SEM fundo do produto (categoria),
+                "sangrando" pela borda direita do modal. */}
+            <div className="relative mb-3">
+              {productImageUrl && (
+                <div className="pointer-events-none absolute -right-3 sm:-right-4 top-1/2 -translate-y-1/2 w-28 sm:w-36 h-28 sm:h-36 flex items-center justify-end">
+                  <img
+                    src={productImageUrl}
+                    alt=""
+                    className="max-w-full max-h-full object-contain drop-shadow-xl translate-x-1/4"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).style.display = 'none';
+                    }}
+                  />
+                </div>
+              )}
+              <div
+                className={`grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-3 ${
+                  productImageUrl ? 'pr-24 sm:pr-28' : ''
+                }`}
+              >
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Tipo de Carga</p>
+                  <p className="text-sm text-gray-100">{frete.cargoType || '—'}</p>
+                </div>
+                {frete.cargoSpecies && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">Espécie</p>
+                    <p className="text-sm text-gray-100">{frete.cargoSpecies}</p>
+                  </div>
                 )}
-                {frete.originPinnedLat !== undefined && frete.originPinnedLng !== undefined && (
-                  <a
-                    href={googleMapsUrl({
-                      latitude: frete.originPinnedLat,
-                      longitude: frete.originPinnedLng,
-                    })}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-blue-700 hover:text-blue-900 underline font-medium"
+                {frete.product && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">Produto</p>
+                    <p className="text-sm text-gray-100">{frete.product}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Tipo de frete</p>
+                  <p className="text-sm text-gray-100">
+                    {FREIGHT_TYPE_LABELS[frete.freightType ?? 'completa'] ??
+                      frete.freightType ??
+                      '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Peso</p>
+                  <p className="text-sm text-gray-100">{formatWeight(frete.weight)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Veículo</p>
+                  <p
+                    className="text-sm text-gray-100 leading-tight whitespace-normal break-words"
+                    title={vehicleTypesCsvLabel(frete.vehicleType)}
                   >
-                    🗺 Abrir no Maps
-                  </a>
-                )}
-              </div>
-              <div className="bg-orange-50 border border-orange-200 rounded p-2">
-                <p className="text-[10px] text-orange-700 font-semibold uppercase tracking-wide mb-0.5">
-                  Destino
-                </p>
-                <p className="text-xs font-semibold text-gray-800 break-words">
-                  {frete.destination}
-                </p>
-                {frete.destinationDetail && (
-                  <p className="text-[11px] text-gray-700 mt-0.5 break-words">
-                    📍 {frete.destinationDetail}
-                  </p>
-                )}
-                {frete.destinationPinnedLat !== undefined &&
-                  frete.destinationPinnedLng !== undefined && (
-                    <a
-                      href={googleMapsUrl({
-                        latitude: frete.destinationPinnedLat,
-                        longitude: frete.destinationPinnedLng,
-                      })}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-[11px] text-orange-700 hover:text-orange-900 underline font-medium"
-                    >
-                      🗺 Abrir no Maps
-                    </a>
-                  )}
-              </div>
-            </div>
-
-            {/* Carga */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 mb-2">
-              <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                <p className="text-[10px] text-gray-500">Tipo de Carga</p>
-                <p className="text-xs text-gray-800 font-medium">{frete.cargoType || '—'}</p>
-              </div>
-              {frete.cargoSpecies && (
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                  <p className="text-[10px] text-gray-500">Espécie</p>
-                  <p className="text-xs text-gray-800 font-medium">{frete.cargoSpecies}</p>
-                </div>
-              )}
-              {frete.product && (
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                  <p className="text-[10px] text-gray-500">Produto</p>
-                  <p className="text-xs text-gray-800 font-medium">{frete.product}</p>
-                </div>
-              )}
-              <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                <p className="text-[10px] text-gray-500">Tipo de frete</p>
-                <p className="text-xs text-gray-800 font-medium">
-                  {FREIGHT_TYPE_LABELS[frete.freightType ?? 'completa'] ?? frete.freightType ?? '—'}
-                </p>
-              </div>
-              <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                <p className="text-[10px] text-gray-500">Peso</p>
-                <p className="text-xs text-gray-800 font-medium">{formatWeight(frete.weight)}</p>
-              </div>
-              <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                <p className="text-[10px] text-gray-500">Veículo</p>
-                <p
-                  className="text-xs text-gray-800 font-medium leading-tight whitespace-normal break-words"
-                  title={vehicleTypesCsvLabel(frete.vehicleType)}
-                >
-                  {vehicleTypesCsvLabel(frete.vehicleType)}
-                </p>
-              </div>
-              {frete.bodyTypes && (
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-200 col-span-2 sm:col-span-3">
-                  <p className="text-[10px] text-gray-500">Carrocerias</p>
-                  <p className="text-xs text-gray-800 font-medium leading-tight whitespace-normal break-words">
-                    {bodyTypesCsvLabel(frete.bodyTypes)}
+                    {vehicleTypesCsvLabel(frete.vehicleType)}
                   </p>
                 </div>
-              )}
+                {frete.bodyTypes && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-400">Carrocerias</p>
+                    <p className="text-sm text-gray-100 leading-tight whitespace-normal break-words">
+                      {bodyTypesCsvLabel(frete.bodyTypes)}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Opções adicionais */}
@@ -486,93 +566,92 @@ export default function FreteModal({
               </div>
             )}
 
-            {/* Valor + Pagamento + Adiantamento + Prazo */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mb-2">
-              <div className="bg-green-50 p-1.5 rounded border border-green-200">
-                <p className="text-[10px] text-green-700">Valor</p>
+            {/* Valor (destacado) + Prazo + Pagamento + Adiantamento, sem caixas. */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-3 mb-3">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">Valor</p>
                 {isAuthenticated ? (
-                  <p className="text-green-700 font-bold text-xs">{formatCurrency(frete.value)}</p>
+                  <p className="text-green-400 font-semibold text-base">
+                    {formatCurrency(frete.value)}
+                  </p>
                 ) : (
                   <button
                     onClick={() => navigate('/login')}
-                    className="text-[10px] text-blue-500 hover:underline"
+                    className="text-xs text-blue-500 hover:underline"
                   >
                     Login para ver
                   </button>
                 )}
               </div>
-              <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                <p className="text-[10px] text-gray-500">Prazo</p>
-                <p className="text-xs text-gray-800 font-medium">
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-gray-400">Prazo</p>
+                <p className="text-sm text-gray-100">
                   {new Date(frete.deadline).toLocaleDateString('pt-BR')}
                 </p>
               </div>
               {frete.paymentMethods && (
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                  <p className="text-[10px] text-gray-500">Pagamento</p>
-                  <p
-                    className="text-xs text-gray-800 font-medium truncate"
-                    title={frete.paymentMethods}
-                  >
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Pagamento</p>
+                  <p className="text-sm text-gray-100 break-words" title={frete.paymentMethods}>
                     {frete.paymentMethods}
                   </p>
                 </div>
               )}
               {frete.advancePercentage !== undefined && frete.advancePercentage > 0 && (
-                <div className="bg-gray-50 p-1.5 rounded border border-gray-200">
-                  <p className="text-[10px] text-gray-500">Adiantamento</p>
-                  <p className="text-xs text-gray-800 font-medium">{frete.advancePercentage}%</p>
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide text-gray-400">Adiantamento</p>
+                  <p className="text-sm text-gray-100">{frete.advancePercentage}%</p>
                 </div>
               )}
             </div>
 
             {/* Cálculo financeiro estimado (motorista) */}
             {hasCalcContext && (
-              <div className="mb-2 p-2 bg-blue-50/60 border border-blue-100 rounded">
-                <p className="text-[10px] text-blue-700 font-semibold uppercase tracking-wide mb-1">
+              <div className="mb-2 p-2 bg-blue-950/40 border border-blue-900/50 rounded">
+                <p className="text-[10px] text-blue-300 font-semibold uppercase tracking-wide mb-1">
                   Estimativa para sua viagem
                 </p>
                 {!frete.distanceKm ? (
-                  <p className="text-[11px] text-gray-500">Distância não disponível</p>
+                  <p className="text-[11px] text-gray-400">Distância não disponível</p>
                 ) : calc ? (
                   <div className="space-y-0.5">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-600">Distância</span>
-                      <span className="font-medium text-gray-800">
+                      <span className="text-gray-400">Distância</span>
+                      <span className="font-medium text-gray-100">
                         {frete.distanceKm.toLocaleString('pt-BR')} km
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-600">Consumo</span>
-                      <span className="font-medium text-gray-800">
+                      <span className="text-gray-400">Consumo</span>
+                      <span className="font-medium text-gray-100">
                         {motoristaCalc!.kmPerLiter} km/L
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-600">Litros estimados</span>
-                      <span className="font-medium text-gray-800">
+                      <span className="text-gray-400">Litros estimados</span>
+                      <span className="font-medium text-gray-100">
                         {calc.litros.toLocaleString('pt-BR')} L
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-600">Custo de diesel</span>
-                      <span className="font-medium text-gray-800">
+                      <span className="text-gray-400">Custo de diesel</span>
+                      <span className="font-medium text-gray-100">
                         {formatCurrencyBRL(calc.custoDiesel)}
                       </span>
                     </div>
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-gray-600">
+                      <span className="text-gray-400">
                         {effectivePerTon ? `Frete (R$/ton × ${cap}t)` : 'Valor do frete'}
                       </span>
-                      <span className="font-medium text-gray-800">
+                      <span className="font-medium text-gray-100">
                         {formatCurrencyBRL(calc.brutoRecebido)}
                       </span>
                     </div>
-                    <div className="flex justify-between text-[11px] pt-1 border-t border-blue-100">
-                      <span className="text-gray-700 font-semibold">Lucro líquido</span>
+                    <div className="flex justify-between text-[11px] pt-1 border-t border-blue-900/50">
+                      <span className="text-gray-200 font-semibold">Lucro líquido</span>
                       <span
                         className={`font-bold ${
-                          calc.lucroLiquido >= 0 ? 'text-green-700' : 'text-red-600'
+                          calc.lucroLiquido >= 0 ? 'text-green-400' : 'text-red-400'
                         }`}
                       >
                         {formatCurrencyBRL(calc.lucroLiquido)}
@@ -580,7 +659,7 @@ export default function FreteModal({
                     </div>
                   </div>
                 ) : null}
-                <p className="mt-1.5 text-[10px] text-yellow-800 bg-yellow-50 border border-yellow-200 rounded px-1.5 py-1">
+                <p className="mt-1.5 text-[10px] text-yellow-300 bg-yellow-950/40 border border-yellow-900/50 rounded px-1.5 py-1">
                   ⚠ Valor do diesel é apenas uma estimativa. Os custos reais podem variar.
                 </p>
               </div>
@@ -589,11 +668,11 @@ export default function FreteModal({
             {/* Observações */}
             {frete.specifications && (
               <div className="mb-2">
-                <p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mb-0.5">
+                <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wide mb-0.5">
                   Observações
                 </p>
-                <div className="bg-gray-50 p-2 rounded border border-gray-200">
-                  <p className="text-[11px] text-gray-700 whitespace-pre-wrap">
+                <div className="bg-gray-800 p-2 rounded border border-gray-700">
+                  <p className="text-[11px] text-gray-200 whitespace-pre-wrap">
                     {frete.specifications}
                   </p>
                 </div>
@@ -601,7 +680,7 @@ export default function FreteModal({
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap justify-end gap-2 pt-2 border-t border-gray-700">
               {/* "Frete de Retorno": primeiro botao a esquerda quando
                   motorista logado com perfil completo. Cor roxa pra
                   destacar (Chat=azul, WhatsApp=verde). */}
@@ -704,26 +783,26 @@ export default function FreteModal({
                 user?.userType === 'motorista' &&
                 profileComplete === true &&
                 frete.source !== 'comunidade' && (
-                <button
-                  onClick={handleOpenChat}
-                  className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 flex items-center gap-1"
-                >
-                  <svg
-                    className="w-3.5 h-3.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
+                  <button
+                    onClick={handleOpenChat}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 flex items-center gap-1"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                    />
-                  </svg>
-                  Chat
-                </button>
-              )}
+                    <svg
+                      className="w-3.5 h-3.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                      />
+                    </svg>
+                    Chat
+                  </button>
+                )}
 
               {isAuthenticated && user?.userType === 'motorista' && checkingProfile && (
                 <button

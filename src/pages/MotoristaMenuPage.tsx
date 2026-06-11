@@ -66,6 +66,14 @@ export default function MotoristaMenuPage() {
       docStatus: docStatus.perfil,
     },
     {
+      key: 'tutorial',
+      label: 'Tutorial',
+      icon: <TutorialIcon />,
+      onClick: () => {
+        window.alert('Tutorial em breve.');
+      },
+    },
+    {
       key: 'tracao',
       label: 'Tração',
       icon: <TruckIcon />,
@@ -281,6 +289,14 @@ const UserIcon = () => (
       strokeLinejoin="round"
       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
     />
+  </svg>
+);
+
+// Tutorial = play dentro de círculo (vídeo/aula)
+const TutorialIcon = () => (
+  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+    <circle cx="12" cy="12" r="9" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M10 9l5 3-5 3V9z" />
   </svg>
 );
 

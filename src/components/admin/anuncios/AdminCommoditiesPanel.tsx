@@ -31,6 +31,8 @@ export default function AdminCommoditiesPanel() {
   const [slug, setSlug] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [file, setFile] = useState<File | null>(null);
+  // Segunda imagem (sem fundo) exibida no modal do frete.
+  const [fileNoBg, setFileNoBg] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const load = async () => {
@@ -56,6 +58,7 @@ export default function AdminCommoditiesPanel() {
     setSlug('');
     setIsActive(true);
     setFile(null);
+    setFileNoBg(null);
     setModalOpen(true);
   };
 
@@ -65,6 +68,7 @@ export default function AdminCommoditiesPanel() {
     setSlug(c.slug);
     setIsActive(c.isActive);
     setFile(null);
+    setFileNoBg(null);
     setModalOpen(true);
   };
 
@@ -76,6 +80,10 @@ export default function AdminCommoditiesPanel() {
       if (file) {
         iconPath = await uploadCommodityIcon(file);
       }
+      let imageNoBgPath = editing?.imageNoBgPath ?? null;
+      if (fileNoBg) {
+        imageNoBgPath = await uploadCommodityIcon(fileNoBg);
+      }
       const finalSlug = slug.trim() || slugifyCommodityName(name);
 
       if (editing) {
@@ -83,6 +91,7 @@ export default function AdminCommoditiesPanel() {
           name,
           slug: finalSlug,
           iconPath,
+          imageNoBgPath,
           isActive,
         });
       } else {
@@ -91,6 +100,7 @@ export default function AdminCommoditiesPanel() {
           name,
           slug: finalSlug,
           iconPath,
+          imageNoBgPath,
           sortOrder: items.length,
           isActive,
         });
@@ -330,6 +340,29 @@ export default function AdminCommoditiesPanel() {
               )}
               <p className="text-[10px] text-gray-500 mt-1">
                 Recomendado: PNG transparente, 128x128px. Limite: 5 MB.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">
+                Imagem sem fundo (modal do frete) {editing && '(deixe vazio para manter)'}
+              </label>
+              <input
+                type="file"
+                accept="image/png,image/webp"
+                onChange={(e) => setFileNoBg(e.target.files?.[0] || null)}
+                className="w-full text-sm text-gray-300"
+              />
+              {editing?.imageNoBgUrl && !fileNoBg && (
+                <img
+                  src={editing.imageNoBgUrl}
+                  alt=""
+                  className="mt-2 w-16 h-16 object-contain rounded bg-gray-800 p-1"
+                />
+              )}
+              <p className="text-[10px] text-gray-500 mt-1">
+                PNG/WebP SEM fundo (transparente). É a imagem que aparece grande no detalhe do frete
+                para o motorista. Opcional.
               </p>
             </div>
 

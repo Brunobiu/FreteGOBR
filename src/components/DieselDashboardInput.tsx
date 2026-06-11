@@ -113,7 +113,6 @@ export default function DieselDashboardInput({
     const t = window.setTimeout(() => setHintExpanded(false), 10000);
     return () => window.clearTimeout(t);
     // Sem dependencias: dispara apenas no mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dismissHint = () => {

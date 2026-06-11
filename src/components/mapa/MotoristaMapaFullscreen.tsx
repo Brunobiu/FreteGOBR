@@ -178,7 +178,7 @@ export default function MotoristaMapaFullscreen({ className = '' }: MotoristaMap
       })
       .catch((err) => {
         if (cancelled) return;
-        // eslint-disable-next-line no-console
+
         console.warn(
           '[MotoristaMapaFullscreen] leaflet-rotate indisponível — rotação desabilitada',
           err

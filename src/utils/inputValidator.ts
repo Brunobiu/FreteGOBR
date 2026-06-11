@@ -32,11 +32,37 @@ export const INPUT_LIMITS = {
 class InputValidator {
   // SQL injection keywords to detect
   private static SQL_KEYWORDS = [
-    'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'DROP', 'CREATE',
-    'ALTER', 'EXEC', 'EXECUTE', 'UNION', 'TRUNCATE', 'GRANT',
-    'REVOKE', 'DECLARE', 'CAST', 'CONVERT', 'TABLE', 'FROM',
-    'WHERE', 'OR 1=1', 'OR 1 = 1', "' OR '", '" OR "',
-    '--', ';--', '/*', '*/', 'XP_', 'SP_', 'WAITFOR', 'DELAY'
+    'SELECT',
+    'INSERT',
+    'UPDATE',
+    'DELETE',
+    'DROP',
+    'CREATE',
+    'ALTER',
+    'EXEC',
+    'EXECUTE',
+    'UNION',
+    'TRUNCATE',
+    'GRANT',
+    'REVOKE',
+    'DECLARE',
+    'CAST',
+    'CONVERT',
+    'TABLE',
+    'FROM',
+    'WHERE',
+    'OR 1=1',
+    'OR 1 = 1',
+    "' OR '",
+    '" OR "',
+    '--',
+    ';--',
+    '/*',
+    '*/',
+    'XP_',
+    'SP_',
+    'WAITFOR',
+    'DELAY',
   ];
 
   // XSS patterns to detect
@@ -65,10 +91,7 @@ class InputValidator {
   /**
    * Validates and sanitizes text input
    */
-  static validateText(
-    input: string,
-    rules: ValidationRule = {}
-  ): ValidationResult {
+  static validateText(input: string, rules: ValidationRule = {}): ValidationResult {
     const errors: string[] = [];
     let sanitized = input?.trim() ?? '';
 
@@ -77,7 +100,7 @@ class InputValidator {
       return {
         isValid: false,
         sanitizedValue: '',
-        errors: ['Entrada inválida']
+        errors: ['Entrada inválida'],
       };
     }
 
@@ -119,7 +142,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: sanitized,
-      errors
+      errors,
     };
   }
 
@@ -128,14 +151,23 @@ class InputValidator {
    */
   static containsSQLInjection(input: string): boolean {
     if (!input) return false;
-    
+
     const upperInput = input.toUpperCase();
-    
+
     // Check for SQL keywords
     for (const keyword of this.SQL_KEYWORDS) {
       if (upperInput.includes(keyword.toUpperCase())) {
-        // Additional check: ensure it's not part of a normal word
-        const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+        // Additional check: ensure it's not part of a normal word.
+        // Escapa metacaracteres de regex no keyword (ex: '/*', '*/', '--'),
+        // senão new RegExp lança SyntaxError e derruba a validação.
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // \b só faz sentido quando a borda do keyword é um caractere de
+        // palavra; para keywords com símbolos (ex: '--', '/*') usamos o
+        // includes acima como evidência suficiente.
+        const startsWord = /\w/.test(keyword[0]);
+        const endsWord = /\w/.test(keyword[keyword.length - 1]);
+        const pattern = `${startsWord ? '\\b' : ''}${escaped}${endsWord ? '\\b' : ''}`;
+        const regex = new RegExp(pattern, 'i');
         if (regex.test(input)) {
           return true;
         }
@@ -152,14 +184,14 @@ class InputValidator {
       /;\s*INSERT\s+/i,
       /UNION\s+SELECT/i,
       /UNION\s+ALL\s+SELECT/i,
-      /'\s*--/,                          // comment after quote: admin'--
-      /'\s*;\s*--/,                      // semicolon comment: admin';--
-      /'\)\s*OR\s*\(/i,                  // ') OR (
-      /'\s*OR\s*\(/i,                    // ' OR (
-      /\)\s*OR\s*\('/i,                  // ) OR ('
+      /'\s*--/, // comment after quote: admin'--
+      /'\s*;\s*--/, // semicolon comment: admin';--
+      /'\)\s*OR\s*\(/i, // ') OR (
+      /'\s*OR\s*\(/i, // ' OR (
+      /\)\s*OR\s*\('/i, // ) OR ('
     ];
 
-    return sqlPatterns.some(pattern => pattern.test(input));
+    return sqlPatterns.some((pattern) => pattern.test(input));
   }
 
   /**
@@ -167,7 +199,7 @@ class InputValidator {
    */
   static containsXSS(input: string): boolean {
     if (!input) return false;
-    return this.XSS_PATTERNS.some(pattern => pattern.test(input));
+    return this.XSS_PATTERNS.some((pattern) => pattern.test(input));
   }
 
   /**
@@ -175,7 +207,7 @@ class InputValidator {
    */
   static sanitizeHTML(input: string): string {
     if (!input) return '';
-    
+
     const map: Record<string, string> = {
       '&': '&amp;',
       '<': '&lt;',
@@ -184,11 +216,11 @@ class InputValidator {
       "'": '&#x27;',
       '/': '&#x2F;',
       '`': '&#x60;',
-      '=': '&#x3D;'
+      '=': '&#x3D;',
     };
-    
+
     // First unescape any existing entities to avoid double-encoding
-    let unescaped = input
+    const unescaped = input
       .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
@@ -197,8 +229,8 @@ class InputValidator {
       .replace(/&#x2F;/g, '/')
       .replace(/&#x60;/g, '`')
       .replace(/&#x3D;/g, '=');
-    
-    return unescaped.replace(/[&<>"'/`=]/g, char => map[char] || char);
+
+    return unescaped.replace(/[&<>"'/`=]/g, (char) => map[char] || char);
   }
 
   /**
@@ -220,7 +252,7 @@ class InputValidator {
       return {
         isValid: false,
         sanitizedValue: '0',
-        errors: ['Valor numérico inválido']
+        errors: ['Valor numérico inválido'],
       };
     }
 
@@ -243,7 +275,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: num.toString(),
-      errors
+      errors,
     };
   }
 
@@ -258,7 +290,7 @@ class InputValidator {
       return {
         isValid: false,
         sanitizedValue: '',
-        errors: ['Email é obrigatório']
+        errors: ['Email é obrigatório'],
       };
     }
 
@@ -283,7 +315,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: sanitized,
-      errors
+      errors,
     };
   }
 
@@ -297,7 +329,7 @@ class InputValidator {
       return {
         isValid: false,
         sanitizedValue: '',
-        errors: ['Telefone é obrigatório']
+        errors: ['Telefone é obrigatório'],
       };
     }
 
@@ -320,7 +352,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: digits,
-      errors
+      errors,
     };
   }
 
@@ -335,7 +367,7 @@ class InputValidator {
       return {
         isValid: false,
         sanitizedValue: '',
-        errors: ['URL é obrigatória']
+        errors: ['URL é obrigatória'],
       };
     }
 
@@ -360,7 +392,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: sanitized,
-      errors
+      errors,
     };
   }
 
@@ -383,7 +415,7 @@ class InputValidator {
     target: string;
   } | null {
     const sanitizedUrl = this.sanitizeURL(url);
-    
+
     if (!sanitizedUrl) {
       return null;
     }
@@ -414,7 +446,7 @@ class InputValidator {
    */
   static validateImageURL(url: string): ValidationResult {
     const baseResult = this.validateURL(url);
-    
+
     if (!baseResult.isValid) {
       return baseResult;
     }
@@ -424,8 +456,8 @@ class InputValidator {
     // Check for valid image extensions or data URLs
     const validExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'];
     const lowerUrl = url.toLowerCase();
-    
-    const hasValidExtension = validExtensions.some(ext => lowerUrl.includes(ext));
+
+    const hasValidExtension = validExtensions.some((ext) => lowerUrl.includes(ext));
     const isDataUrl = lowerUrl.startsWith('data:image/');
     const isBlobUrl = lowerUrl.startsWith('blob:');
 
@@ -438,7 +470,7 @@ class InputValidator {
     return {
       isValid: errors.length === 0,
       sanitizedValue: baseResult.sanitizedValue,
-      errors
+      errors,
     };
   }
 
@@ -449,7 +481,7 @@ class InputValidator {
     return this.validateText(description, {
       maxLength: INPUT_LIMITS.MAX_FRETE_DESCRIPTION,
       minLength: 10,
-      sanitize: true
+      sanitize: true,
     });
   }
 
@@ -460,7 +492,7 @@ class InputValidator {
     return this.validateText(name, {
       maxLength: INPUT_LIMITS.MAX_USER_NAME,
       minLength: 2,
-      sanitize: true
+      sanitize: true,
     });
   }
 
@@ -471,7 +503,7 @@ class InputValidator {
     return this.validateText(message, {
       maxLength: INPUT_LIMITS.MAX_CHAT_MESSAGE,
       minLength: 1,
-      sanitize: true
+      sanitize: true,
     });
   }
 
@@ -481,21 +513,18 @@ class InputValidator {
   static validateRatingComment(comment: string): ValidationResult {
     return this.validateText(comment, {
       maxLength: INPUT_LIMITS.MAX_RATING_COMMENT,
-      sanitize: true
+      sanitize: true,
     });
   }
 
   /**
    * Logs security events to audit log
    */
-  private static logSecurityEvent(
-    eventType: string,
-    input: string
-  ): void {
+  private static logSecurityEvent(eventType: string, input: string): void {
     // Truncate input for logging
     const truncatedInput = input.substring(0, 100);
     console.warn(`[SECURITY] ${eventType}:`, truncatedInput);
-    
+
     // In production, this would call AuditLogger
     // AuditLogger.logSecurityEvent(eventType, { input: truncatedInput });
   }

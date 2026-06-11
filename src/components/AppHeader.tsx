@@ -3,7 +3,6 @@ import { useAuth } from '../hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import FreteCalculator from './FreteCalculator';
 import { getEmbarcadorProfile } from '../services/embarcador';
-import { getMotoristaProfile } from '../services/motorista';
 import { resolveProfilePhotoUrl } from '../services/documents';
 import { capitalizeName } from '../utils/textCase';
 import { getTotalUnreadCount } from '../services/chatFrete';
@@ -37,7 +36,6 @@ export default function AppHeader() {
     return localStorage.getItem('fretego-gps-disabled') === '1';
   });
   const [companyName, setCompanyName] = useState<string | null>(null);
-  const [vehicleName, setVehicleName] = useState<string | null>(null);
   const [temperature, setTemperature] = useState<number | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [chatUnread, setChatUnread] = useState(0);
@@ -120,28 +118,7 @@ export default function AppHeader() {
     };
   }, [user?.id, user?.userType]);
 
-  // Carrega o nome do veiculo quando o usuario eh motorista
-  useEffect(() => {
-    let cancelled = false;
-    if (user?.userType !== 'motorista') {
-      setVehicleName(null);
-      return;
-    }
-    getMotoristaProfile(user.id)
-      .then((profile) => {
-        if (!cancelled) {
-          setVehicleName(profile?.vehicleModel ? capitalizeName(profile.vehicleModel) : null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setVehicleName(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id, user?.userType]);
-
-  // Resolve a URL da foto
+  // Carrega a URL da foto
   useEffect(() => {
     let cancelled = false;
     if (!user?.profilePhotoUrl) {
@@ -236,50 +213,19 @@ export default function AppHeader() {
       <header className="sticky top-0 z-40 bg-gray-100">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="relative flex items-center h-14 sm:h-16 gap-3">
-            {/* Esquerda-centro: foto + nome + tipo */}
+            {/* Esquerda-centro: motorista vê a logo; embarcador vê foto+nome */}
             {isAuthenticated && user ? (
               user.userType === 'motorista' ? (
-                /* Motorista: foto + nome + caminhao SEM popover.
-                   As acoes (Perfil, Configuracoes, Tema, Planos, Sair)
-                   moram agora no MotoristaMenuSheet, aberto pelo slot
-                   "Menu" do MotoristaBottomNav. */
-                <div className="flex-1 min-w-0">
-                  <div
-                    className="flex items-center gap-2.5 w-full"
-                    aria-label="Perfil do motorista"
-                  >
-                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-300 flex-shrink-0">
-                      {photoUrl ? (
-                        <img
-                          src={photoUrl}
-                          alt={displayName}
-                          className="w-full h-full object-cover"
-                          onError={() => setPhotoUrl(null)}
-                        />
-                      ) : (
-                        <svg
-                          className="w-5 h-5 text-gray-400"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 text-left">
-                      <p className="text-sm sm:text-base text-gray-700 leading-tight truncate">
-                        Olá, {displayName.split(' ').slice(0, 2).join(' ')}
-                      </p>
-                      <p className="text-[11px] sm:text-xs text-gray-600 leading-tight truncate">
-                        {vehicleName || 'Caminhão não cadastrado'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                /* Motorista: a identidade (foto) foi movida para o slot "Menu"
+                   do MotoristaBottomNav. O topo agora exibe a logo do FreteGO. */
+                <Link to="/" aria-label="FreteGO" className="flex-1 flex items-center min-w-0">
+                  <img
+                    src="/logo.png"
+                    alt="FreteGO"
+                    className="h-9 sm:h-11 w-auto object-contain select-none"
+                    draggable={false}
+                  />
+                </Link>
               ) : (
                 <div className="relative flex-1 min-w-0" ref={profileRef}>
                   <button
@@ -329,6 +275,17 @@ export default function AppHeader() {
                         <ProfileIcon />
                         Meu Perfil
                       </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setProfileOpen(false);
+                          window.alert('Tutorial em breve.');
+                        }}
+                        className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
+                      >
+                        <TutorialMenuIcon />
+                        Tutorial
+                      </button>
                       <Link
                         to="/configuracoes"
                         onClick={() => setProfileOpen(false)}
@@ -661,6 +618,13 @@ const ProfileIcon = () => (
       strokeWidth={2}
       d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
     />
+  </svg>
+);
+
+const TutorialMenuIcon = () => (
+  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="9" strokeWidth={2} />
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9l5 3-5 3V9z" />
   </svg>
 );
 

@@ -1792,7 +1792,6 @@ export async function exportRepasseCSV(
       },
     });
   } catch (e) {
-    // eslint-disable-next-line no-console
     console.error('[admin/financeiro] FINANCIAL_REPASSE_EXPORTED log failed', e);
   }
 

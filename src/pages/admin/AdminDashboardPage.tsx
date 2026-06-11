@@ -84,11 +84,9 @@ export default function AdminDashboardPage() {
       const result = await exportCSV(filters, { hasFinanceiro, hasAudit });
       downloadCsvBlob(result.csv, result.filename);
       if (result.truncated) {
-        // eslint-disable-next-line no-alert
         alert('Export limitado a 10000 linhas. Refine os filtros para exportar mais.');
       }
     } catch (err) {
-      // eslint-disable-next-line no-alert
       alert((err as Error).message ?? 'Falha ao exportar CSV.');
     } finally {
       setExporting(false);
@@ -279,7 +277,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* eslint-disable-next-line @typescript-eslint/no-unused-vars */}
+      {}
     </div>
   );
 }

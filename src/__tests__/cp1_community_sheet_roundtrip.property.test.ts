@@ -30,10 +30,15 @@ const BOM = '\uFEFF';
 
 /** Texto seguro sem `;`, aspas e quebras (evita ambiguidade de CSV no gerador). */
 function plainText(min: number, max: number): fc.Arbitrary<string> {
-  return fc
-    .string({ minLength: min, maxLength: max })
-    .map((s) => s.replace(/[;"\r\n\u0001]/g, ' ').trim())
-    .filter((s) => s.length >= Math.max(1, min) && s.length <= max);
+  return (
+    fc
+      .string({ minLength: min, maxLength: max })
+      // Remove `;`, aspas, quebras e o caractere de controle \u0001 usado nos
+      // geradores. O \u0001 é intencional aqui (sanitização de CSV no teste).
+      // eslint-disable-next-line no-control-regex
+      .map((s) => s.replace(/[;"\r\n\u0001]/g, ' ').trim())
+      .filter((s) => s.length >= Math.max(1, min) && s.length <= max)
+  );
 }
 
 const PHONES = ['62999998888', '11987654321', '21991234567', '48988887777'];

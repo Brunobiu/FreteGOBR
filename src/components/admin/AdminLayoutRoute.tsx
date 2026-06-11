@@ -39,6 +39,7 @@ import AdminSupportChatPage from '../../pages/admin/AdminSupportChatPage';
 import AssistantPage from '../../pages/admin/assistant/AssistantPage';
 import MarketingMetricsPage from '../../pages/admin/marketing/MarketingMetricsPage';
 import MarketingConfigPage from '../../pages/admin/marketing/MarketingConfigPage';
+import SettingsPage from '../../pages/admin/settings/SettingsPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -66,6 +67,7 @@ export default function AdminLayoutRoute() {
             <Route path="frete-comunidade" element={<CommunityListPage />} />
             <Route path="marketing" element={<MarketingMetricsPage />} />
             <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
+            <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="anuncios" element={<AdminAnunciosPage />} />
             <Route path="whatsapp" element={<AdminWhatsAppPage />} />

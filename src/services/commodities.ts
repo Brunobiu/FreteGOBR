@@ -19,6 +19,9 @@ export interface CommodityCategory {
   slug: string;
   iconPath: string;
   iconUrl: string; // resolvido via getPublicUrl (vazio se iconPath = '')
+  /** Segunda imagem, SEM fundo, exibida no modal do frete. Opcional. */
+  imageNoBgPath: string | null;
+  imageNoBgUrl: string; // '' quando não houver
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -30,6 +33,7 @@ interface CommodityRow {
   name: string;
   slug: string;
   icon_path: string;
+  image_no_bg_path: string | null;
   sort_order: number;
   is_active: boolean;
   created_at: string;
@@ -51,6 +55,8 @@ function rowToCommodity(row: CommodityRow): CommodityCategory {
     slug: row.slug,
     iconPath: row.icon_path,
     iconUrl: getPublicUrl(row.icon_path),
+    imageNoBgPath: row.image_no_bg_path ?? null,
+    imageNoBgUrl: row.image_no_bg_path ? getPublicUrl(row.image_no_bg_path) : '',
     sortOrder: row.sort_order,
     isActive: row.is_active,
     createdAt: row.created_at,
@@ -104,6 +110,7 @@ export async function createCommodity(input: {
   name: string;
   slug?: string;
   iconPath: string;
+  imageNoBgPath?: string | null;
   sortOrder?: number;
   isActive?: boolean;
 }): Promise<CommodityCategory> {
@@ -114,6 +121,7 @@ export async function createCommodity(input: {
       name: input.name,
       slug,
       icon_path: input.iconPath,
+      image_no_bg_path: input.imageNoBgPath ?? null,
       sort_order: input.sortOrder ?? 0,
       is_active: input.isActive ?? true,
     })
@@ -131,6 +139,7 @@ export async function updateCommodity(
     name: string;
     slug: string;
     iconPath: string;
+    imageNoBgPath: string | null;
     sortOrder: number;
     isActive: boolean;
   }>
@@ -139,6 +148,7 @@ export async function updateCommodity(
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.slug !== undefined) update.slug = patch.slug;
   if (patch.iconPath !== undefined) update.icon_path = patch.iconPath;
+  if (patch.imageNoBgPath !== undefined) update.image_no_bg_path = patch.imageNoBgPath;
   if (patch.sortOrder !== undefined) update.sort_order = patch.sortOrder;
   if (patch.isActive !== undefined) update.is_active = patch.isActive;
 

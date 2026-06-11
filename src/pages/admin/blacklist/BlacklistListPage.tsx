@@ -101,12 +101,11 @@ export default function BlacklistListPage() {
       setShowBulkRemove(false);
       setReloadKey((k) => k + 1);
       // toast simples
-      // eslint-disable-next-line no-alert
+
       alert(
         `Concluído: ${result.success.length} removida(s), ${result.skipped.length} já estavam removida(s), ${result.failed.length} falha(s).`
       );
     } catch (err) {
-      // eslint-disable-next-line no-alert
       alert((err as Error).message ?? 'Falha na remoção em massa.');
     }
   }
@@ -126,7 +125,6 @@ export default function BlacklistListPage() {
       a.remove();
       URL.revokeObjectURL(url);
       if (result.truncated) {
-        // eslint-disable-next-line no-alert
         alert('Export limitado a 10000 linhas. Refine os filtros para exportar todos.');
       }
     } catch (err) {

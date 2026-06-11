@@ -51,12 +51,10 @@ export default function MfaVerifyForm({ userId, onSuccess }: Props) {
       try {
         onSuccess(result.usedBackupCode);
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[MfaVerifyForm] onSuccess falhou:', err);
         setError('Código verificado, mas a navegação falhou. Recarregue a página.');
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[MfaVerifyForm] verifyMfa lancou:', err);
       setError('Falha ao verificar código. Tente novamente.');
       setDigits(Array(CODE_LENGTH).fill(''));

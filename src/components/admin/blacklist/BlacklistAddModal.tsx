@@ -155,7 +155,7 @@ export default function BlacklistAddModal({ open, onClose, onAdded }: Props) {
       );
       onClose();
       // Toast simples via alert; a página pode exibir um toast melhor.
-      // eslint-disable-next-line no-alert
+
       window.alert('Entrada reativada.');
       navigate(`/admin/blacklist/${duplicateRemoved.id}`);
     } catch (err) {

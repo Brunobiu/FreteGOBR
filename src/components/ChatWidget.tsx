@@ -65,7 +65,6 @@ export default function ChatWidget() {
         })
         .catch(() => {});
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user]);
 
   const initConversation = async () => {

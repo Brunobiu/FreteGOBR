@@ -195,62 +195,101 @@ export default function AdminTicketsPage() {
         ) : items.length === 0 ? (
           <p className="p-8 text-sm text-gray-400 text-center">Nenhum ticket encontrado.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="px-3 py-2 text-left">Assunto</th>
-                <th className="px-3 py-2 text-left w-32">De</th>
-                <th className="px-3 py-2 text-left w-24">Status</th>
-                <th className="px-3 py-2 text-left w-20">Prioridade</th>
-                <th className="px-3 py-2 text-left w-32">Criado em</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop: tabela (>=768px). */}
+            <table className="hidden md:table w-full text-sm">
+              <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-3 py-2 text-left">Assunto</th>
+                  <th className="px-3 py-2 text-left w-32">De</th>
+                  <th className="px-3 py-2 text-left w-24">Status</th>
+                  <th className="px-3 py-2 text-left w-20">Prioridade</th>
+                  <th className="px-3 py-2 text-left w-32">Criado em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((t) => (
+                  <tr
+                    key={t.id}
+                    onClick={() => navigate(`/admin/suporte/tickets/${t.id}`)}
+                    className="border-t border-gray-700 hover:bg-gray-700/40 cursor-pointer"
+                  >
+                    <td className="px-3 py-2">
+                      <p className="text-gray-100 font-medium truncate max-w-md">{t.subject}</p>
+                    </td>
+                    <td className="px-3 py-2">
+                      {t.userId ? (
+                        <span className="text-gray-300 text-xs">Usuário</span>
+                      ) : (
+                        <div>
+                          <span className="text-yellow-300 text-xs font-medium">Visitante</span>
+                          <p className="text-[10px] text-gray-500 truncate">{t.guestName}</p>
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGE[t.status]}`}
+                      >
+                        {STATUS_LABEL[t.status]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${PRIORITY_BADGE[t.priority]}`}
+                      >
+                        {PRIORITY_LABEL[t.priority]}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-400 text-xs">
+                      {new Date(t.createdAt).toLocaleString('pt-BR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile: lista de cards single-column (<768px). */}
+            <ul className="md:hidden divide-y divide-gray-700">
               {items.map((t) => (
-                <tr
+                <li
                   key={t.id}
                   onClick={() => navigate(`/admin/suporte/tickets/${t.id}`)}
-                  className="border-t border-gray-700 hover:bg-gray-700/40 cursor-pointer"
+                  className="p-3 hover:bg-gray-700/40 cursor-pointer"
                 >
-                  <td className="px-3 py-2">
-                    <p className="text-gray-100 font-medium truncate max-w-md">{t.subject}</p>
-                  </td>
-                  <td className="px-3 py-2">
-                    {t.userId ? (
-                      <span className="text-gray-300 text-xs">Usuário</span>
-                    ) : (
-                      <div>
-                        <span className="text-yellow-300 text-xs font-medium">Visitante</span>
-                        <p className="text-[10px] text-gray-500 truncate">{t.guestName}</p>
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
+                  <p className="text-gray-100 font-medium text-sm truncate">{t.subject}</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${STATUS_BADGE[t.status]}`}
                     >
                       {STATUS_LABEL[t.status]}
                     </span>
-                  </td>
-                  <td className="px-3 py-2">
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${PRIORITY_BADGE[t.priority]}`}
                     >
                       {PRIORITY_LABEL[t.priority]}
                     </span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-400 text-xs">
+                    <span className="text-[10px] text-gray-400">
+                      {t.userId ? 'Usuário' : `Visitante${t.guestName ? ` · ${t.guestName}` : ''}`}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] text-gray-500">
                     {new Date(t.createdAt).toLocaleString('pt-BR', {
                       day: '2-digit',
                       month: '2-digit',
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
-                  </td>
-                </tr>
+                  </p>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </>
         )}
 
         {!loading && items.length > 0 && (

@@ -84,6 +84,61 @@ export async function getEmbarcadorProfile(userId: string): Promise<EmbarcadorPr
 }
 
 /**
+ * Cartao publico do embarcador para o modal de frete (lado motorista).
+ *
+ * Usa a RPC `get_embarcador_public_card` (SECURITY DEFINER) porque o RLS de
+ * `users` so permite `auth.uid() = id` — um motorista nao consegue ler
+ * `users.name` / `users.profile_photo_url` do embarcador via SELECT direto.
+ * A RPC devolve APENAS campos publicos (nome, foto, empresa, logo, filial).
+ */
+export interface EmbarcadorPublicCard {
+  id: string;
+  companyName: string;
+  companyLogoUrl: string | null;
+  cnpj: string | null;
+  branchState: string | null;
+  branchCity: string | null;
+  userName: string | null;
+  profilePhotoUrl: string | null;
+}
+
+export async function getEmbarcadorPublicCard(
+  embarcadorId: string
+): Promise<EmbarcadorPublicCard | null> {
+  const { data, error } = await supabase.rpc('get_embarcador_public_card', {
+    p_embarcador_id: embarcadorId,
+  });
+
+  if (error) {
+    console.warn('[EMBARCADOR] Erro ao buscar cartao publico:', error.message);
+    return null;
+  }
+  if (!data) return null;
+
+  const row = data as {
+    id: string;
+    company_name: string | null;
+    company_logo_url: string | null;
+    cnpj: string | null;
+    branch_state: string | null;
+    branch_city: string | null;
+    user_name: string | null;
+    profile_photo_url: string | null;
+  };
+
+  return {
+    id: row.id,
+    companyName: row.company_name ?? '',
+    companyLogoUrl: row.company_logo_url ?? null,
+    cnpj: row.cnpj ?? null,
+    branchState: row.branch_state ?? null,
+    branchCity: row.branch_city ?? null,
+    userName: row.user_name ?? null,
+    profilePhotoUrl: row.profile_photo_url ?? null,
+  };
+}
+
+/**
  * Update embarcador profile
  */
 export async function updateEmbarcadorProfile(

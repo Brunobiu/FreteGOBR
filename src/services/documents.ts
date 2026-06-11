@@ -140,16 +140,24 @@ export async function uploadDocument(
     const fileExt = file.name.split('.').pop();
     const fileName = `${userId}/${documentType}_${Date.now()}.${fileExt}`;
 
-    // Upload file to storage
+    // Upload file to storage. Passa o contentType explicitamente: sem ele, o
+    // Storage pode inferir um MIME que o bucket rejeita (HTTP 400). Garante
+    // que o tipo declarado é o que o navegador detectou no arquivo.
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('documents')
       .upload(fileName, file, {
         cacheControl: '3600',
-        upsert: false,
+        upsert: true,
+        contentType: file.type || undefined,
       });
 
     if (uploadError) {
-      throw new DocumentError(`Erro ao fazer upload: ${uploadError.message}`, 'UPLOAD_FAILED', 500);
+      // Mensagem amigável: o "HTTP 400" cru não diz nada ao usuário. As causas
+      // típicas são arquivo grande demais (limite do bucket) ou tipo não aceito.
+      const msg = /exceeded|maximum|size/i.test(uploadError.message)
+        ? 'Imagem muito grande. Envie uma foto de até 10 MB.'
+        : `Erro ao enviar o arquivo: ${uploadError.message}`;
+      throw new DocumentError(msg, 'UPLOAD_FAILED', 400);
     }
 
     // Create document record in database
@@ -185,7 +193,7 @@ export async function uploadDocument(
         .eq('id', userId);
       if (avatarError) {
         // Não interrompe o upload — o trigger SQL pode já ter feito o trabalho.
-        // eslint-disable-next-line no-console
+
         console.warn('[documents] sync profile_photo_url falhou:', avatarError.message);
       }
     }

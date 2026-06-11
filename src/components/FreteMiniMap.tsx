@@ -39,6 +39,7 @@
 
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Frete } from '../services/fretes';
@@ -81,7 +82,13 @@ const DESTINATION_ICON = createPinIcon('#dc2626'); // vermelho-600
  *      ao redor do componente exibe a mensagem amigavel sem derrubar a
  *      HomePage.
  */
-function FitToRoute({ points }: { points: GeographicPoint[] }) {
+function FitToRoute({
+  points,
+  padding,
+}: {
+  points: GeographicPoint[];
+  padding?: L.FitBoundsOptions;
+}) {
   const map = useMap();
   useEffect(() => {
     if (points.length === 0) return;
@@ -90,7 +97,7 @@ function FitToRoute({ points }: { points: GeographicPoint[] }) {
       if (cancelled) return;
       try {
         const bounds = L.latLngBounds(points.map((p) => [p.latitude, p.longitude]));
-        map.fitBounds(bounds, { padding: [40, 40], animate: false });
+        map.fitBounds(bounds, { padding: [40, 40], animate: false, ...padding });
       } catch {
         // Mapa ainda nao esta pronto pro fitBounds (iOS Safari race).
         // Boundary externo cobre o caso extremo.
@@ -102,18 +109,29 @@ function FitToRoute({ points }: { points: GeographicPoint[] }) {
     return () => {
       cancelled = true;
     };
-  }, [map, points]);
+  }, [map, points, padding]);
   return null;
 }
 
 interface FreteMiniMapProps {
   frete: Frete;
-  /** Altura do mapa compacto em px. Default 160. */
+  /** Altura do mapa compacto em px. Default 90 (clique expande em tela cheia). */
   height?: number;
   className?: string;
+  /**
+   * Modo "sem moldura": remove borda/cantos/sombra próprios e preenche 100%
+   * da altura do container pai. Usado quando o mapa serve de FUNDO (ex: card
+   * com degradê por cima), e quem cuida da moldura é o container externo.
+   */
+  bare?: boolean;
 }
 
-export default function FreteMiniMap({ frete, height = 160, className }: FreteMiniMapProps) {
+export default function FreteMiniMap({
+  frete,
+  height = 90,
+  className,
+  bare = false,
+}: FreteMiniMapProps) {
   // Origem/destino preferem o `pinned` (coordenada exata) e caem em
   // `originLocation`/`destinationLocation` (geocode da cidade) como fallback.
   const origin: GeographicPoint = {
@@ -139,6 +157,26 @@ export default function FreteMiniMap({ frete, height = 160, className }: FreteMi
 
   // Modo expandido (tela cheia). False = mini-mapa compacto e nao-interativo.
   const [expanded, setExpanded] = useState(false);
+
+  // Container DEDICADO para o portal do mapa em tela cheia. Criamos um <div>
+  // proprio anexado ao body e removemos no unmount. Portar para um node
+  // dedicado (em vez de document.body direto) evita o erro
+  // "removeChild: node is not a child of this node" que o React/StrictMode
+  // dispara quando o Leaflet manipula o DOM dentro de um portal no body —
+  // esse crash derrubava a HomePage inteira (sumiam diesel/anuncios/carrossel).
+  const [portalEl, setPortalEl] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!expanded) return;
+    const el = document.createElement('div');
+    el.setAttribute('data-frete-map-portal', '');
+    document.body.appendChild(el);
+    setPortalEl(el);
+    return () => {
+      setPortalEl(null);
+      // Remove de forma segura: só se ainda for filho do body.
+      if (el.parentNode) el.parentNode.removeChild(el);
+    };
+  }, [expanded]);
 
   useEffect(() => {
     if (!validCoords) {
@@ -205,7 +243,10 @@ export default function FreteMiniMap({ frete, height = 160, className }: FreteMi
           dashArray: routeGeometry ? undefined : '6 6',
         }}
       />
-      <FitToRoute points={polylinePoints} />
+      <FitToRoute
+        points={polylinePoints}
+        padding={bare ? { paddingTopLeft: [180, 30], paddingBottomRight: [20, 30] } : undefined}
+      />
     </>
   );
 
@@ -217,8 +258,12 @@ export default function FreteMiniMap({ frete, height = 160, className }: FreteMi
           type="button"
           onClick={() => setExpanded(true)}
           aria-label={`Expandir rota de ${frete.origin} para ${frete.destination}`}
-          className={`relative block w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${className ?? ''}`}
-          style={{ height }}
+          className={
+            bare
+              ? `relative block w-full h-full focus:outline-none ${className ?? ''}`
+              : `relative block w-full rounded-lg overflow-hidden border border-gray-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${className ?? ''}`
+          }
+          style={bare ? undefined : { height }}
         >
           {/* `pointer-events-none` no mapa garante que o clique caia no <button>
               e nao seja interceptado pelo Leaflet, mesmo com dragging desligado. */}
@@ -240,93 +285,102 @@ export default function FreteMiniMap({ frete, height = 160, className }: FreteMi
               {mapChildren}
             </MapContainer>
           </div>
-          {/* Affordance de "expandir" no canto superior direito. */}
-          <span
-            aria-hidden="true"
-            className="absolute top-2 right-2 bg-white/90 backdrop-blur rounded-md p-1 shadow border border-gray-200"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="text-gray-700"
-            >
-              <polyline points="15 3 21 3 21 9" />
-              <polyline points="9 21 3 21 3 15" />
-              <line x1="21" y1="3" x2="14" y2="10" />
-              <line x1="3" y1="21" x2="10" y2="14" />
-            </svg>
-          </span>
-        </button>
-
-        {/* ============ Modo EXPANDIDO (tela cheia, interativo) ============ */}
-        {expanded && (
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={`Rota de ${frete.origin} para ${frete.destination}`}
-            className="fixed inset-0 z-[10000] bg-black"
-          >
-            <MapContainer
-              key="full"
-              center={center}
-              zoom={5}
-              style={{ height: '100vh', width: '100vw' }}
-              scrollWheelZoom
-              dragging
-              doubleClickZoom
-              zoomControl
-              touchZoom
-              boxZoom
-              keyboard
-              attributionControl
-            >
-              {mapChildren}
-            </MapContainer>
-
-            {/* Botao X para voltar. Acima dos controles do Leaflet (z-index alto). */}
-            <button
-              type="button"
-              onClick={() => setExpanded(false)}
-              aria-label="Fechar mapa"
-              className="absolute top-3 right-3 z-[10001] bg-white rounded-full shadow-lg p-2 border border-gray-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {/* Affordance de "expandir" no canto superior direito. Oculta no modo
+              bare (o card externo cuida do visual). */}
+          {!bare && (
+            <span
+              aria-hidden="true"
+              className="absolute top-2 right-2 bg-white/90 backdrop-blur rounded-md p-1 shadow border border-gray-200"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="2.5"
+                strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-gray-800"
+                className="text-gray-700"
               >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
+                <polyline points="15 3 21 3 21 9" />
+                <polyline points="9 21 3 21 3 15" />
+                <line x1="21" y1="3" x2="14" y2="10" />
+                <line x1="3" y1="21" x2="10" y2="14" />
               </svg>
-            </button>
+            </span>
+          )}
+        </button>
 
-            {/* Cabecalho discreto com origem -> destino. */}
-            <div className="absolute top-3 left-3 z-[10001] bg-white/95 backdrop-blur rounded-lg shadow-lg px-3 py-2 border border-gray-200 max-w-[calc(100%-72px)]">
-              <p className="text-xs font-semibold text-gray-800 truncate">
-                {frete.origin} → {frete.destination}
-              </p>
-              {frete.distanceKm ? (
-                <p className="text-[10px] text-gray-500 mt-0.5">
-                  {frete.distanceKm.toLocaleString('pt-BR')} km pela rota
+        {/* ============ Modo EXPANDIDO (tela cheia, interativo) ============
+            Renderizado via portal no <body>: assim o mapa fica REALMENTE por
+            cima de tudo (fora do card isolado), sem o conteúdo do modal
+            vazando sobre ele. Sem botões de zoom (+/-): só rota, cabeçalho e X. */}
+        {expanded &&
+          portalEl &&
+          createPortal(
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={`Rota de ${frete.origin} para ${frete.destination}`}
+              className="fixed inset-0 z-[10000] bg-black"
+            >
+              <MapContainer
+                key="full"
+                center={center}
+                zoom={5}
+                style={{ height: '100vh', width: '100vw' }}
+                scrollWheelZoom
+                dragging
+                doubleClickZoom
+                zoomControl={false}
+                touchZoom
+                boxZoom
+                keyboard
+                attributionControl={false}
+              >
+                {mapChildren}
+              </MapContainer>
+
+              {/* Botao X para voltar. */}
+              <button
+                type="button"
+                onClick={() => setExpanded(false)}
+                aria-label="Fechar mapa"
+                className="absolute top-3 right-3 z-[10001] bg-white rounded-full shadow-lg p-2 border border-gray-200 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-gray-800"
+                >
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+
+              {/* Cabecalho discreto com origem -> destino. */}
+              <div className="absolute top-3 left-3 z-[10001] bg-white/95 backdrop-blur rounded-lg shadow-lg px-3 py-2 border border-gray-200 max-w-[calc(100%-72px)]">
+                <p className="text-xs font-semibold text-gray-800 truncate">
+                  {frete.origin} → {frete.destination}
                 </p>
-              ) : null}
-            </div>
-          </div>
-        )}
+                {frete.distanceKm ? (
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    {frete.distanceKm.toLocaleString('pt-BR')} km pela rota
+                  </p>
+                ) : null}
+              </div>
+            </div>,
+            portalEl
+          )}
       </>
     </MapaFretesBoundary>
   );

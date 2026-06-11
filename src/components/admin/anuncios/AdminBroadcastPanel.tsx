@@ -85,40 +85,77 @@ export default function AdminBroadcastPanel() {
         ) : items.length === 0 ? (
           <p className="p-8 text-sm text-gray-400 text-center">Nenhum comunicado enviado ainda.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
-              <tr>
-                <th className="px-3 py-2 text-left">Título</th>
-                <th className="px-3 py-2 text-left">Audiência</th>
-                <th className="px-3 py-2 text-left w-28">Destinatários</th>
-                <th className="px-3 py-2 text-left w-40">Enviado em</th>
-              </tr>
-            </thead>
-            <tbody>
+          <>
+            {/* Desktop: tabela (>=768px). */}
+            <table className="hidden md:table w-full text-sm">
+              <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
+                <tr>
+                  <th className="px-3 py-2 text-left">Título</th>
+                  <th className="px-3 py-2 text-left">Audiência</th>
+                  <th className="px-3 py-2 text-left w-28">Destinatários</th>
+                  <th className="px-3 py-2 text-left w-40">Enviado em</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((b) => (
+                  <tr key={b.id} className="border-t border-gray-700">
+                    <td className="px-3 py-2">
+                      <p className="text-gray-100 font-medium truncate max-w-md">{b.title}</p>
+                      {b.link && (
+                        <p className="text-[10px] text-gray-500 truncate max-w-md">→ {b.link}</p>
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-wrap gap-1">
+                        {b.targetAudience.map((a) => (
+                          <span
+                            key={a}
+                            className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                              AUDIENCE_BADGE[a] ?? 'bg-gray-700 text-gray-400'
+                            }`}
+                          >
+                            {AUDIENCE_LABEL[a] ?? a}
+                          </span>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-gray-300">{b.recipientsCount ?? '—'}</td>
+                    <td className="px-3 py-2 text-gray-400 text-xs">
+                      {b.dispatchedAt
+                        ? new Date(b.dispatchedAt).toLocaleString('pt-BR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Mobile: lista de cards single-column (<768px). */}
+            <ul className="md:hidden divide-y divide-gray-700">
               {items.map((b) => (
-                <tr key={b.id} className="border-t border-gray-700">
-                  <td className="px-3 py-2">
-                    <p className="text-gray-100 font-medium truncate max-w-md">{b.title}</p>
-                    {b.link && (
-                      <p className="text-[10px] text-gray-500 truncate max-w-md">→ {b.link}</p>
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <div className="flex flex-wrap gap-1">
-                      {b.targetAudience.map((a) => (
-                        <span
-                          key={a}
-                          className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
-                            AUDIENCE_BADGE[a] ?? 'bg-gray-700 text-gray-400'
-                          }`}
-                        >
-                          {AUDIENCE_LABEL[a] ?? a}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 text-gray-300">{b.recipientsCount ?? '—'}</td>
-                  <td className="px-3 py-2 text-gray-400 text-xs">
+                <li key={b.id} className="p-3">
+                  <p className="text-gray-100 font-medium text-sm truncate">{b.title}</p>
+                  {b.link && <p className="text-[10px] text-gray-500 truncate">→ {b.link}</p>}
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    {b.targetAudience.map((a) => (
+                      <span
+                        key={a}
+                        className={`px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                          AUDIENCE_BADGE[a] ?? 'bg-gray-700 text-gray-400'
+                        }`}
+                      >
+                        {AUDIENCE_LABEL[a] ?? a}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-[10px] text-gray-500">
+                    {b.recipientsCount ?? '—'} destinatários ·{' '}
                     {b.dispatchedAt
                       ? new Date(b.dispatchedAt).toLocaleString('pt-BR', {
                           day: '2-digit',
@@ -128,11 +165,11 @@ export default function AdminBroadcastPanel() {
                           minute: '2-digit',
                         })
                       : '—'}
-                  </td>
-                </tr>
+                  </p>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </>
         )}
 
         {!loading && items.length > 0 && (

@@ -118,7 +118,7 @@ export default function BanUserForm({ user, onChanged, onClose }: Props) {
       onChanged(result.user);
       if (result.blacklistResult && items.length > 0) {
         // toast simples
-        // eslint-disable-next-line no-alert
+
         alert(
           `Usuário banido. ${result.blacklistResult.inserted} entrada(s) adicionada(s) à blacklist, ${result.blacklistResult.skipped} pulada(s), ${result.blacklistResult.failed} falha(s).`
         );
@@ -144,7 +144,6 @@ export default function BanUserForm({ user, onChanged, onClose }: Props) {
       });
       onChanged(result.user);
       if (removeBlacklist && canManageBlacklist) {
-        // eslint-disable-next-line no-alert
         alert(
           `Usuário desbanido. ${result.blacklistRemoved ?? 0} entrada(s) removida(s) da blacklist.`
         );

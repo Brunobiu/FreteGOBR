@@ -797,7 +797,7 @@ export async function exportCSV(
     });
   } catch (e) {
     // best-effort; nao bloqueia o download
-    // eslint-disable-next-line no-console
+
     console.error('[admin/dashboard] DASHBOARD_EXPORTED log failed', e);
   }
 

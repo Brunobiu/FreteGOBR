@@ -511,7 +511,6 @@ export default function MensagensPage() {
     if (!activeId) return;
     const files = Array.from(e.dataTransfer?.files ?? []);
     for (const file of files) {
-      // eslint-disable-next-line no-await-in-loop
       await handleAttach(file);
     }
   };
