@@ -2,7 +2,7 @@
  * MotoristaBottomNav - barra de navegacao inferior FLUTUANTE para motorista.
  *
  * Layout visual:
- *  - 5 itens: Inicio, Mapa, Marketplace (placeholder), Tabela ANTT, Menu
+ *  - 5 itens: Inicio, Mapa, Marketplace (placeholder), ANTT, Menu
  *  - Barra flutuante com bordas arredondadas (estilo "pill"), descolada do
  *    rodape (margens laterais + inferior).
  *  - Auto-hide: desce (some) ao rolar a pagina para baixo e reaparece ao
@@ -212,7 +212,7 @@ export default function MotoristaBottomNav() {
               />
             </svg>
             <span className={`text-[10px] ${isTabelaActive ? 'font-bold' : 'font-medium'}`}>
-              Tabela ANTT
+              ANTT
             </span>
           </button>
 
