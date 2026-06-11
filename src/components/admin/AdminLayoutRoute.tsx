@@ -33,6 +33,7 @@ import SubscriptionsListPage from '../../pages/admin/subscriptions/Subscriptions
 import CommunityListPage from '../../pages/admin/comunidade/CommunityListPage';
 import AdminAnunciosPage from '../../pages/admin/AdminAnunciosPage';
 import AdminWhatsAppPage from '../../pages/admin/AdminWhatsAppPage';
+import AdminTutoriaisPage from '../../pages/admin/AdminTutoriaisPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
 import AdminTicketDetailPage from '../../pages/admin/AdminTicketDetailPage';
 import AdminSupportChatPage from '../../pages/admin/AdminSupportChatPage';
@@ -70,6 +71,7 @@ export default function AdminLayoutRoute() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="audit" element={<AdminAuditPage />} />
             <Route path="anuncios" element={<AdminAnunciosPage />} />
+            <Route path="tutoriais" element={<AdminTutoriaisPage />} />
             <Route path="whatsapp" element={<AdminWhatsAppPage />} />
             <Route
               path="comunicados"

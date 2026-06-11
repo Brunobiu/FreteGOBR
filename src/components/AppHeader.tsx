@@ -275,17 +275,14 @@ export default function AppHeader() {
                         <ProfileIcon />
                         Meu Perfil
                       </Link>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProfileOpen(false);
-                          window.alert('Tutorial em breve.');
-                        }}
+                      <Link
+                        to="/tutorial"
+                        onClick={() => setProfileOpen(false)}
                         className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         <TutorialMenuIcon />
                         Tutorial
-                      </button>
+                      </Link>
                       <Link
                         to="/configuracoes"
                         onClick={() => setProfileOpen(false)}

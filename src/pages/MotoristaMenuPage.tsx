@@ -69,9 +69,7 @@ export default function MotoristaMenuPage() {
       key: 'tutorial',
       label: 'Tutorial',
       icon: <TutorialIcon />,
-      onClick: () => {
-        window.alert('Tutorial em breve.');
-      },
+      onClick: () => navigate('/tutorial'),
     },
     {
       key: 'tracao',
