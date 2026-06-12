@@ -436,7 +436,13 @@ function ProfilePhotoBlock({
     <div className="relative shrink-0" data-photo-popover>
       <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-300">
         {url ? (
-          <img src={url} alt="Foto" className="w-full h-full object-cover" />
+          <img
+            src={url}
+            alt="Foto"
+            className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
         ) : (
           <svg className="w-8 h-8 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
             <path

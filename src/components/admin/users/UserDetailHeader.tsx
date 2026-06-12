@@ -66,7 +66,13 @@ export default function UserDetailHeader({
       <div className="flex items-start gap-4">
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 overflow-hidden flex items-center justify-center text-white text-2xl font-semibold shrink-0">
           {user.profile_photo_url ? (
-            <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
+            <img
+              src={user.profile_photo_url}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
+            />
           ) : (
             initial
           )}

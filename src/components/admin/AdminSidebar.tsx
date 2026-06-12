@@ -221,6 +221,8 @@ export default function AdminSidebar({ open, onClose }: Props) {
                     (e.currentTarget as HTMLImageElement).style.display = 'none';
                   }}
                   className="w-full h-full object-cover"
+                  loading="lazy"
+                  decoding="async"
                 />
               ) : (
                 initial

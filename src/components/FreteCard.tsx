@@ -92,6 +92,8 @@ export default function FreteCard({
                 src={communityProfile.photoUrl}
                 alt="Frete Comunidade"
                 className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : null}
           </div>

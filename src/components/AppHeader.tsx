@@ -239,6 +239,8 @@ export default function AppHeader() {
                           src={photoUrl}
                           alt={displayName}
                           className="w-full h-full object-cover"
+                          loading="lazy"
+                          decoding="async"
                           onError={() => setPhotoUrl(null)}
                         />
                       ) : (

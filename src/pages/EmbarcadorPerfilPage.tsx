@@ -345,7 +345,13 @@ export default function EmbarcadorPerfilPage() {
             <div className="flex items-center space-x-6">
               <div className="w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center overflow-hidden border border-gray-300">
                 {profilePhotoUrl ? (
-                  <img src={profilePhotoUrl} alt="Foto" className="w-full h-full object-cover" />
+                  <img
+                    src={profilePhotoUrl}
+                    alt="Foto"
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
                 ) : (
                   <svg className="w-10 h-10 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path

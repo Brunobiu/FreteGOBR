@@ -14,6 +14,7 @@
 
 import { useNavigate } from 'react-router-dom';
 import MotoristaBottomNav from '../components/MotoristaBottomNav';
+import { useTabSlideClass } from '../hooks/useTabTransition';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
 import { useTrialStatus } from '../hooks/useTrialStatus';
@@ -42,6 +43,7 @@ interface Tile {
 export default function MotoristaMenuPage() {
   useDocumentTitle('Menu do Motorista');
   const navigate = useNavigate();
+  const slideClass = useTabSlideClass();
   const { logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { daysLeft, isExpired, isSubscribed } = useTrialStatus();
@@ -143,7 +145,7 @@ export default function MotoristaMenuPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      <main className="max-w-md mx-auto px-4 pt-6">
+      <main className={`max-w-md mx-auto px-4 pt-6 ${slideClass}`}>
         {/* Cabecalho da pagina (sem AppHeader, alinhado a esquerda) */}
         <div className="mb-5 text-left">
           <h1 className="text-xl font-semibold text-gray-900">Menu</h1>

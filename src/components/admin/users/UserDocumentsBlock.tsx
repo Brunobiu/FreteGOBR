@@ -163,6 +163,8 @@ function DocViewerModal({
               src={url}
               alt={doc.document_type}
               className="max-w-full max-h-[78vh] object-contain rounded"
+              loading="lazy"
+              decoding="async"
             />
           )}
         </div>

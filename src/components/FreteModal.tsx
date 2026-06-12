@@ -319,6 +319,8 @@ export default function FreteModal({
                       src={communityProfile.photoUrl}
                       alt=""
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
@@ -351,6 +353,8 @@ export default function FreteModal({
                       src={embarcadorProfile.photoUrl ?? embarcadorProfile.companyLogoUrl ?? ''}
                       alt=""
                       className="w-full h-full object-cover"
+                      loading="lazy"
+                      decoding="async"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).style.display = 'none';
                       }}
@@ -486,6 +490,8 @@ export default function FreteModal({
                     src={productImageUrl}
                     alt=""
                     className="max-w-full max-h-full object-contain drop-shadow-xl translate-x-1/4"
+                    loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       (e.currentTarget as HTMLImageElement).style.display = 'none';
                     }}

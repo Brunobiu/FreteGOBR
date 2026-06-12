@@ -4,9 +4,25 @@
  */
 
 import { supabase } from './supabase';
+import { dataCache } from './cache/dataCache';
+import { deriveKey } from './cache/cacheKey';
 import type { GeographicPoint } from '../types';
 
 export type FreteStatus = 'ativo' | 'encerrado' | 'cancelado';
+
+/**
+ * Namespace do Data_Cache para o feed de fretes ativos
+ * (`getActiveFretes`). Ver tabela de namespaces do design (Req 6, 12).
+ */
+const FRETES_ACTIVE_NAMESPACE = 'fretes:active';
+
+/**
+ * TTL curto do feed de fretes ativos (30s). O feed é sensível a tempo real
+ * (HomePage faz refetch silencioso via realtime), então mantemos a janela de
+ * staleness mínima: o cache serve para coalescer requisições e sobreviver à
+ * navegação curta, sem introduzir defasagem perceptível (Req 6.3, 6.5, 12.5).
+ */
+const FRETES_TTL_MS = 30_000;
 
 /** Origem do frete: embarcador real ou Frete Comunidade (spec frete-comunidade). */
 export type FreteSource = 'embarcador' | 'comunidade';
@@ -171,6 +187,21 @@ export interface FreteFilters {
 }
 
 /**
+ * Invalida todo o namespace do feed de fretes ativos após uma escrita
+ * bem-sucedida (Req 6.4). Garante que a próxima leitura busque dados frescos
+ * em vez de servir uma lista obsoleta do cache.
+ *
+ * Aplicado apenas a mutações que alteram a LISTA de fretes ativos
+ * (criação, edição, remoção, mudança de status). Operações de alta frequência
+ * que não mudam a composição da lista — `incrementFreteViews` e
+ * `recordFreteClick` — NÃO invalidam: derrubariam o cache constantemente sem
+ * benefício, e o feed (views/clicks) não é exibido em tempo real na listagem.
+ */
+export function invalidateActiveFretesCache(): void {
+  dataCache.invalidateNamespace(FRETES_ACTIVE_NAMESPACE);
+}
+
+/**
  * Create a new frete
  */
 export async function createFrete(data: CreateFreteData): Promise<Frete> {
@@ -236,6 +267,9 @@ export async function createFrete(data: CreateFreteData): Promise<Frete> {
     throw new Error(`Erro ao criar frete: ${error.message}`);
   }
 
+  // Invalida o feed de fretes ativos: a lista mudou (Req 6.4).
+  invalidateActiveFretesCache();
+
   return mapFreteFromDb(freteData);
 }
 
@@ -294,6 +328,10 @@ export async function updateFrete(freteId: string, data: UpdateFreteData): Promi
   if (error) {
     throw new Error(`Erro ao atualizar frete: ${error.message}`);
   }
+
+  // Edição (inclui mudança de status) pode alterar a composição/ordenação do
+  // feed de fretes ativos — invalida para forçar releitura fresca (Req 6.4).
+  invalidateActiveFretesCache();
 }
 
 /**
@@ -305,6 +343,9 @@ export async function deleteFrete(freteId: string): Promise<void> {
   if (error) {
     throw new Error(`Erro ao deletar frete: ${error.message}`);
   }
+
+  // Remoção altera a lista de fretes ativos — invalida o cache (Req 6.4).
+  invalidateActiveFretesCache();
 }
 
 /**
@@ -324,9 +365,31 @@ export async function getFreteById(freteId: string): Promise<Frete | null> {
 }
 
 /**
- * Get active fretes with optional filters
+ * Get active fretes with optional filters.
+ *
+ * Envolve a leitura no Data_Cache (Req 6, 7, 12): coalesce requisições
+ * concorrentes com os mesmos filtros, reutiliza o resultado entre navegações
+ * curtas e expira por TTL curto (`FRETES_TTL_MS`). A assinatura observável e o
+ * formato do retorno (`Frete[]`) são idênticos ao baseline — o valor servido
+ * pelo cache é o mesmo que a query retornaria diretamente (Req 6.5, 12.5).
+ *
+ * Em qualquer falha do fetcher, o erro é propagado exatamente como antes
+ * (fail-safe ao baseline) e nenhuma entrada é cacheada.
  */
 export async function getActiveFretes(filters?: FreteFilters): Promise<Frete[]> {
+  return dataCache.getOrFetch(
+    deriveKey(FRETES_ACTIVE_NAMESPACE, filters),
+    () => fetchActiveFretesFromSupabase(filters),
+    { ttlMs: FRETES_TTL_MS }
+  );
+}
+
+/**
+ * Implementação direta da leitura de fretes ativos no Supabase (fonte).
+ * Extraída de `getActiveFretes` para ser envolvida pelo Data_Cache sem alterar
+ * o comportamento observável.
+ */
+async function fetchActiveFretesFromSupabase(filters?: FreteFilters): Promise<Frete[]> {
   let query = supabase
     .from('fretes')
     .select('*')

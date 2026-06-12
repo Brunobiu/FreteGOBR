@@ -221,6 +221,8 @@ export default function AdminCommoditiesPanel() {
                           src={c.iconUrl}
                           alt={c.name}
                           className="w-full h-full object-contain p-1"
+                          loading="lazy"
+                          decoding="async"
                           onError={(e) => {
                             (e.currentTarget as HTMLImageElement).style.display = 'none';
                           }}
@@ -336,6 +338,8 @@ export default function AdminCommoditiesPanel() {
                   src={editing.iconUrl}
                   alt=""
                   className="mt-2 w-16 h-16 object-contain rounded bg-gray-800 p-1"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
               <p className="text-[10px] text-gray-500 mt-1">
@@ -358,6 +362,8 @@ export default function AdminCommoditiesPanel() {
                   src={editing.imageNoBgUrl}
                   alt=""
                   className="mt-2 w-16 h-16 object-contain rounded bg-gray-800 p-1"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
               <p className="text-[10px] text-gray-500 mt-1">

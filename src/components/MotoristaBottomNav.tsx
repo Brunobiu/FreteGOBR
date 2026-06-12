@@ -9,7 +9,7 @@
  *    rolar para cima ou ao chegar no topo.
  *  - O slot "Menu" exibe a FOTO do motorista (em vez de icone) com as tres
  *    barrinhas sobrepostas no canto, espelhando o padrao de redes sociais.
- *  - "Marketplace" ainda nao tem tela: mostra um aviso "Em breve" e nao navega.
+ *  - "Marketplace" abre a vitrine de anúncios (/motorista/marketplace).
  *
  * O slot "Menu" navega para `/motorista/menu`.
  */
@@ -72,14 +72,6 @@ export default function MotoristaBottomNav() {
     };
   }, [user?.profilePhotoUrl]);
 
-  // ─── Aviso "Em breve" do Marketplace ──────────────────────────────────
-  const [marketSoon, setMarketSoon] = useState(false);
-  useEffect(() => {
-    if (!marketSoon) return;
-    const t = setTimeout(() => setMarketSoon(false), 2500);
-    return () => clearTimeout(t);
-  }, [marketSoon]);
-
   const hasIncomplete =
     user?.userType === 'motorista' &&
     (groups.perfil ||
@@ -98,10 +90,12 @@ export default function MotoristaBottomNav() {
 
   const goMapa = () => navigate('/motorista/mapa');
   const goMenu = () => navigate('/motorista/menu');
+  const goMarketplace = () => navigate('/motorista/marketplace');
 
   const isHomeActive = location.pathname === '/';
   const isMapaActive = location.pathname === '/motorista/mapa';
   const isTabelaActive = location.pathname === '/motorista/tabela-antt';
+  const isMarketplaceActive = location.pathname.startsWith('/motorista/marketplace');
   const isMenuActive =
     location.pathname.startsWith('/motorista/menu') ||
     location.pathname.startsWith('/motorista/perfil') ||
@@ -114,16 +108,6 @@ export default function MotoristaBottomNav() {
 
   return (
     <>
-      {/* Aviso flutuante "Em breve" do Marketplace */}
-      {marketSoon && (
-        <div
-          className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-xs px-3 py-2 rounded-full shadow-lg"
-          role="status"
-        >
-          Marketplace em breve
-        </div>
-      )}
-
       <nav
         className={`fixed bottom-3 left-3 right-3 z-40 transition-transform duration-300 ease-in-out ${
           hidden ? 'translate-y-[150%]' : 'translate-y-0'
@@ -216,12 +200,14 @@ export default function MotoristaBottomNav() {
             </span>
           </button>
 
-          {/* 4 - Marketplace (placeholder, sem tela ainda) */}
+          {/* 4 - Marketplace */}
           <button
             type="button"
-            onClick={() => setMarketSoon(true)}
-            className="flex flex-col items-center justify-center gap-0.5 py-1 text-gray-300"
-            aria-label="Marketplace (em breve)"
+            onClick={goMarketplace}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+              isMarketplaceActive ? 'text-green-400' : 'text-gray-300'
+            }`}
+            aria-label="Marketplace"
           >
             <svg
               className="w-6 h-6"
@@ -236,7 +222,9 @@ export default function MotoristaBottomNav() {
                 d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
-            <span className="text-[10px] font-medium">Marketplace</span>
+            <span className={`text-[10px] ${isMarketplaceActive ? 'font-bold' : 'font-medium'}`}>
+              Marketplace
+            </span>
           </button>
 
           {/* 5 - Menu (foto do motorista + 3 barrinhas sobrepostas) */}
@@ -260,6 +248,8 @@ export default function MotoristaBottomNav() {
                     src={photoUrl}
                     alt="Menu"
                     className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
                     onError={() => setPhotoUrl(null)}
                   />
                 ) : (

@@ -144,6 +144,7 @@ export default function CommoditiesCarousel({
                     className="w-full h-full object-cover select-none"
                     draggable={false}
                     loading="lazy"
+                    decoding="async"
                     onError={(e) => {
                       // se a imagem falhar, esconde e o fallback inicial aparece
                       (e.currentTarget as HTMLImageElement).style.display = 'none';

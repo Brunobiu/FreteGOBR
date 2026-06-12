@@ -129,6 +129,8 @@ export default function AnunciosCarousel() {
                 alt={anuncio.name}
                 className="w-full h-auto aspect-[16/7] sm:aspect-[21/8] object-cover"
                 draggable={false}
+                loading="lazy"
+                decoding="async"
               />
             </button>
           ))}

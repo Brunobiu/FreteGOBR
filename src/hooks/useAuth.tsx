@@ -7,6 +7,8 @@ import {
   getCurrentUser,
   refreshToken as refreshTokenService,
 } from '../services/auth';
+import { verifySessionForBootstrap } from '../services/authSession';
+import { dataCache } from '../services/cache/dataCache';
 
 interface AuthContextType {
   user: User | null;
@@ -29,36 +31,79 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+/**
+ * Lê a Cached_Session de forma SÍNCRONA do `localStorage`.
+ *
+ * Estratégia de auth otimista (startup-performance-optimization, Req 1.1/1.2):
+ * só consideramos uma sessão presente quando AMBOS `fretego_user` e
+ * `fretego_access_token` existem e o `user` é parseável. `localStorage`
+ * corrompido (JSON inválido) é tratado como ausência de sessão — sem lançar e
+ * sem rede (Req 1.5 / Error Handling do design).
+ *
+ * @returns o `User` hidratado da Cached_Session, ou `null` quando não há
+ *          sessão válida persistida.
+ */
+function readCachedUser(): User | null {
+  try {
+    const storedUser = localStorage.getItem(USER_KEY);
+    const storedToken = localStorage.getItem(TOKEN_KEY);
+
+    if (!storedUser || !storedToken) {
+      return null;
+    }
+
+    return JSON.parse(storedUser) as User;
+  } catch {
+    // localStorage corrompido/ilegível ⇒ tratar como ausência de sessão.
+    return null;
+  }
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  // Hidratação otimista: o estado inicial é derivado SINCRONAMENTE da
+  // Cached_Session, permitindo o First_Useful_Paint sem aguardar rede.
+  // Quando há Cached_Session, `isLoading` já inicia em `false` (Property 1).
+  const [user, setUser] = useState<User | null>(() => readCachedUser());
+  const [isLoading, setIsLoading] = useState(() => readCachedUser() === null);
 
-  // Initialize auth state from localStorage
+  // Verificação de sessão em segundo plano (não bloqueante).
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const storedUser = localStorage.getItem(USER_KEY);
-        const storedToken = localStorage.getItem(TOKEN_KEY);
+    // Sem Cached_Session ⇒ user=null, isLoading=false, sem Supabase_Query.
+    if (readCachedUser() === null) {
+      setIsLoading(false);
+      return;
+    }
 
-        if (storedUser && storedToken) {
-          // Verify token is still valid by fetching current user
-          const currentUser = await getCurrentUser();
-          if (currentUser) {
-            setUser(currentUser);
-          } else {
-            // Token invalid, clear storage
-            clearAuthData();
-          }
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth:', error);
-        clearAuthData();
-      } finally {
-        setIsLoading(false);
+    // Idempotente sob React.StrictMode (double-invoke em dev): a verificação
+    // apenas reconcilia o estado já hidratado; cancelamos a aplicação do
+    // resultado se o efeito for desmontado antes de resolver.
+    let cancelled = false;
+
+    void verifySessionForBootstrap().then((result) => {
+      if (cancelled) return;
+
+      switch (result.kind) {
+        case 'valid':
+          // Sessão confirmada: refresh transparente do user + localStorage
+          // (mesma semântica do `refreshUser`).
+          localStorage.setItem(USER_KEY, JSON.stringify(result.user));
+          setUser(result.user);
+          break;
+        case 'invalid':
+          // Sessão explicitamente inválida ⇒ limpar Cached_Session (Req 1.3).
+          clearAuthData();
+          setUser(null);
+          break;
+        case 'network-error':
+          // Erro de rede/transporte ⇒ PRESERVAR a sessão; não deslogar
+          // (Req 1.4 / fail-safe ao baseline).
+          break;
       }
-    };
+    });
 
-    initAuth();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Auto-refresh token before expiration
@@ -106,6 +151,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
+    // Limpa o Data_Cache em memória ao encerrar/trocar de sessão para evitar
+    // vazamento de dados de um usuário para outro na mesma aba (Req 6.4, 12.1).
+    dataCache.clear();
     setUser(null);
   };
 

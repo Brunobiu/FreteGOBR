@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   getActiveFretes,
   incrementFreteViews,
+  invalidateActiveFretesCache,
   type Frete,
   type FreteFilters,
 } from '../services/fretes';
@@ -23,13 +24,14 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
 import { useTrialStatus } from '../hooks/useTrialStatus';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
+import { useTabSlideClass } from '../hooks/useTabTransition';
 import { getMotoristaCalcContext, type MotoristaCalcContext } from '../services/motorista';
 import { getLikedFreteIds } from '../services/likes';
 import {
   getCommunityPublicProfile,
   type CommunityPublicProfile,
 } from '../services/communityPublic';
-import WelcomeLoading from '../components/WelcomeLoading';
+import FreteListSkeleton from '../components/FreteListSkeleton';
 import AnunciosCarousel from '../components/AnunciosCarousel';
 import CommoditiesCarousel from '../components/CommoditiesCarousel';
 import LocationHintBalloon from '../components/LocationHintBalloon';
@@ -54,6 +56,7 @@ const InteractiveMap = lazy(() => import('../components/InteractiveMap'));
 export default function HomePage() {
   const { user } = useAuth();
   useDocumentTitle(user?.userType === 'motorista' ? 'Motorista' : null);
+  const slideClass = useTabSlideClass();
   const [fretes, setFretes] = useState<Frete[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +101,9 @@ export default function HomePage() {
   const [communityProfile, setCommunityProfile] = useState<CommunityPublicProfile | null>(null);
 
   useEffect(() => {
-    void getCommunityPublicProfile().then(setCommunityProfile).catch(() => {});
+    void getCommunityPublicProfile()
+      .then(setCommunityProfile)
+      .catch(() => {});
   }, []);
 
   // Conjunto de fretes que o motorista já curtiu — hidrata os corações.
@@ -151,6 +156,21 @@ export default function HomePage() {
     writeStoredRadius(next);
   }, []);
 
+  // Paralelização de fetches independentes (Req 4.1-4.4, 3.5, 3.6):
+  // Os fetches de Secondary_Data já são paralelos POR CONSTRUÇÃO — cada um
+  // roda no seu próprio useEffect, disparado no mesmo ciclo de render, sem
+  // dependência entre si. `getMotoristaCalcContext` e `getLikedFreteIds`
+  // (ambos deps [isMotorista, user]) iniciam concorrentemente e cada um
+  // atualiza seu próprio estado assim que resolve, de forma independente.
+  // Decisão de não-regressão: NÃO agrupá-los via `aggregateSettled`. O
+  // agregador aguarda `Promise.allSettled`, o que ACOPLARIA os updates —
+  // o fetch mais rápido só refletiria na UI após o mais lento concluir,
+  // atrasando o paint de uma região por causa da outra (contraria Req 3.5
+  // e 9.4) sem nenhum ganho de paralelismo (já existe). `aggregateSettled`
+  // é a ferramenta certa quando um ÚNICO consumidor precisa agregar vários
+  // datasets juntos; aqui cada dataset alimenta uma região/estado separado.
+  // Falhas parciais já não bloqueiam sucessos: cada effect tem seu próprio
+  // tratamento de erro (calc cai em fallback, likes mantém estado anterior).
   useEffect(() => {
     if (!isMotorista || !user) {
       setMotoristaCalc(null);
@@ -271,6 +291,13 @@ export default function HomePage() {
     const scheduleSilentRefetch = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        // Realtime sinalizou mudança no feed. Invalida o namespace
+        // 'fretes:active' ANTES do refetch silencioso para que
+        // getActiveFretes busque dado fresco da fonte em vez de servir
+        // um Cache_Entry ainda dentro do TTL (30s), que seria obsoleto
+        // em relação ao evento recém-recebido (Req 6.6, 7.4). O debounce
+        // de 500ms e o filtro de relevância permanecem intactos.
+        invalidateActiveFretesCache();
         loadFretes(
           {
             ...currentFiltersRef.current,
@@ -399,7 +426,7 @@ export default function HomePage() {
       )}
 
       <main
-        className={`max-w-7xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${
+        className={`max-w-7xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${slideClass} ${
           isMotorista ? 'pt-1 sm:pt-2' : 'py-3 sm:py-4'
         }`}
       >
@@ -533,7 +560,7 @@ export default function HomePage() {
         )}
 
         {isLoading ? (
-          <WelcomeLoading isMotorista={isMotorista} userName={user?.name} />
+          <FreteListSkeleton count={itemsPerPage} showCalcBlock={isMotorista} />
         ) : error ? (
           <div className="flex justify-center py-20">
             <div className="text-red-400">{error}</div>

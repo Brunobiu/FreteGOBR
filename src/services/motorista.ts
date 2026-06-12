@@ -13,7 +13,40 @@
  */
 
 import { supabase } from './supabase';
+import { dataCache } from './cache/dataCache';
+import { deriveKey } from './cache/cacheKey';
 import { capitalizeName } from '../utils/textCase';
+
+/**
+ * Namespace do Data_Cache para o contexto de cálculo do motorista
+ * (`getMotoristaCalcContext`). Ver tabela de namespaces do design (Req 6, 12).
+ */
+const CALC_CONTEXT_NAMESPACE = 'motorista:calcContext';
+
+/**
+ * TTL médio (5 min) do contexto de cálculo do motorista. Os campos que o
+ * compõem (km/l, valor do diesel, capacidade de carga) mudam com baixa
+ * frequência — só quando o motorista salva o veículo ou ajusta o diesel —, e
+ * essas escritas invalidam a entrada explicitamente. O TTL apenas garante que
+ * uma sessão longa eventualmente refaça a leitura, sem introduzir defasagem
+ * perceptível (Req 6.1, 6.5, 12.5, 12.6).
+ */
+const CALC_CONTEXT_TTL_MS = 5 * 60_000;
+
+/**
+ * Invalida o contexto de cálculo cacheado de um motorista. Chamada após
+ * qualquer escrita que altere os campos que o compõem (veículo, km/l,
+ * capacidade de carga ou valor do diesel), para que o próximo
+ * `getMotoristaCalcContext` reflita o valor recém-salvo (Req 6.4, 12.5, 12.6).
+ *
+ * IMPORTANTE: o `DieselDashboardInput` da HomePage atualiza o preço do diesel
+ * via `onSaved` direto no estado local. A invalidação aqui garante que um
+ * refetch posterior (outra tela, nova navegação, expiração) traga o valor
+ * correto da fonte, sem servir um contexto defasado.
+ */
+export function invalidateMotoristaCalcContext(userId: string): void {
+  dataCache.invalidate(deriveKey(CALC_CONTEXT_NAMESPACE, { userId }));
+}
 
 export interface MotoristaProfile {
   id: string;
@@ -262,6 +295,11 @@ export async function updateMotoristaProfile(
       throw new Error(`Erro ao atualizar perfil do motorista: ${motoristaError.message}`);
     }
   }
+
+  // Invalida o contexto de cálculo cacheado: a atualização do perfil pode ter
+  // alterado km/l, capacidade de carga ou valor do diesel — campos que
+  // compõem o MotoristaCalcContext (Req 6.4, 12.5, 12.6).
+  invalidateMotoristaCalcContext(userId);
 }
 
 /**
@@ -276,13 +314,38 @@ export async function updateDieselPrice(userId: string, price: number): Promise<
   if (error) {
     throw new Error(`Erro ao atualizar valor do diesel: ${error.message}`);
   }
+
+  // Invalida o contexto de cálculo cacheado para refletir o novo diesel
+  // imediatamente em refetches posteriores (Req 6.4, 12.5, 12.6).
+  invalidateMotoristaCalcContext(userId);
 }
 
 /**
  * Lê apenas os campos necessários para o cálculo financeiro no painel
  * do motorista. Mais leve que `getMotoristaProfile`.
+ *
+ * Envolvido pelo Data_Cache (namespace `motorista:calcContext`, TTL médio):
+ * coalesce requisições concorrentes e sobrevive à navegação curta sem mudar a
+ * assinatura observável nem os valores retornados (Req 6.1, 6.5, 12.5, 12.6).
+ * Em qualquer falha do cache, o fetcher original é chamado (fail-safe ao
+ * baseline) e nenhuma entrada é cacheada.
  */
 export async function getMotoristaCalcContext(userId: string): Promise<MotoristaCalcContext> {
+  return dataCache.getOrFetch(
+    deriveKey(CALC_CONTEXT_NAMESPACE, { userId }),
+    () => fetchMotoristaCalcContextFromSupabase(userId),
+    { ttlMs: CALC_CONTEXT_TTL_MS }
+  );
+}
+
+/**
+ * Implementação direta da leitura do contexto de cálculo no Supabase (fonte).
+ * Extraída de `getMotoristaCalcContext` para ser envolvida pelo Data_Cache sem
+ * alterar o comportamento observável.
+ */
+async function fetchMotoristaCalcContextFromSupabase(
+  userId: string
+): Promise<MotoristaCalcContext> {
   const { data, error } = await supabase
     .from('motoristas')
     .select('km_per_liter, diesel_price, cargo_capacity_ton')

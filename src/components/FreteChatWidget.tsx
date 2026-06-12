@@ -50,9 +50,7 @@ export default function FreteChatWidget() {
 
   // Emite o totalUnread pro AppHeader (que mostra o badge no ícone)
   useEffect(() => {
-    window.dispatchEvent(
-      new CustomEvent<number>(UNREAD_COUNT_EVENT, { detail: totalUnread })
-    );
+    window.dispatchEvent(new CustomEvent<number>(UNREAD_COUNT_EVENT, { detail: totalUnread }));
   }, [totalUnread]);
 
   // Escuta toggle vindo do ícone do header
@@ -243,6 +241,8 @@ export default function FreteChatWidget() {
                         src={photo}
                         alt={conv.otherUser?.name ?? ''}
                         className="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0"
+                        loading="lazy"
+                        decoding="async"
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-sm shrink-0">

@@ -152,7 +152,13 @@ export default function AdminBannersPanel() {
               key={a.id}
               className="bg-gray-800 border border-gray-700 rounded-lg overflow-hidden"
             >
-              <img src={a.imageUrl} alt={a.name} className="w-full aspect-[16/7] object-cover" />
+              <img
+                src={a.imageUrl}
+                alt={a.name}
+                className="w-full aspect-[16/7] object-cover"
+                loading="lazy"
+                decoding="async"
+              />
               <div className="p-3">
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <h3 className="font-semibold text-gray-100 text-sm">{a.name}</h3>
@@ -237,6 +243,8 @@ export default function AdminBannersPanel() {
                   src={editing.imageUrl}
                   alt=""
                   className="mt-2 w-full aspect-[16/7] object-cover rounded"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
             </div>

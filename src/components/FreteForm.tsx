@@ -1060,6 +1060,8 @@ export default function FreteForm({
                       src={commodities.find((c) => c.slug === productSlug)?.iconUrl}
                       alt=""
                       className="w-5 h-5 rounded object-cover shrink-0"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : null}
                   <span className="truncate">
@@ -1129,6 +1131,8 @@ export default function FreteForm({
                                 src={c.iconUrl}
                                 alt=""
                                 className="w-6 h-6 rounded object-cover shrink-0"
+                                loading="lazy"
+                                decoding="async"
                               />
                             ) : (
                               <span className="w-6 h-6 rounded bg-gray-100 text-gray-600 text-[10px] font-bold flex items-center justify-center shrink-0">

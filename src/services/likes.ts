@@ -9,6 +9,22 @@
  */
 
 import { supabase } from './supabase';
+import { dataCache } from './cache/dataCache';
+import { deriveKey } from './cache/cacheKey';
+
+/**
+ * Namespace do Data_Cache para os IDs de fretes curtidos por usuário
+ * (`getLikedFreteIds`). Ver tabela de namespaces do design (Req 6, 12).
+ */
+const LIKES_IDS_NAMESPACE = 'likes:idsByUser';
+
+/**
+ * TTL médio (5 min) do conjunto de IDs curtidos. O estado dos corações muda
+ * apenas quando o próprio motorista curte/descurte — e nesses casos invalidamos
+ * a chave explicitamente no toggle. O TTL médio cobre mudanças externas raras
+ * sem custo de refetch a cada navegação (Req 6.3, 6.5, 12.6).
+ */
+const LIKES_TTL_MS = 5 * 60_000;
 
 export interface ToggleLikeResult {
   liked: boolean;
@@ -36,6 +52,24 @@ export interface FreteLiker {
 export async function toggleFreteLike(freteId: string): Promise<ToggleLikeResult> {
   const { data, error } = await supabase.rpc('toggle_frete_like', { p_frete_id: freteId });
   if (error) throw new Error(`Erro ao curtir frete: ${error.message}`);
+
+  // Invalidação por escrita (Req 6.4): o conjunto de IDs curtidos do motorista
+  // mudou. Invalidamos a chave do usuário afetado (auth.uid() — o mesmo que o
+  // RPC usou) para que o próximo `getLikedFreteIds` reflita o estado correto.
+  // A HomePage também atualiza `likedFreteIds` de forma otimista no toggle; a
+  // invalidação garante consistência num refetch posterior (best-effort: uma
+  // falha ao obter o usuário não pode derrubar o toggle bem-sucedido).
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      dataCache.invalidate(deriveKey(LIKES_IDS_NAMESPACE, { userId: user.id }));
+    }
+  } catch {
+    // Best-effort: o cache expira pelo TTL médio mesmo sem invalidação explícita.
+  }
+
   return {
     liked: !!data?.liked,
     total: typeof data?.total === 'number' ? data.total : 0,
@@ -67,8 +101,38 @@ export async function getLikersOfFrete(freteId: string): Promise<FreteLiker[]> {
 /**
  * Lista os IDs de fretes que o motorista logado curtiu. Usado para
  * hidratar o estado dos corações na home (filled vs outlined).
+ *
+ * Envolve a leitura no Data_Cache (Req 6, 12): coalesce requisições
+ * concorrentes do mesmo usuário, reutiliza o resultado entre navegações curtas
+ * e expira por TTL médio (`LIKES_TTL_MS`). A invalidação explícita em
+ * `toggleFreteLike` mantém o conjunto consistente após uma curtida/descurtida.
+ *
+ * Segurança de mutação: o `Data_Cache` armazena a **referência** do `Set`. Hoje
+ * a HomePage não muta o objeto retornado (ela cria um novo `Set` no toggle),
+ * mas como a referência cacheada é compartilhada com o estado do React,
+ * retornamos uma **cópia** (`new Set(...)`) a cada leitura para blindar contra
+ * mutação acidental do valor cacheado por qualquer consumidor presente ou
+ * futuro. A assinatura observável (`Promise<Set<string>>`) é preservada.
+ *
+ * Fail-safe (preservado): em erro de query, o fetcher loga e retorna `Set`
+ * vazio — sem hidratação, todos aparecem como não-curtidos (igual ao baseline).
  */
 export async function getLikedFreteIds(motoristaId: string): Promise<Set<string>> {
+  const cached = await dataCache.getOrFetch(
+    deriveKey(LIKES_IDS_NAMESPACE, { userId: motoristaId }),
+    () => fetchLikedFreteIdsFromSupabase(motoristaId),
+    { ttlMs: LIKES_TTL_MS }
+  );
+  // Cópia defensiva: não exponha a referência cacheada diretamente.
+  return new Set(cached);
+}
+
+/**
+ * Implementação direta da leitura dos IDs curtidos no Supabase (fonte).
+ * Extraída de `getLikedFreteIds` para ser envolvida pelo Data_Cache sem alterar
+ * o comportamento observável.
+ */
+async function fetchLikedFreteIdsFromSupabase(motoristaId: string): Promise<Set<string>> {
   const { data, error } = await supabase
     .from('frete_likes')
     .select('frete_id')

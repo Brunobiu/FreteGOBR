@@ -135,6 +135,8 @@ export default function MotoristaInteressadoModal({
                           src={liker.profilePhoto}
                           alt={liker.name}
                           className="w-14 h-14 rounded-full object-cover border-2 border-white shadow"
+                          loading="lazy"
+                          decoding="async"
                         />
                       ) : (
                         <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-lg shadow">
@@ -143,9 +145,7 @@ export default function MotoristaInteressadoModal({
                       )}
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-gray-800 truncate">
-                          {liker.name}
-                        </p>
+                        <p className="text-sm font-semibold text-gray-800 truncate">{liker.name}</p>
                         {liker.phone && (
                           <p className="text-xs text-gray-600">{formatPhone(liker.phone)}</p>
                         )}
@@ -174,9 +174,7 @@ export default function MotoristaInteressadoModal({
                       {liker.vehicleModel && (
                         <div className="bg-white p-1.5 rounded border border-gray-200">
                           <p className="text-[10px] text-gray-500">Modelo</p>
-                          <p className="text-xs text-gray-800 font-medium">
-                            {liker.vehicleModel}
-                          </p>
+                          <p className="text-xs text-gray-800 font-medium">{liker.vehicleModel}</p>
                         </div>
                       )}
                       {liker.vehiclePlate && (

@@ -18,6 +18,7 @@ import { lazy, Suspense } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import { useTabSlideClass } from '../hooks/useTabTransition';
 
 const MotoristaMapaFullscreen = lazy(() => import('../components/mapa/MotoristaMapaFullscreen'));
 
@@ -51,6 +52,7 @@ export default function MotoristaMapaPage() {
   useDocumentTitle('Mapa de fretes');
   const { user, isLoading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const slideClass = useTabSlideClass();
 
   const handleBack = () => {
     if (typeof window !== 'undefined' && window.history.length > 1) {
@@ -78,7 +80,7 @@ export default function MotoristaMapaPage() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] w-screen overflow-hidden bg-gray-100">
+    <div className={`flex flex-col h-[100dvh] w-screen overflow-hidden bg-gray-100 ${slideClass}`}>
       <MapaTopBar onBack={handleBack} />
       <Suspense fallback={<MapaSkeleton />}>
         <MotoristaMapaFullscreen className="flex-1" />

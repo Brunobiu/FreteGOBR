@@ -48,6 +48,35 @@ body {
 }
 
 
+/* ── Transição entre abas da barra inferior (estilo PageView) ──────────────
+ * A nova página desliza para dentro conforme a direção da navegação:
+ *  - avançar (aba à direita): entra da direita p/ esquerda
+ *  - voltar  (aba à esquerda): entra da esquerda p/ direita
+ * Easing natural (ease-out) e duração ~300ms. Aplicado SÓ no container de
+ * conteúdo — a barra inferior fica fora dele e permanece fixa.
+ * Respeita prefers-reduced-motion. */
+@keyframes page-enter-from-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes page-enter-from-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+.page-slide-right {
+  animation: page-enter-from-right 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.page-slide-left {
+  animation: page-enter-from-left 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-slide-right,
+  .page-slide-left {
+    animation: none;
+  }
+}
+
+
 /* Fundo temático do chat (mensagens) — estilo WhatsApp suave com motivo de
    caminhão pra ficar relacionado a frete. */
 .chat-bg {

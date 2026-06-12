@@ -592,6 +592,8 @@ export default function MensagensPage() {
                               src={photo}
                               alt={conv.otherUser?.name ?? ''}
                               className="w-8 h-8 rounded-full object-cover border border-gray-200 shrink-0"
+                              loading="lazy"
+                              decoding="async"
                             />
                           ) : (
                             <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold text-xs shrink-0">
@@ -690,6 +692,8 @@ export default function MensagensPage() {
                         src={peerPhoto}
                         alt={peer?.name ?? ''}
                         className="w-9 h-9 rounded-full object-cover border border-gray-200 shrink-0"
+                        loading="lazy"
+                        decoding="async"
                         onError={() => setPeerPhoto(null)}
                       />
                     ) : (
@@ -789,6 +793,8 @@ export default function MensagensPage() {
                                       src={msg.attachmentUrl}
                                       alt={msg.attachmentName ?? 'imagem'}
                                       className="rounded max-w-full max-h-60 mb-1 cursor-zoom-in"
+                                      loading="lazy"
+                                      decoding="async"
                                     />
                                   </a>
                                 )}

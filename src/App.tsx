@@ -1,12 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
-import { LoginPage } from './pages/LoginPage';
-import { RegisterPage } from './pages/RegisterPage';
+import { Suspense } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
-import HomePage from './pages/HomePage';
-import LandingPage from './pages/LandingPage';
-import NotFoundPage from './pages/NotFoundPage';
 import NotificationToast from './components/NotificationToast';
 import NativeBackButton from './components/NativeBackButton';
 import NativePushBootstrap from './components/NativePushBootstrap';
@@ -15,59 +10,76 @@ import { CookieConsentProvider } from './components/cookies/CookieConsentProvide
 import CookieBanner from './components/cookies/CookieBanner';
 import DocRevalidationModal from './components/DocRevalidationModal';
 import { useAuth } from './hooks/useAuth';
+import { lazyWithRetry, LazyBoundary } from './utils/lazyWithRetry';
 
 // Widget flutuante global: não é crítico para o primeiro paint, então
 // carrega depois (defer) para não pesar o bundle inicial.
-const FreteChatWidget = lazy(() => import('./components/FreteChatWidget'));
+const FreteChatWidget = lazyWithRetry(() => import('./components/FreteChatWidget'));
+
+// Páginas de entrada / fluxo de autenticação — convertidas de eager para lazy
+// com retry de chunk (Req 5.1, 5.2, 5.5). LoginPage e RegisterPage são named
+// exports, por isso o adaptador `.then(m => ({ default: m.X }))`.
+const HomePage = lazyWithRetry(() => import('./pages/HomePage'));
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'));
+const NotFoundPage = lazyWithRetry(() => import('./pages/NotFoundPage'));
+const LoginPage = lazyWithRetry(() =>
+  import('./pages/LoginPage').then((m) => ({ default: m.LoginPage }))
+);
+const RegisterPage = lazyWithRetry(() =>
+  import('./pages/RegisterPage').then((m) => ({ default: m.RegisterPage }))
+);
 
 // Lazy load pages
-const MotoristaPerfilPage = lazy(() => import('./pages/MotoristaPerfilPage'));
-const MotoristaMenuPage = lazy(() => import('./pages/MotoristaMenuPage'));
-const MotoristaPerfilDadosPage = lazy(() => import('./pages/MotoristaPerfilDadosPage'));
-const MotoristaVeiculoPage = lazy(() => import('./pages/MotoristaVeiculoPage'));
-const MotoristaTracaoPage = lazy(() => import('./pages/MotoristaTracaoPage'));
-const MotoristaCarroceriaPage = lazy(() => import('./pages/MotoristaCarroceriaPage'));
-const MotoristaComplementoPage = lazy(() => import('./pages/MotoristaComplementoPage'));
-const MotoristaReferenciasPage = lazy(() => import('./pages/MotoristaReferenciasPage'));
-const MotoristaContratoPage = lazy(() => import('./pages/MotoristaContratoPage'));
-const MotoristaPlanPage = lazy(() => import('./pages/MotoristaPlanPage'));
-const EmbarcadorPage = lazy(() => import('./pages/EmbarcadorPage'));
-const EmbarcadorPerfilPage = lazy(() => import('./pages/EmbarcadorPerfilPage'));
-const EmbarcadorPlanPage = lazy(() => import('./pages/EmbarcadorPlanPage'));
-const ConfiguracoesPage = lazy(() => import('./pages/ConfiguracoesPage'));
-const MensagensPage = lazy(() => import('./pages/MensagensPage'));
-const NotificacoesPage = lazy(() => import('./pages/NotificacoesPage'));
-const AssistentePage = lazy(() => import('./pages/AssistantePage'));
-const PublicTicketPage = lazy(() => import('./pages/PublicTicketPage'));
-const TermosPage = lazy(() => import('./pages/TermosPage'));
-const PrivacidadePage = lazy(() => import('./pages/PrivacidadePage'));
-const RedefinirSenhaPage = lazy(() => import('./pages/RedefinirSenhaPage'));
-const MyTicketsPage = lazy(() => import('./pages/MyTicketsPage'));
-const NewTicketPage = lazy(() => import('./pages/NewTicketPage'));
-const MyTicketDetailPage = lazy(() => import('./pages/MyTicketDetailPage'));
-const SupportChatPage = lazy(() => import('./pages/SupportChatPage'));
-const TutorialPage = lazy(() => import('./pages/TutorialPage'));
+const MotoristaPerfilPage = lazyWithRetry(() => import('./pages/MotoristaPerfilPage'));
+const MotoristaMenuPage = lazyWithRetry(() => import('./pages/MotoristaMenuPage'));
+const MotoristaPerfilDadosPage = lazyWithRetry(() => import('./pages/MotoristaPerfilDadosPage'));
+const MotoristaVeiculoPage = lazyWithRetry(() => import('./pages/MotoristaVeiculoPage'));
+const MotoristaTracaoPage = lazyWithRetry(() => import('./pages/MotoristaTracaoPage'));
+const MotoristaCarroceriaPage = lazyWithRetry(() => import('./pages/MotoristaCarroceriaPage'));
+const MotoristaComplementoPage = lazyWithRetry(() => import('./pages/MotoristaComplementoPage'));
+const MotoristaReferenciasPage = lazyWithRetry(() => import('./pages/MotoristaReferenciasPage'));
+const MotoristaContratoPage = lazyWithRetry(() => import('./pages/MotoristaContratoPage'));
+const MotoristaPlanPage = lazyWithRetry(() => import('./pages/MotoristaPlanPage'));
+const EmbarcadorPage = lazyWithRetry(() => import('./pages/EmbarcadorPage'));
+const EmbarcadorPerfilPage = lazyWithRetry(() => import('./pages/EmbarcadorPerfilPage'));
+const EmbarcadorPlanPage = lazyWithRetry(() => import('./pages/EmbarcadorPlanPage'));
+const ConfiguracoesPage = lazyWithRetry(() => import('./pages/ConfiguracoesPage'));
+const MensagensPage = lazyWithRetry(() => import('./pages/MensagensPage'));
+const NotificacoesPage = lazyWithRetry(() => import('./pages/NotificacoesPage'));
+const AssistentePage = lazyWithRetry(() => import('./pages/AssistantePage'));
+const PublicTicketPage = lazyWithRetry(() => import('./pages/PublicTicketPage'));
+const TermosPage = lazyWithRetry(() => import('./pages/TermosPage'));
+const PrivacidadePage = lazyWithRetry(() => import('./pages/PrivacidadePage'));
+const RedefinirSenhaPage = lazyWithRetry(() => import('./pages/RedefinirSenhaPage'));
+const MyTicketsPage = lazyWithRetry(() => import('./pages/MyTicketsPage'));
+const NewTicketPage = lazyWithRetry(() => import('./pages/NewTicketPage'));
+const MyTicketDetailPage = lazyWithRetry(() => import('./pages/MyTicketDetailPage'));
+const SupportChatPage = lazyWithRetry(() => import('./pages/SupportChatPage'));
+const TutorialPage = lazyWithRetry(() => import('./pages/TutorialPage'));
+const MarketplacePage = lazyWithRetry(() => import('./pages/MarketplacePage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
-const HoneypotPage = lazy(() => import('./pages/HoneypotPage'));
+const HoneypotPage = lazyWithRetry(() => import('./pages/HoneypotPage'));
 
 // Painel administrativo (admin-foundation)
-const AdminLayoutRoute = lazy(() => import('./components/admin/AdminLayoutRoute'));
+const AdminLayoutRoute = lazyWithRetry(() => import('./components/admin/AdminLayoutRoute'));
 
 // Mapa fullscreen do motorista (rota dedicada)
-const MotoristaMapaPage = lazy(() => import('./pages/MotoristaMapaPage'));
+const MotoristaMapaPage = lazyWithRetry(() => import('./pages/MotoristaMapaPage'));
 
 function LazyRoute({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-          <div className="text-gray-400">Carregando...</div>
-        </div>
-      }
-    >
-      {children}
-    </Suspense>
+    <LazyBoundary>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div className="text-gray-400">Carregando...</div>
+          </div>
+        }
+      >
+        {children}
+      </Suspense>
+    </LazyBoundary>
   );
 }
 
@@ -77,6 +89,10 @@ function LazyRoute({ children }: { children: React.ReactNode }) {
  *  - Usuário logado: HomePage (lista de fretes).
  * A lista pública de fretes também fica acessível em `/fretes` para o
  * visitante explorar antes de criar conta.
+ *
+ * HomePage e LandingPage agora são lazy, então o resultado é envolvido em
+ * `LazyRoute` (Suspense + boundary) para exibir o fallback de Shell enquanto o
+ * chunk carrega, sem quebrar a navegação.
  */
 function RootRoute() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -89,7 +105,7 @@ function RootRoute() {
     );
   }
 
-  return isAuthenticated ? <HomePage /> : <LandingPage />;
+  return <LazyRoute>{isAuthenticated ? <HomePage /> : <LandingPage />}</LazyRoute>;
 }
 
 function App() {
@@ -105,9 +121,30 @@ function App() {
           </Suspense>
           <Routes>
             <Route path="/" element={<RootRoute />} />
-            <Route path="/fretes" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route
+              path="/fretes"
+              element={
+                <LazyRoute>
+                  <HomePage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/login"
+              element={
+                <LazyRoute>
+                  <LoginPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <LazyRoute>
+                  <RegisterPage />
+                </LazyRoute>
+              }
+            />
             <Route
               path="/redefinir-senha"
               element={
@@ -246,6 +283,16 @@ function App() {
                 <MotoristaProtectedRoute>
                   <LazyRoute>
                     <MotoristaMapaPage />
+                  </LazyRoute>
+                </MotoristaProtectedRoute>
+              }
+            />
+            <Route
+              path="/motorista/marketplace"
+              element={
+                <MotoristaProtectedRoute>
+                  <LazyRoute>
+                    <MarketplacePage />
                   </LazyRoute>
                 </MotoristaProtectedRoute>
               }
@@ -406,7 +453,14 @@ function App() {
             />
 
             {/* Catch-all global: 404 padrao do app */}
-            <Route path="*" element={<NotFoundPage />} />
+            <Route
+              path="*"
+              element={
+                <LazyRoute>
+                  <NotFoundPage />
+                </LazyRoute>
+              }
+            />
           </Routes>
           <CookieBanner />
           <DocRevalidationModal />

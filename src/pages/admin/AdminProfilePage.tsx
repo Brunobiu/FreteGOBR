@@ -152,6 +152,8 @@ export default function AdminProfilePage() {
                 src={data.profile_photo_url}
                 alt="avatar"
                 className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
               />
             ) : (
               (data.name || 'A').charAt(0).toUpperCase()

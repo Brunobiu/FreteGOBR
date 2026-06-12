@@ -10,6 +10,7 @@
  */
 
 import { supabase } from '../supabase';
+import { invalidateCommunityPublicProfile } from '../communityPublic';
 
 // ─── Tipos ───────────────────────────────────────────────────────────────
 
@@ -117,9 +118,7 @@ export class CommunityError extends Error {
 
 /** Traduz um erro cru (Supabase/RPC) para CommunityError com código interno. */
 export function mapError(err: unknown): CommunityError {
-  const raw =
-    (err as { message?: string; code?: string } | null)?.message ??
-    String(err ?? '');
+  const raw = (err as { message?: string; code?: string } | null)?.message ?? String(err ?? '');
   const code = (err as { code?: string } | null)?.code ?? '';
 
   if (code === '42501' || /permission_denied/i.test(raw)) {
@@ -234,6 +233,9 @@ export async function upsertCommunityProfile(
     p_expected_updated_at: expectedUpdatedAt,
   });
   if (error) throw mapError(error);
+  // Invalida o cache público (namespace `community:publicProfile`) para que a
+  // próxima leitura do feed reflita a mudança do perfil (Req 6.4).
+  invalidateCommunityPublicProfile();
   return (data as { updated_at: string }).updated_at;
 }
 
