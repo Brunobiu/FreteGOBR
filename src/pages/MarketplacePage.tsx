@@ -11,15 +11,16 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { useTabSlideClass } from '../hooks/useTabTransition';
-import MotoristaBottomNav from '../components/MotoristaBottomNav';
 
 type Tab = 'para-voce' | 'categorias';
 
 export default function MarketplacePage() {
   useDocumentTitle('Marketplace');
+  const navigate = useNavigate();
   const slideClass = useTabSlideClass();
   const { address } = useEffectiveLocation();
   const [tab, setTab] = useState<Tab>('para-voce');
@@ -29,12 +30,30 @@ export default function MarketplacePage() {
   const city = useMemo(() => (address ? address.split(',')[0].trim() : null), [address]);
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-24">
+    <div className="min-h-screen bg-gray-100 pb-6">
       {/* Topo próprio do Marketplace */}
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200">
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-2">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => navigate(-1)}
+                className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0"
+                aria-label="Voltar"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <h1 className="text-2xl font-bold text-gray-900">Marketplace</h1>
+            </div>
             <button
               type="button"
               onClick={() => window.alert('Publicar anúncio: em breve.')}
@@ -52,7 +71,6 @@ export default function MarketplacePage() {
               Publicar
             </button>
           </div>
-
           {/* Busca */}
           <div className="mt-3 relative">
             <span className="absolute inset-y-0 left-3 flex items-center text-gray-400">
@@ -131,8 +149,6 @@ export default function MarketplacePage() {
           </p>
         </div>
       </main>
-
-      <MotoristaBottomNav />
     </div>
   );
 }

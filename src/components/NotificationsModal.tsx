@@ -192,9 +192,9 @@ export default function NotificationsModal({ open, onClose, userId }: Notificati
       <div
         className="fixed top-16 left-3 right-3 sm:left-auto sm:w-[560px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[80vh] max-h-[75vh] flex flex-col bg-white rounded-xl shadow-2xl overflow-hidden"
         style={{
-          // Em desktop largo, ancora o modal no mesmo limite direito do conteudo (max-w-7xl = 80rem).
-          // O CSS usa max() pra cair em 1rem (16px) quando a tela eh menor que 80rem.
-          right: 'max(0.75rem, calc((100vw - 80rem) / 2 + 1rem))',
+          // Em desktop largo, ancora o modal no mesmo limite direito do conteudo (max-w-2xl = 42rem no md+).
+          // O CSS usa max() pra cair em 0.75rem quando a tela eh menor.
+          right: 'max(0.75rem, calc((100vw - 42rem) / 2 + 1rem))',
         }}
       >
         {/* Cabecalho */}

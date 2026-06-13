@@ -65,7 +65,7 @@ export default function LocationHintBalloon({
       role="status"
       aria-live="polite"
     >
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 relative">
+      <div className="max-w-7xl md:max-w-2xl mx-auto px-3 sm:px-4 lg:px-6 relative">
         {/* Cartao posicionado no canto superior direito, abaixo do header */}
         <div
           className={`pointer-events-auto absolute right-3 sm:right-4 top-16 sm:top-[72px] w-[calc(100%-1.5rem)] sm:w-80 max-w-sm

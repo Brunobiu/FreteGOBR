@@ -530,7 +530,7 @@ export default function MensagensPage() {
     <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
       <AppHeader />
 
-      <main className="max-w-6xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-3 flex-1 flex flex-col min-h-0 overflow-hidden">
+      <main className="max-w-6xl md:max-w-2xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-3 flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex items-center justify-between mb-2 shrink-0">
           <h1 className="text-lg sm:text-xl font-bold text-gray-800">Mensagens</h1>
           <button

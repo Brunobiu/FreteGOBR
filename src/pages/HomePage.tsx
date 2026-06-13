@@ -32,6 +32,7 @@ import {
   type CommunityPublicProfile,
 } from '../services/communityPublic';
 import FreteListSkeleton from '../components/FreteListSkeleton';
+import AiFab from '../components/AiFab';
 import AnunciosCarousel from '../components/AnunciosCarousel';
 import CommoditiesCarousel from '../components/CommoditiesCarousel';
 import LocationHintBalloon from '../components/LocationHintBalloon';
@@ -426,7 +427,7 @@ export default function HomePage() {
       )}
 
       <main
-        className={`max-w-7xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${slideClass} ${
+        className={`max-w-7xl md:max-w-2xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${slideClass} ${
           isMotorista ? 'pt-1 sm:pt-2' : 'py-3 sm:py-4'
         }`}
       >
@@ -457,25 +458,7 @@ export default function HomePage() {
             onFreteClick={handleFreteClick}
             geolocationStatus={effectiveLoc.geoStatus}
             onRequestLocation={effectiveLoc.requestLocation}
-            middleSlot={
-              user && calcLoaded ? (
-                <DieselDashboardInput
-                  userId={user.id}
-                  initialValue={motoristaCalc?.dieselPrice ?? null}
-                  onSaved={(p) =>
-                    setMotoristaCalc((prev) =>
-                      prev
-                        ? { ...prev, dieselPrice: p }
-                        : { kmPerLiter: null, dieselPrice: p, cargoCapacityTon: null }
-                    )
-                  }
-                  onError={(msg) => {
-                    setToast(msg);
-                    setTimeout(() => setToast(null), 3000);
-                  }}
-                />
-              ) : null
-            }
+            middleSlot={null}
           />
         )}
 
@@ -519,19 +502,29 @@ export default function HomePage() {
               onSelect={handleCommoditySelect}
             />
 
-            {/* Header do motorista: Fretes Disponiveis + Filtro */}
-            <div className="flex items-center mb-3 gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-800">
-                Fretes Disponíveis
-              </h1>
+            {/* Header do motorista: Fretes (qtd) + Raio + Diesel */}
+            <div className="flex items-center mb-3 gap-2">
+              <h1 className="text-base font-semibold text-gray-800">Fretes</h1>
               <span className="text-xs text-gray-500">({visibleFretes.length})</span>
               <div className="ml-auto flex items-center gap-2">
                 <RadiusSelector radiusKm={radiusKm} onRadiusChange={handleRadiusChange} compact />
-                <FreteFiltersComponent
-                  onFilterChange={handleFilterChange}
-                  totalResults={visibleFretes.length}
-                  compact
-                />
+                {user && calcLoaded && (
+                  <DieselDashboardInput
+                    userId={user.id}
+                    initialValue={motoristaCalc?.dieselPrice ?? null}
+                    onSaved={(p) =>
+                      setMotoristaCalc((prev) =>
+                        prev
+                          ? { ...prev, dieselPrice: p }
+                          : { kmPerLiter: null, dieselPrice: p, cargoCapacityTon: null }
+                      )
+                    }
+                    onError={(msg) => {
+                      setToast(msg);
+                      setTimeout(() => setToast(null), 3000);
+                    }}
+                  />
+                )}
               </div>
             </div>
           </>
@@ -695,23 +688,8 @@ export default function HomePage() {
       {/* Barra inferior de navegacao - apenas motorista */}
       {isMotorista && <MotoristaBottomNav />}
 
-      {/* FAB Pergunte a Iara - desativado por enquanto, sera reativado em versao futura
-      {isMotorista && (
-        <button
-          type="button"
-          onClick={() => navigate('/assistente?new=1')}
-          title="Pergunte à Iara"
-          aria-label="Pergunte à Iara"
-          className="fixed bottom-5 left-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-400 shadow-lg shadow-purple-500/30 hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
-        >
-          <svg className="w-7 h-7 text-white" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <path d="M12 2l1.6 4.5L18 8l-4.4 1.5L12 14l-1.6-4.5L6 8l4.4-1.5L12 2z" />
-            <path d="M19 13l.9 2.4L22 16l-2.1.6L19 19l-.9-2.4L16 16l2.1-.6L19 13z" />
-            <path d="M6 14l.7 1.8L8 16l-1.3.5L6 18l-.7-1.5L4 16l1.3-.2L6 14z" />
-          </svg>
-        </button>
-      )}
-      */}
+      {/* FAB IA - botão flutuante para acessar o assistente */}
+      {isMotorista && !isMotoristaBloqueado && <AiFab />}
     </div>
   );
 }

@@ -48,13 +48,13 @@ export default function RadiusSelector({
         onClick={() => setOpen((v) => !v)}
         className={`inline-flex items-center gap-1 ${
           compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-xs'
-        } bg-white border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50 shadow-sm whitespace-nowrap`}
+        } bg-gray-900 border border-gray-700 rounded-lg font-medium text-white hover:bg-gray-800 shadow-sm whitespace-nowrap`}
         aria-label="Selecionar raio de busca"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
         <svg
-          className="w-3.5 h-3.5 text-green-600"
+          className="w-3.5 h-3.5 text-green-400"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -73,7 +73,7 @@ export default function RadiusSelector({
           />
         </svg>
         <span>{radiusKm} km</span>
-        <span className="text-gray-400">{open ? '▴' : '▾'}</span>
+        <span className="text-gray-300">{open ? '▴' : '▾'}</span>
       </button>
 
       {open && (

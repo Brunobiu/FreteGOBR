@@ -211,7 +211,7 @@ export default function AppHeader() {
   return (
     <>
       <header className="sticky top-0 z-40 bg-gray-100">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="max-w-7xl md:max-w-2xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="relative flex items-center h-14 sm:h-16 gap-3">
             {/* Esquerda-centro: motorista vê a logo; embarcador vê foto+nome */}
             {isAuthenticated && user ? (

@@ -10,12 +10,11 @@ interface DieselDashboardInputProps {
 }
 
 /**
- * Input do valor do diesel exibido em destaque no centro do header
- * do dashboard do motorista. Persistência manual via botão "OK"
- * ou tecla Enter — sem auto-save por debounce.
+ * Input do valor do diesel exibido no header do dashboard do motorista.
+ * Persistência manual via botão "OK" ou tecla Enter.
  *
- * Em caso de erro de rede, reverte para o último valor confirmado
- * e dispara `onError` para a UI mostrar um toast.
+ * Ao montar, exibe um balãozinho de notificação ("Atualize o diesel!")
+ * por 5 segundos apontando para o input. Ao interagir, o balão some.
  */
 export default function DieselDashboardInput({
   userId,
@@ -26,12 +25,7 @@ export default function DieselDashboardInput({
   const [value, setValue] = useState<string>(numberToMasked(initialValue, 2));
   const [isSaving, setIsSaving] = useState(false);
 
-  // Token monotônico para descartar respostas de requests antigos
-  // que retornaram depois de um request mais recente (anti-race).
   const lastReqRef = useRef(0);
-
-  // Último valor confirmado pelo servidor — usado para reverter o
-  // input em caso de erro.
   const lastSavedRef = useRef<number | null>(initialValue);
 
   // Sincroniza quando initialValue muda externamente.
@@ -52,7 +46,6 @@ export default function DieselDashboardInput({
       return;
     }
 
-    // Já está no valor salvo? Não dispara request.
     if (lastSavedRef.current !== null && Math.abs(num - lastSavedRef.current) < 0.005) {
       return;
     }
@@ -77,6 +70,7 @@ export default function DieselDashboardInput({
 
   const handleChange = (raw: string) => {
     setValue(maskDecimal(raw, 2));
+    if (showBalloon) setShowBalloon(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -86,81 +80,54 @@ export default function DieselDashboardInput({
     }
   };
 
-  // Indica se há mudança não-salva
   const currentNum = maskedToNumber(value, 2);
   const isDirty =
     value.trim() !== '' &&
     !Number.isNaN(currentNum) &&
     (lastSavedRef.current === null || Math.abs(currentNum - lastSavedRef.current) >= 0.005);
 
-  // Chamariz visual: TODA vez que o componente monta (refresh da
-  // pagina, login, etc), expande o label "Diesel" para "Adicione o
-  // valor do diesel" por 4 segundos e depois retrai. O objetivo e
-  // chamar atencao do motorista pra que ele preencha/atualize o valor
-  // — mesmo quando ja tem um valor salvo (pode ter mudado o preco
-  // do combustivel na bomba).
-  //
-  // Se o motorista clicar/focar/digitar antes dos 4s, retrai
-  // imediatamente — ele ja viu a mensagem.
-  const [hintExpanded, setHintExpanded] = useState<boolean>(true);
-  const hintDismissedRef = useRef(false);
+  // Balãozinho de notificação — aparece por 5s no mount, some ao interagir.
+  const [showBalloon, setShowBalloon] = useState(true);
 
   useEffect(() => {
-    if (hintDismissedRef.current) return;
-    // Garante o estado expandido ao montar (alguns browsers/StrictMode
-    // podem reordenar; idempotente).
-    setHintExpanded(true);
-    const t = window.setTimeout(() => setHintExpanded(false), 10000);
+    const t = window.setTimeout(() => setShowBalloon(false), 5000);
     return () => window.clearTimeout(t);
-    // Sem dependencias: dispara apenas no mount.
   }, []);
 
-  const dismissHint = () => {
-    hintDismissedRef.current = true;
-    setHintExpanded(false);
-  };
+  const dismissBalloon = () => setShowBalloon(false);
 
   return (
-    <div
-      className={`relative inline-flex items-center gap-1 bg-white rounded px-2 py-0.5 transition-shadow duration-700 ${
-        hintExpanded
-          ? 'border border-blue-300 shadow-[0_0_0_3px_rgba(59,130,246,0.18)] diesel-hint-border'
-          : 'border border-gray-200 shadow-sm'
-      }`}
-    >
-      <span
-        className={`text-[10px] font-medium overflow-hidden whitespace-nowrap transition-[max-width,opacity,color] duration-700 ease-in-out ${
-          hintExpanded
-            ? 'max-w-[220px] opacity-100 text-blue-700 font-semibold'
-            : 'max-w-[44px] opacity-100 text-gray-500'
-        }`}
-        aria-live="polite"
-      >
-        {hintExpanded ? 'Adicione o valor do diesel' : 'Diesel'}
-      </span>
+    <div className="relative inline-flex items-center gap-1 bg-gray-900 border border-gray-700 rounded-lg px-2 py-0.5 shadow-sm">
+      {/* Balãozinho de notificação */}
+      {showBalloon && (
+        <div className="absolute -top-9 left-1/2 -translate-x-1/2 whitespace-nowrap z-20 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-blue-600 text-white text-[10px] font-medium px-2.5 py-1 rounded-lg shadow-lg">
+            Atualize o diesel!
+          </div>
+          {/* Setinha apontando para baixo */}
+          <div className="absolute left-1/2 -translate-x-1/2 -bottom-1 w-2 h-2 bg-blue-600 rotate-45" />
+        </div>
+      )}
+
+      <span className="text-[10px] font-medium text-gray-300">Diesel</span>
       <span className="text-[10px] text-gray-400">R$</span>
       <input
         type="text"
         inputMode="numeric"
         value={value}
-        onChange={(e) => {
-          handleChange(e.target.value);
-          if (hintExpanded) dismissHint();
-        }}
-        onFocus={() => {
-          if (hintExpanded) dismissHint();
-        }}
+        onChange={(e) => handleChange(e.target.value)}
+        onFocus={dismissBalloon}
         onKeyDown={handleKeyDown}
         placeholder="0,00"
         aria-label="Valor do diesel por litro na sua região"
-        className="w-12 text-xs font-semibold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-0 text-center"
+        className="w-12 text-xs font-semibold text-white bg-transparent border-0 focus:outline-none focus:ring-0 text-center"
       />
       <span className="text-[10px] text-gray-400">/L</span>
       <button
         type="button"
         onClick={persist}
         disabled={isSaving || !isDirty}
-        className="ml-0.5 px-1.5 py-0.5 bg-blue-600 text-white text-[10px] font-semibold rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="ml-0.5 px-1.5 py-0.5 bg-green-500 text-white text-[10px] font-semibold rounded hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
       >
         {isSaving ? '...' : 'OK'}
       </button>
