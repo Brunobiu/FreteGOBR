@@ -247,7 +247,7 @@ export default function AssistantSettings() {
         </span>
         <ul className="space-y-1.5">
           {PROVIDERS.map((p) => {
-            const state = config.providerKeys[p.value];
+            const state = config.providerKeys[p.value] ?? { isSet: false, mask: '' };
             const editingThis = keyDraftProvider === p.value;
             return (
               <li

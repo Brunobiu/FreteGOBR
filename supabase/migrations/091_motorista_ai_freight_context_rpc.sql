@@ -73,3 +73,13 @@ REVOKE ALL ON FUNCTION public.motorista_ai_freight_context(uuid) FROM authentica
 GRANT EXECUTE ON FUNCTION public.motorista_ai_freight_context(uuid) TO service_role;
 
 COMMIT;
+
+-- ---------------------------------------------------------------------------
+-- (3) Inclui 'openai' no dominio fechado das RPCs do admin-assistant (047):
+--     rpc_assistant_get_config (provider_keys), rpc_assistant_update_config
+--     (activeProvider), rpc_assistant_set_secret, rpc_assistant_clear_secret
+--     e rpc_assistant_read_provider_key. Sem isso a UI quebra (openai key
+--     vem undefined) e nao e possivel salvar a chave nem ativar o provider.
+--     Aplicado em producao via apply_migration; corpo completo das funcoes
+--     esta em 047_admin_assistant.sql + esta extensao do dominio.
+-- ---------------------------------------------------------------------------
