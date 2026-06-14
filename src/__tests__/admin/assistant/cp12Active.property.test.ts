@@ -24,7 +24,7 @@ import {
 
 // ----- Geradores -----
 
-const providerGen = fc.constantFrom<AiProvider>('claude', 'gemini', 'grok', 'llama');
+const providerGen = fc.constantFrom<AiProvider>('claude', 'gemini', 'grok', 'llama', 'openai');
 
 // Estado de chave por provedor: is_set arbitrario; mascara coerente com o
 // is_set (string nao vazia quando definido, null caso contrario).
@@ -49,6 +49,7 @@ const configViewGen: fc.Arbitrary<AssistantConfigView> = fc
     whatsappToggle: fc.boolean(),
     claude: providerKeyStateGen,
     gemini: providerKeyStateGen,
+    openai: providerKeyStateGen,
     grok: providerKeyStateGen,
     llama: providerKeyStateGen,
     updatedAt: fc.constant('2024-01-01T00:00:00.000Z'),
@@ -62,6 +63,7 @@ const configViewGen: fc.Arbitrary<AssistantConfigView> = fc
     providerKeys: {
       claude: r.claude,
       gemini: r.gemini,
+      openai: r.openai,
       grok: r.grok,
       llama: r.llama,
     },

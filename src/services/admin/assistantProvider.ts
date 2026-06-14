@@ -390,6 +390,7 @@ export function selectProviderClient(provider: AiProvider): AiProviderClient {
       return new ClaudeClient();
     case 'gemini':
       return new GeminiClient();
+    case 'openai':
     case 'grok':
     case 'llama':
       return new NotImplementedClient(provider);

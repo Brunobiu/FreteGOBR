@@ -37,6 +37,7 @@ import {
 const PROVIDERS: ReadonlyArray<{ value: AiProvider; label: string; functional: boolean }> = [
   { value: 'claude', label: 'Claude (Anthropic)', functional: true },
   { value: 'gemini', label: 'Gemini (Google)', functional: true },
+  { value: 'openai', label: 'OpenAI (GPT)', functional: true },
   { value: 'grok', label: 'Grok (xAI)', functional: false },
   { value: 'llama', label: 'Llama (Meta)', functional: false },
 ];

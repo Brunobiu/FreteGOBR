@@ -48,7 +48,7 @@ import { executeAdminMutation, logAdminAction } from './audit';
  * Provedor externo de IA. Dominio fechado. Apenas `claude` e funcional
  * nesta entrega; os demais sao estruturais (Provider_Abstraction plugavel).
  */
-export type AiProvider = 'claude' | 'gemini' | 'grok' | 'llama';
+export type AiProvider = 'claude' | 'gemini' | 'grok' | 'llama' | 'openai';
 
 /**
  * Papel de uma mensagem de chat. Dominio fechado validado em
