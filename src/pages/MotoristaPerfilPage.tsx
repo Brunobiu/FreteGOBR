@@ -897,7 +897,7 @@ const VIEW_TITLES: Record<MotoristaPerfilView, string> = {
   carroceria: 'Carroceria',
   complemento: 'Complemento do Veículo',
   referencias: 'Referências',
-  contrato: 'Contratos de Arrendamento',
+  contrato: 'Contrato',
 };
 
 export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPageProps = {}) {
@@ -2151,8 +2151,8 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
                 </button>
               </div>
               <p className="text-[11px] text-gray-500 mb-2">
-                Adicione transportadoras com quem você já carregou: nome, telefone e o CT-e daquele
-                frete (PDF ou foto). Toque no + para adicionar quantas quiser.
+                Adicione transportadoras com quem você já carregou: nome da empresa, telefone e o
+                CT-e ou MDF-e daquele frete (PDF ou foto). Toque no + para adicionar quantas quiser.
               </p>
               {references.length === 0 ? (
                 <p className="text-[11px] text-gray-500">Nenhuma referência cadastrada ainda.</p>
@@ -2779,7 +2779,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
               ────────────────────────────────────────────────────────────────── */}
           {isNotOwner && (
             <section
-              data-secao="contrato"
+              data-secao="proprietario"
               className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
             >
               <div className="flex items-center justify-between mb-3">
@@ -2895,94 +2895,94 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
           {/* ──────────────────────────────────────────────────────────────────
               SEÇÃO 4 — Contratos de Arrendamento (apenas se isNotOwner)
               ────────────────────────────────────────────────────────────────── */}
-          {isNotOwner && (
-            <section
-              data-secao="contrato"
-              className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-base font-semibold text-gray-800">Contratos de Arrendamento</h2>
-                <ContratoAddButton
-                  uploading={uploadingDoc === 'contrato_arrendamento'}
-                  onPick={handleContratoAdd}
-                />
-              </div>
-              <p className="text-[11px] text-gray-500 mb-3">
-                O contrato de arrendamento comprova que você usa uma carreta/cavalo alugado ou
-                emprestado de terceiro. Anexe em PDF ou foto (máximo 5MB cada). Toque no + para
-                adicionar quantos contratos precisar.
-              </p>
+          {/* ──────────────────────────────────────────────────────────────────
+              SEÇÃO 4 — Contrato (upload de arquivos, sempre disponível)
+              ────────────────────────────────────────────────────────────────── */}
+          <section
+            data-secao="contrato"
+            className="bg-white border border-gray-200 rounded-lg p-3 sm:p-4"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-semibold text-gray-800">Contrato</h2>
+              <ContratoAddButton
+                uploading={uploadingDoc === 'contrato_arrendamento'}
+                onPick={handleContratoAdd}
+              />
+            </div>
+            <p className="text-[11px] text-gray-500 mb-3">
+              Anexe seus contratos em PDF ou foto (máximo 5MB cada). Toque no + para adicionar
+              quantos arquivos precisar — todos ficam salvos aqui.
+            </p>
 
-              {contratoDocs.length === 0 ? (
-                <p className="text-[11px] text-gray-500">Nenhum contrato adicionado ainda.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {contratoDocs.map((doc, idx) => (
-                    <li
-                      key={doc.id}
-                      className="flex items-center justify-between gap-2 p-2 bg-white border border-gray-200 rounded-md"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[12px] font-medium text-gray-800 leading-tight">
-                          Contrato {idx + 1}
-                          {doc.status === 'rejeitado' && (
-                            <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-600 text-white">
-                              Recusado
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-[10px] text-gray-400 truncate mt-0.5">
-                          {doc.fileName}
-                          {doc.url && (
-                            <>
-                              {' · '}
-                              <a
-                                href={doc.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-600 hover:underline"
-                              >
-                                ver
-                              </a>
-                            </>
-                          )}
-                        </p>
-                        {doc.status === 'rejeitado' && doc.rejectionReason && (
-                          <p className="text-[10px] text-red-600 mt-0.5">
-                            Motivo: {doc.rejectionReason}
-                          </p>
+            {contratoDocs.length === 0 ? (
+              <p className="text-[11px] text-gray-500">Nenhum contrato adicionado ainda.</p>
+            ) : (
+              <ul className="space-y-2">
+                {contratoDocs.map((doc, idx) => (
+                  <li
+                    key={doc.id}
+                    className="flex items-center justify-between gap-2 p-2 bg-white border border-gray-200 rounded-md"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-medium text-gray-800 leading-tight">
+                        Contrato {idx + 1}
+                        {doc.status === 'rejeitado' && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-red-600 text-white">
+                            Recusado
+                          </span>
                         )}
-                      </div>
-                      {doc.status !== 'aprovado' && (
-                        <button
-                          type="button"
-                          onClick={() => handleContratoDelete(doc.id)}
-                          aria-label="Remover contrato"
-                          title="Remover"
-                          className="w-8 h-8 shrink-0 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                            />
-                          </svg>
-                        </button>
+                      </p>
+                      <p className="text-[10px] text-gray-400 truncate mt-0.5">
+                        {doc.fileName}
+                        {doc.url && (
+                          <>
+                            {' · '}
+                            <a
+                              href={doc.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:underline"
+                            >
+                              ver
+                            </a>
+                          </>
+                        )}
+                      </p>
+                      {doc.status === 'rejeitado' && doc.rejectionReason && (
+                        <p className="text-[10px] text-red-600 mt-0.5">
+                          Motivo: {doc.rejectionReason}
+                        </p>
                       )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <SectionFooter section="contrato" onSave={handleSaveContrato} />
-            </section>
-          )}
+                    </div>
+                    {doc.status !== 'aprovado' && (
+                      <button
+                        type="button"
+                        onClick={() => handleContratoDelete(doc.id)}
+                        aria-label="Remover contrato"
+                        title="Remover"
+                        className="w-8 h-8 shrink-0 flex items-center justify-center text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                      >
+                        <svg
+                          className="w-4 h-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <SectionFooter section="contrato" onSave={handleSaveContrato} />
+          </section>
 
           {/* Botão voltar — só na view completa ('all'); nas sub-telas o
               "Voltar" já vive no topo (ProfileTopBar). Evita botão duplicado. */}

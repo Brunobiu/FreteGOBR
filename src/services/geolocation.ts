@@ -150,8 +150,7 @@ export async function getRouteGeometry(
   }
 
   const coords =
-    `${origin.longitude},${origin.latitude};` +
-    `${destination.longitude},${destination.latitude}`;
+    `${origin.longitude},${origin.latitude};` + `${destination.longitude},${destination.latitude}`;
   // overview=simplified: bem mais rápido que `full`. Suficiente para
   // exibir uma rota seguindo as estradas no mapa.
   const url = `https://router.project-osrm.org/route/v1/driving/${coords}?overview=simplified&geometries=geojson`;
@@ -179,9 +178,7 @@ export async function getRouteGeometry(
       return null;
     }
 
-    const geomCoords = data?.routes?.[0]?.geometry?.coordinates as
-      | [number, number][]
-      | undefined;
+    const geomCoords = data?.routes?.[0]?.geometry?.coordinates as [number, number][] | undefined;
 
     if (!Array.isArray(geomCoords) || geomCoords.length === 0) {
       console.warn('[getRouteGeometry] OSRM sem geometria');
@@ -194,4 +191,98 @@ export async function getRouteGeometry(
     console.warn('[getRouteGeometry] erro de rede ou timeout', err);
     return null;
   }
+}
+
+/**
+ * Reverse geocode "leve" que devolve apenas a cidade (com UF quando
+ * disponivel), ex: "Uberlandia/MG". Retorna string vazia se nao conseguir
+ * identificar a cidade.
+ */
+async function reverseGeocodeCity(point: GeographicPoint, signal?: AbortSignal): Promise<string> {
+  const url =
+    `${NOMINATIM_BASE}/reverse?lat=${point.latitude}&lon=${point.longitude}` +
+    `&format=json&zoom=10&addressdetails=1`;
+
+  const response = await fetch(url, {
+    headers: { 'Accept-Language': 'pt-BR' },
+    signal,
+  });
+  if (!response.ok) return '';
+
+  const data = await response.json();
+  const addr = data?.address ?? {};
+  const city: string =
+    addr.city || addr.town || addr.village || addr.municipality || addr.county || '';
+  if (!city) return '';
+
+  // UF a partir do codigo ISO (ex: "BR-MG" -> "MG"); fallback: vazio.
+  const iso: string = addr['ISO3166-2-lvl4'] || '';
+  const uf = iso.includes('-') ? iso.split('-')[1] : '';
+  return uf ? `${city}/${uf}` : city;
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/**
+ * Lista (ordenada) das cidades pelas quais a rota passa, entre a origem e o
+ * destino. Amostra a geometria da rota (vinda do OSRM) por distancia e faz
+ * reverse-geocode dos pontos intermediarios, deduplicando cidades
+ * consecutivas iguais.
+ *
+ * Nominatim pede no maximo ~1 requisicao/segundo, entao as chamadas sao
+ * sequenciais com um pequeno intervalo. O numero de pontos consultados e
+ * proporcional a distancia (aprox. 1 a cada 40 km), limitado por `maxStops`
+ * (default adaptativo entre 4 e 16). `onProgress` e chamado com a lista
+ * parcial a cada cidade nova encontrada (permite atualizar a UI ao vivo).
+ * Falhas individuais sao ignoradas; o que deu certo e retornado.
+ */
+export async function getRouteCities(
+  geometry: GeographicPoint[],
+  options?: {
+    maxStops?: number;
+    signal?: AbortSignal;
+    onProgress?: (cities: string[]) => void;
+  }
+): Promise<string[]> {
+  if (!Array.isArray(geometry) || geometry.length < 2) return [];
+  const signal = options?.signal;
+
+  // Distancia acumulada ao longo da geometria.
+  const cum: number[] = [0];
+  for (let i = 1; i < geometry.length; i++) {
+    cum[i] = cum[i - 1] + calculateDistance(geometry[i - 1], geometry[i]);
+  }
+  const total = cum[cum.length - 1];
+  if (total <= 0) return [];
+
+  // Quantos pontos amostrar: ~1 a cada 40 km, entre 4 e 16 (ou o que o
+  // chamador pedir). Mais pontos = mais cidades, mas mais lento (1 req/s).
+  const adaptive = Math.round(total / 40);
+  const maxStops = Math.max(4, Math.min(options?.maxStops ?? adaptive, 16));
+
+  // Pontos-alvo em fracoes intermediarias (exclui origem e destino).
+  const targets: GeographicPoint[] = [];
+  for (let k = 1; k <= maxStops; k++) {
+    const targetDist = (k / (maxStops + 1)) * total;
+    let idx = 0;
+    while (idx < cum.length - 1 && cum[idx] < targetDist) idx++;
+    targets.push(geometry[idx]);
+  }
+
+  const cities: string[] = [];
+  for (const pt of targets) {
+    if (signal?.aborted) break;
+    try {
+      const label = await reverseGeocodeCity(pt, signal);
+      if (label && cities[cities.length - 1] !== label) {
+        cities.push(label);
+        options?.onProgress?.([...cities]);
+      }
+    } catch {
+      // ignora falhas pontuais (rede, abort, parsing)
+    }
+    if (signal?.aborted) break;
+    await sleep(1100); // respeita o limite ~1 req/s do Nominatim
+  }
+  return cities;
 }

@@ -72,13 +72,11 @@ export default function MotoristaBottomNav() {
     };
   }, [user?.profilePhotoUrl]);
 
+  // Apenas os grupos OBRIGATORIOS contam para o alerta de pendencia.
+  // Referencias e opcional (nao bloqueia contato com embarcador).
   const hasIncomplete =
     user?.userType === 'motorista' &&
-    (groups.perfil ||
-      groups.tracao ||
-      groups.carroceria ||
-      groups.complemento ||
-      groups.referencias);
+    (groups.perfil || groups.tracao || groups.carroceria || groups.complemento);
 
   const goHome = () => {
     if (location.pathname === '/') {
@@ -114,7 +112,7 @@ export default function MotoristaBottomNav() {
         }`}
         aria-label="Navegação inferior"
       >
-        <div className="relative max-w-md mx-auto h-16 grid grid-cols-5 items-center px-1 bg-gray-900 rounded-3xl border border-gray-700 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+        <div className="relative max-w-md mx-auto h-16 grid grid-cols-5 items-center px-1 bg-gray-900 rounded-3xl border border-[#fde68a]/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
           {/* 1 - Inicio */}
           <button
             type="button"

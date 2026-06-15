@@ -102,12 +102,12 @@ export default function CommoditiesCarousel({
   if (items.length === 0) return null;
 
   return (
-    <div className="mb-3">
+    <div className="mb-0.5">
       {title && <h2 className="text-sm font-semibold text-gray-700 mb-2 px-1">{title}</h2>}
 
       <div
         ref={scrollRef}
-        className="flex gap-2 overflow-x-auto pb-1 sm:-mx-4 sm:px-4 pr-8 sm:pr-12 snap-x scrollbar-hide scroll-smooth"
+        className="flex gap-2 overflow-x-auto pb-0 sm:-mx-4 sm:px-4 pr-8 sm:pr-12 snap-x scrollbar-hide scroll-smooth"
         role="listbox"
         aria-label="Categorias de commodities"
       >
@@ -155,8 +155,8 @@ export default function CommoditiesCarousel({
                 )}
               </div>
               <span
-                className={`text-[10px] sm:text-[9px] font-medium text-center w-12 sm:w-11 truncate leading-tight transition-colors
-                  ${isSelected ? 'text-green-700 font-semibold' : 'text-gray-700'}`}
+                className={`text-[10px] sm:text-[9px] font-semibold text-center w-12 sm:w-11 truncate leading-tight transition-colors
+                  ${isSelected ? 'text-green-800' : 'text-black'}`}
               >
                 {c.name}
               </span>

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import type { Frete } from '../services/fretes';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-import { getDocumentsByUser, resolveProfilePhotoUrl } from '../services/documents';
+import { resolveProfilePhotoUrl } from '../services/documents';
+import { fetchMotoristaCompletude, isRequiredComplete } from '../hooks/useMotoristaCompletude';
 import { getEmbarcadorPublicCard } from '../services/embarcador';
 import { formatCnpj } from '../services/cnpj';
 import { listActiveCommodities } from '../services/commodities';
@@ -15,15 +16,6 @@ import { bodyTypesCsvLabel } from '../data/bodyTypes';
 import FreteMiniMap from './FreteMiniMap';
 import RotaTimeline from './RotaTimeline';
 import FreteRetornoModal from './FreteRetornoModal';
-
-const REQUIRED_DOCS = [
-  'cpf',
-  'cnh',
-  'antt',
-  'vehicle_registration',
-  'vehicle_insurance',
-  'profile_photo',
-];
 
 interface FreteModalProps {
   frete: Frete | null;
@@ -124,13 +116,11 @@ export default function FreteModal({
   useEffect(() => {
     if (isOpen && isAuthenticated && user?.userType === 'motorista') {
       setCheckingProfile(true);
-      getDocumentsByUser(user.id)
-        .then((docs) => {
-          const docTypes = docs.map((d) => d.documentType);
-          const allDone = REQUIRED_DOCS.every((r) =>
-            docTypes.includes(r as (typeof docTypes)[number])
-          );
-          setProfileComplete(allDone);
+      // Gate de contato: exige apenas os grupos OBRIGATORIOS do perfil
+      // (perfil, tracao, carroceria, complemento). Referencias e opcional.
+      fetchMotoristaCompletude(user.id)
+        .then((groups) => {
+          setProfileComplete(isRequiredComplete(groups));
         })
         .catch(() => setProfileComplete(false))
         .finally(() => setCheckingProfile(false));

@@ -43,7 +43,7 @@ import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import type { Frete } from '../services/fretes';
-import { getRouteGeometry } from '../services/geolocation';
+import { getRouteGeometry, getRouteCities } from '../services/geolocation';
 import type { GeographicPoint } from '../types';
 import MapaFretesBoundary from './MapaFretesBoundary';
 
@@ -158,6 +158,11 @@ export default function FreteMiniMap({
   // Modo expandido (tela cheia). False = mini-mapa compacto e nao-interativo.
   const [expanded, setExpanded] = useState(false);
 
+  // Cidades do trajeto (origem -> ... -> destino). Carregadas sob demanda
+  // quando o mapa e expandido (reverse-geocode e custoso/limitado).
+  const [routeCities, setRouteCities] = useState<string[]>([]);
+  const [citiesStatus, setCitiesStatus] = useState<'idle' | 'loading' | 'done'>('idle');
+
   // Container DEDICADO para o portal do mapa em tela cheia. Criamos um <div>
   // proprio anexado ao body e removemos no unmount. Portar para um node
   // dedicado (em vez de document.body direto) evita o erro
@@ -197,6 +202,39 @@ export default function FreteMiniMap({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin.latitude, origin.longitude, destination.latitude, destination.longitude]);
+
+  // Reseta a lista de cidades quando o frete (origem/destino) muda.
+  useEffect(() => {
+    setRouteCities([]);
+    setCitiesStatus('idle');
+  }, [origin.latitude, origin.longitude, destination.latitude, destination.longitude]);
+
+  // Carrega as cidades do trajeto quando o mapa e expandido. Precisa da
+  // geometria real (OSRM). Reverse-geocode e sequencial/limitado (~1 req/s),
+  // entao a lista aparece progressivamente (onProgress).
+  useEffect(() => {
+    if (!expanded || citiesStatus !== 'idle') return;
+    if (!routeGeometry || routeGeometry.length < 2) return;
+
+    const controller = new AbortController();
+    setCitiesStatus('loading');
+    getRouteCities(routeGeometry, {
+      signal: controller.signal,
+      onProgress: (cities) => {
+        if (!controller.signal.aborted) setRouteCities(cities);
+      },
+    })
+      .then((cities) => {
+        if (!controller.signal.aborted) {
+          setRouteCities(cities);
+          setCitiesStatus('done');
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setCitiesStatus('done');
+      });
+    return () => controller.abort();
+  }, [expanded, routeGeometry, citiesStatus]);
 
   // Trava o scroll do body enquanto expandido + ESC fecha.
   useEffect(() => {
@@ -367,8 +405,8 @@ export default function FreteMiniMap({
                 </svg>
               </button>
 
-              {/* Cabecalho discreto com origem -> destino. */}
-              <div className="absolute top-3 left-3 z-[10001] bg-white/95 backdrop-blur rounded-lg shadow-lg px-3 py-2 border border-gray-200 max-w-[calc(100%-72px)]">
+              {/* Cabecalho: origem -> destino + km + cidades do trajeto. */}
+              <div className="absolute top-3 left-3 z-[10001] bg-white/95 backdrop-blur rounded-lg shadow-lg px-3 py-2 border border-gray-200 w-[min(80%,320px)] max-h-[68vh] flex flex-col">
                 <p className="text-xs font-semibold text-gray-800 truncate">
                   {frete.origin} → {frete.destination}
                 </p>
@@ -377,6 +415,52 @@ export default function FreteMiniMap({
                     {frete.distanceKm.toLocaleString('pt-BR')} km pela rota
                   </p>
                 ) : null}
+
+                {/* Lista de cidades do trajeto (origem -> intermediarias ->
+                    destino). */}
+                <div className="mt-2 border-t border-gray-100 pt-2 overflow-y-auto">
+                  <p className="text-[9px] uppercase tracking-wide text-gray-400 mb-1">
+                    Cidades no trajeto
+                  </p>
+                  <ol className="relative">
+                    {/* Origem */}
+                    <li className="relative flex items-start gap-2 pb-2">
+                      <span className="mt-0.5 w-2.5 h-2.5 rounded-full bg-green-600 shrink-0 ring-2 ring-white" />
+                      <span className="text-[11px] font-medium text-gray-800 leading-tight">
+                        {frete.origin}
+                      </span>
+                    </li>
+
+                    {/* Intermediarias (aparecem progressivamente) */}
+                    {routeCities.map((city, i) => (
+                      <li key={`${city}-${i}`} className="relative flex items-start gap-2 pb-2">
+                        <span className="mt-0.5 w-2.5 h-2.5 rounded-full bg-gray-300 shrink-0 ring-2 ring-white" />
+                        <span className="text-[11px] text-gray-600 leading-tight">{city}</span>
+                      </li>
+                    ))}
+
+                    {/* Estado de carregamento das cidades */}
+                    {citiesStatus === 'loading' && (
+                      <li className="flex items-center gap-2 pb-2 text-[10px] text-gray-400">
+                        <span className="w-2.5 h-2.5 rounded-full border-2 border-gray-300 border-t-blue-500 animate-spin shrink-0" />
+                        Buscando cidades do trajeto…
+                      </li>
+                    )}
+                    {citiesStatus === 'done' && routeCities.length === 0 && (
+                      <li className="pb-2 text-[10px] text-gray-400">
+                        Não foi possível listar as cidades do trajeto.
+                      </li>
+                    )}
+
+                    {/* Destino */}
+                    <li className="relative flex items-start gap-2">
+                      <span className="mt-0.5 w-2.5 h-2.5 rounded-full bg-red-600 shrink-0 ring-2 ring-white" />
+                      <span className="text-[11px] font-medium text-gray-800 leading-tight">
+                        {frete.destination}
+                      </span>
+                    </li>
+                  </ol>
+                </div>
               </div>
             </div>,
             portalEl

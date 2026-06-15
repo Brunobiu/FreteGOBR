@@ -27,7 +27,7 @@ export default function AiFab() {
             cy="28"
             r="26"
             stroke="url(#ai-fab-gradient)"
-            strokeWidth="3"
+            strokeWidth="1.5"
             strokeLinecap="round"
             strokeDasharray="40 120"
           />

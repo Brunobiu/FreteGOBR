@@ -131,9 +131,8 @@ export default function MotoristaMenuPage() {
       subtitle: 'Contatos',
       icon: <ReferencesIllustration />,
       onClick: () => navigate('/motorista/referencias'),
-      alert: groups.referencias,
+      alert: false,
       revalExpired: isRevalExpired('referencias'),
-      complete: !groups.referencias,
     },
     {
       key: 'contrato',

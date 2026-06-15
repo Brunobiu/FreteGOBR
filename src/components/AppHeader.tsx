@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import FreteCalculator from './FreteCalculator';
@@ -22,6 +22,7 @@ import {
 export default function AppHeader() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const { theme, toggleTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -45,6 +46,25 @@ export default function AppHeader() {
   const profileLink = user?.userType === 'embarcador' ? '/perfil/embarcador' : '/perfil/motorista';
   const planLink = user?.userType === 'embarcador' ? '/embarcador/plano' : '/motorista/plano';
   const displayName = user?.name ? capitalizeName(user.name) : '';
+
+  // Home do motorista usa o "hero" com degrade (header transparente para o
+  // degrade do fundo aparecer atras da barra). Demais telas: fundo neutro.
+  const isMotoristaHome = user?.userType === 'motorista' && location.pathname === '/';
+
+  // No topo da home, o header fica transparente (deixa o degrade aparecer).
+  // Ao rolar, ganha um fundo solido claro para o texto continuar legivel
+  // sobre o feed escuro.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!isMotoristaHome) {
+      setScrolled(false);
+      return;
+    }
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [isMotoristaHome]);
 
   // Localizacao do usuario
   const geo = useGeolocation();
@@ -210,7 +230,11 @@ export default function AppHeader() {
 
   return (
     <>
-      <header className="sticky top-0 z-40 bg-gray-100">
+      <header
+        className={`sticky top-0 z-40 transition-colors duration-200 ${
+          isMotoristaHome ? (scrolled ? 'bg-[#e9edcb] shadow-sm' : 'bg-transparent') : 'bg-gray-100'
+        }`}
+      >
         <div className="max-w-7xl md:max-w-2xl mx-auto px-3 sm:px-4 lg:px-6">
           <div className="relative flex items-center h-14 sm:h-16 gap-3">
             {/* Esquerda-centro: motorista vê a logo; embarcador vê foto+nome */}
@@ -557,7 +581,7 @@ export default function AppHeader() {
                   aria-label="Notificações"
                 >
                   <svg
-                    className="w-6 h-6 text-gray-700"
+                    className={`w-6 h-6 ${isMotoristaHome ? 'text-black' : 'text-gray-700'}`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

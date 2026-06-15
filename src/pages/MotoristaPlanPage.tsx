@@ -12,7 +12,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AppHeader from '../components/AppHeader';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useAuth } from '../hooks/useAuth';
 import { useTrialStatus } from '../hooks/useTrialStatus';
@@ -159,8 +158,6 @@ export default function MotoristaPlanPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <AppHeader />
-
       {/* Toast no canto (fixo): aparece ~5s e some, sem mexer no layout. */}
       {toast && (
         <div

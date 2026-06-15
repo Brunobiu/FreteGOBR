@@ -51,6 +51,87 @@ const ALL_OK: CompletudeGroups = {
   referencias: false,
 };
 
+/**
+ * Grupos OBRIGATORIOS para liberar o contato com o embarcador.
+ * Referencias NAO entra: e opcional (decisao do produto).
+ */
+export type RequiredCompletudeGroup = 'perfil' | 'tracao' | 'carroceria' | 'complemento';
+
+/**
+ * Avalia os grupos a partir dos dados ja carregados (funcao pura, reusavel
+ * tanto pelo hook quanto pelo gate de contato no FreteModal).
+ */
+export function computeCompletudeGroups(
+  userData: { name?: string | null; cpf?: string | null } | null,
+  profile: {
+    rgNumber?: string | null;
+    addressCep?: string | null;
+    vehiclePlate?: string | null;
+    vehicleModel?: string | null;
+    vehicleYearManufacture?: number | string | null;
+    vehicleYearModel?: number | string | null;
+    vehicleType?: string | null;
+    bodyType?: string | null;
+    kmPerLiter?: number | string | null;
+    trailerAxles?: number | string | null;
+    grossWeightTon?: number | string | null;
+    tareWeightTon?: number | string | null;
+    dieselPrice?: number | string | null;
+  } | null,
+  refsCount: number
+): CompletudeGroups {
+  const perfilFalta =
+    !userData?.name?.toString().trim() ||
+    !userData?.cpf?.toString().trim() ||
+    !profile?.rgNumber?.toString().trim() ||
+    !profile?.addressCep?.toString().trim();
+
+  const tracaoFalta =
+    !profile?.vehiclePlate?.toString().trim() ||
+    !profile?.vehicleModel?.toString().trim() ||
+    !profile?.vehicleYearManufacture ||
+    !profile?.vehicleYearModel;
+
+  const carroceriaFalta =
+    !profile?.vehicleType?.toString().trim() || !profile?.bodyType?.toString().trim();
+
+  const complementoFalta =
+    !profile?.kmPerLiter ||
+    !profile?.trailerAxles ||
+    !profile?.grossWeightTon ||
+    !profile?.tareWeightTon ||
+    !profile?.dieselPrice;
+
+  return {
+    perfil: !!perfilFalta,
+    tracao: !!tracaoFalta,
+    carroceria: !!carroceriaFalta,
+    complemento: !!complementoFalta,
+    referencias: refsCount === 0,
+  };
+}
+
+/**
+ * True quando TODOS os grupos obrigatorios (perfil, tracao, carroceria,
+ * complemento) estao completos. Referencias e ignorado de proposito.
+ */
+export function isRequiredComplete(groups: CompletudeGroups): boolean {
+  return !groups.perfil && !groups.tracao && !groups.carroceria && !groups.complemento;
+}
+
+/**
+ * Carrega o perfil do motorista e avalia os grupos de completude.
+ * Usado fora de React (ex: gate de contato no FreteModal).
+ */
+export async function fetchMotoristaCompletude(userId: string): Promise<CompletudeGroups> {
+  const [profile, userData, refs] = await Promise.all([
+    getMotoristaProfile(userId),
+    getUserData(userId),
+    getMotoristaReferences(userId).catch(() => []),
+  ]);
+  return computeCompletudeGroups(userData, profile, refs?.length ?? 0);
+}
+
 export function useMotoristaCompletude(): {
   loading: boolean;
   groups: CompletudeGroups;
@@ -74,36 +155,7 @@ export function useMotoristaCompletude(): {
         ]);
         if (cancelled) return;
 
-        const perfilFalta =
-          !userData?.name?.trim() ||
-          !userData?.cpf?.trim() ||
-          !profile?.rgNumber?.trim() ||
-          !profile?.addressCep?.trim();
-
-        const tracaoFalta =
-          !profile?.vehiclePlate?.trim() ||
-          !profile?.vehicleModel?.trim() ||
-          !profile?.vehicleYearManufacture ||
-          !profile?.vehicleYearModel;
-
-        const carroceriaFalta = !profile?.vehicleType?.trim() || !profile?.bodyType?.trim();
-
-        const complementoFalta =
-          !profile?.kmPerLiter ||
-          !profile?.trailerAxles ||
-          !profile?.grossWeightTon ||
-          !profile?.tareWeightTon ||
-          !profile?.dieselPrice;
-
-        const referenciasFalta = !refs || refs.length === 0;
-
-        setGroups({
-          perfil: !!perfilFalta,
-          tracao: !!tracaoFalta,
-          carroceria: !!carroceriaFalta,
-          complemento: !!complementoFalta,
-          referencias: !!referenciasFalta,
-        });
+        setGroups(computeCompletudeGroups(userData, profile, refs?.length ?? 0));
       } catch {
         if (!cancelled) setGroups(ALL_OK);
       } finally {

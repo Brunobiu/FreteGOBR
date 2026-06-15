@@ -660,3 +660,23 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
 /* ===================== Campos do Login ===================== */
 /* (estilos antigos de login-field removidos — o login usa inputs padrão
    com borda cinza, igual ao formulário de criar conta.) */
+
+/* ────────────────────────────────────────────────────────────────────────
+ * Home do motorista — "hero" com IMAGEM de fundo.
+ *
+ * Cobre o AppHeader + carrossel de anuncios + categorias, com a borda
+ * inferior bem arredondada (a "curva" passa por baixo das categorias).
+ * Abaixo dela o feed de fretes fica sobre fundo escuro (duas zonas, estilo
+ * do print de referencia).
+ *
+ * A imagem fica em /public/imagemfundo.jpg. Mantem-se uma cor de fallback
+ * caso a imagem nao carregue. Usa classe propria (nao bg-*) para nao ser
+ * afetada pelos overrides de tema escuro.
+ * ──────────────────────────────────────────────────────────────────────── */
+.home-hero-gradient {
+  background-color: #e9edcb;
+  background-image: url('/imagemfundo.jpg');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}

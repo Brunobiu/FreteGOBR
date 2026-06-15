@@ -251,7 +251,7 @@ export default function FreteCard({
             const lucroColor = calc.lucroLiquido >= 0 ? 'text-green-700' : 'text-red-600';
 
             return (
-              <div className="mt-2 p-2 bg-blue-50/60 border border-blue-100 rounded space-y-0.5">
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded space-y-0.5">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-gray-600">Consumo</span>
                   <span className="font-medium text-gray-800">{motoristaCalc.kmPerLiter} km/L</span>

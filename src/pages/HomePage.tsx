@@ -412,7 +412,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className={`min-h-screen ${isMotorista ? 'bg-[#17181c]' : 'bg-gray-100'}`}>
       <AppHeader />
 
       {/* Balao flutuante de localizacao (motorista sem GPS).
@@ -428,7 +428,7 @@ export default function HomePage() {
 
       <main
         className={`max-w-7xl md:max-w-2xl mx-auto px-3 sm:px-4 pb-24 md:pb-4 ${slideClass} ${
-          isMotorista ? 'pt-1 sm:pt-2' : 'py-3 sm:py-4'
+          isMotorista ? 'pt-0' : 'py-3 sm:py-4'
         }`}
       >
         {/* Header (apenas para embarcador/desktop) */}
@@ -493,19 +493,26 @@ export default function HomePage() {
 
         {isMotorista ? (
           <>
-            {/* Carrossel de anuncios entre mapa e header */}
-            <AnunciosCarousel />
+            {/* "Hero" com degrade: cobre a area do header (transparente) +
+                anuncios + categorias, num unico degrade continuo. A margem
+                negativa puxa o painel para tras do AppHeader (sticky), e a
+                borda inferior arredondada faz a "curva" passar por baixo das
+                categorias, separando da zona escura do feed (estilo do print). */}
+            <div className="home-hero-gradient -mx-3 sm:-mx-4 px-3 sm:px-4 -mt-14 sm:-mt-16 pt-14 sm:pt-16 pb-1.5 rounded-b-[2.75rem] shadow-md">
+              {/* Carrossel de anuncios entre mapa e header */}
+              <AnunciosCarousel />
 
-            {/* Carrossel de categorias de commodities (gerenciado pelo admin) */}
-            <CommoditiesCarousel
-              selectedSlug={selectedCommoditySlug}
-              onSelect={handleCommoditySelect}
-            />
+              {/* Carrossel de categorias de commodities (gerenciado pelo admin) */}
+              <CommoditiesCarousel
+                selectedSlug={selectedCommoditySlug}
+                onSelect={handleCommoditySelect}
+              />
+            </div>
 
             {/* Header do motorista: Fretes (qtd) + Raio + Diesel */}
-            <div className="flex items-center mb-3 gap-2">
-              <h1 className="text-base font-semibold text-gray-800">Fretes</h1>
-              <span className="text-xs text-gray-500">({visibleFretes.length})</span>
+            <div className="flex items-center mt-4 mb-3 gap-2">
+              <h1 className="text-base font-semibold text-gray-100">Fretes</h1>
+              <span className="text-xs text-gray-400">({visibleFretes.length})</span>
               <div className="ml-auto flex items-center gap-2">
                 <RadiusSelector radiusKm={radiusKm} onRadiusChange={handleRadiusChange} compact />
                 {user && calcLoaded && (
