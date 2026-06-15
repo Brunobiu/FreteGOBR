@@ -177,9 +177,9 @@ export default function MotoristaMenuPage() {
           {/* Seta voltar */}
           <button
             type="button"
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/')}
             className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center hover:bg-gray-200 transition-colors flex-shrink-0"
-            aria-label="Voltar"
+            aria-label="Voltar para o início"
           >
             <svg
               className="w-5 h-5 text-gray-700"

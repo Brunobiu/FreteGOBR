@@ -1830,10 +1830,26 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
     };
   const currentSave = view !== 'all' ? viewSaveMap[view] : undefined;
 
+  // Voltar das sub-telas (perfil/tracao/etc): se o motorista preencheu algo e
+  // nao clicou em Salvar, auto-salva antes de sair (o proprio save redireciona
+  // ao menu no sucesso). Sem mudancas, vai direto pro menu. Na view 'all',
+  // mantem o voltar padrao do historico.
+  const handleBack = () => {
+    if (view !== 'all') {
+      if (currentSave && dirty[currentSave.section]) {
+        currentSave.save();
+        return;
+      }
+      navigate('/motorista/menu');
+      return;
+    }
+    navigate(-1);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <ProfileTopBar onBack={() => navigate(-1)} />
+        <ProfileTopBar onBack={handleBack} />
         <div className="flex justify-center py-20 text-gray-600">Carregando perfil...</div>
       </div>
     );
@@ -1842,7 +1858,7 @@ export default function MotoristaPerfilPage({ view = 'all' }: MotoristaPerfilPag
   return (
     <div className="min-h-screen bg-gray-50">
       <ProfileTopBar
-        onBack={() => navigate(-1)}
+        onBack={handleBack}
         onSave={currentSave ? currentSave.save : undefined}
         saveDisabled={
           currentSave ? !dirty[currentSave.section] || saving[currentSave.section] : false

@@ -494,7 +494,8 @@ form[data-view='perfil'] section[data-secao]:not([data-secao='perfil']) {
 form[data-view='veiculo'] section[data-secao]:not([data-secao='veiculo']) {
   display: none;
 }
-form[data-view='referencias'] section[data-secao]:not([data-secao='referencias']) {
+form[data-view='referencias']
+  section[data-secao]:not([data-secao='referencias']):not([data-secao='perfil']) {
   display: none;
 }
 form[data-view='contrato'] section[data-secao]:not([data-secao='contrato']) {
