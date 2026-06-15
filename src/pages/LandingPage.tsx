@@ -171,7 +171,7 @@ export default function LandingPage() {
                 <img
                   src="/logo.png"
                   alt="FreteGO"
-                  className="h-7 sm:h-8 w-auto object-contain select-none brightness-0 invert"
+                  className="h-8 sm:h-10 w-auto object-contain select-none"
                   draggable={false}
                 />
               </Link>
