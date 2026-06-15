@@ -54,12 +54,21 @@ import MapaToolbar from '../components/MapaToolbar';
 // que já lazy-carrega o próprio mapa.
 const InteractiveMap = lazy(() => import('../components/InteractiveMap'));
 
+/**
+ * Cache em memoria do feed de fretes, por slug de categoria. Persiste entre
+ * montagens da HomePage — quando o motorista vai pro Mapa/Menu/Marketplace e
+ * volta pro inicio, a lista aparece NA HORA (sem skeleton) e e atualizada em
+ * segundo plano, em vez de recarregar do zero toda vez.
+ */
+const FEED_CACHE = new Map<string, Frete[]>();
+const feedCacheKey = (slug: string | null | undefined) => slug ?? '__all__';
+
 export default function HomePage() {
   const { user } = useAuth();
   useDocumentTitle(user?.userType === 'motorista' ? 'Motorista' : null);
   const slideClass = useTabSlideClass();
-  const [fretes, setFretes] = useState<Frete[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [fretes, setFretes] = useState<Frete[]>(() => FEED_CACHE.get('__all__') ?? []);
+  const [isLoading, setIsLoading] = useState(() => !FEED_CACHE.has('__all__'));
   const [error, setError] = useState<string | null>(null);
   const [selectedFrete, setSelectedFrete] = useState<Frete | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -222,12 +231,6 @@ export default function HomePage() {
     });
   }, []);
 
-  const showCalcBanner =
-    isMotorista &&
-    calcLoaded &&
-    motoristaCalc !== null &&
-    (motoristaCalc.kmPerLiter === null || motoristaCalc.dieselPrice === null);
-
   // Categoria de commodity selecionada pelo motorista no carrossel.
   // Quando preenchida, os fretes sao re-fetched com filtro `productSlug`
   // (Migration 050). Toggle: clicar de novo na mesma desmarca.
@@ -245,6 +248,7 @@ export default function HomePage() {
       if (!silent) setIsLoading(true);
       setError(null);
       const data = await getActiveFretes(filters);
+      FEED_CACHE.set(feedCacheKey(filters.productSlug), data);
       setFretes(data);
       if (!silent) setCurrentPage(1);
     } catch (err) {
@@ -266,7 +270,19 @@ export default function HomePage() {
     // Motorista bloqueado (trial expirado): NÃO dispara o fetch do feed.
     // A TrialExpiredPage é renderizada no lugar do feed (Req 5.6).
     if (isMotoristaBloqueado) return;
-    loadFretes({ productSlug: selectedCommoditySlug ?? undefined });
+
+    // Se ja temos esse feed em cache (ex: voltando do Mapa/Menu), mostra na
+    // hora e atualiza em segundo plano (silent) — sem skeleton. Senao, faz a
+    // carga normal com skeleton.
+    const cacheKey = feedCacheKey(selectedCommoditySlug);
+    const cached = FEED_CACHE.get(cacheKey);
+    if (cached) {
+      setFretes(cached);
+      setIsLoading(false);
+      loadFretes({ productSlug: selectedCommoditySlug ?? undefined }, { silent: true });
+    } else {
+      loadFretes({ productSlug: selectedCommoditySlug ?? undefined });
+    }
 
     // Realtime com:
     //  1) Refetch silencioso (sem `setIsLoading(true)`) — evita o blink
@@ -472,15 +488,6 @@ export default function HomePage() {
               className="inline-flex items-center justify-center rounded-lg bg-brand-green px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-greenDark whitespace-nowrap"
             >
               Reativar plano
-            </Link>
-          </div>
-        )}
-
-        {showCalcBanner && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
-            Configure seu veículo para ver os cálculos.{' '}
-            <Link to="/perfil/motorista" className="underline font-medium">
-              Ir para o perfil
             </Link>
           </div>
         )}
