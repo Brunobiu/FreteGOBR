@@ -43,7 +43,7 @@ sem código órfão. Os tipos `FreteStatus`/`FreteSource` já existem em
     - Mapear `value` com `Number(...)` quando não nulo; `source` com fallback `null`
     - _Requirements: 3.1, 3.5_
 
-  - [ ]* 2.2 Escrever testes de integração (mock Supabase) de `getFreteStatus`
+  - [x]* 2.2 Escrever testes de integração (mock Supabase) de `getFreteStatus`
     - Local `tests/` (integração CI). Mock hoisted: expor spy via `(globalThis as Record<string, unknown>).__supabaseSpy = ...`, sem referenciar variáveis externas no factory
     - Consulta `fretes` por `id` selecionando `status, source, value` e mapeia corretamente (3.1)
     - Erro do Supabase ⇒ resolve `null` sem lançar (3.5); `value` nulo ⇒ `value: null`
