@@ -68,6 +68,7 @@ ios/App/.gradle/
 *.aab
 *.ipa
 *.keystore
+*.jks
 
 # Capacitor sync (regenerados)
 android/app/src/main/assets/capacitor.config.json
