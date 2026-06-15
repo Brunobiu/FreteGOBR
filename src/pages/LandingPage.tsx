@@ -20,11 +20,9 @@
  * Fluxo: Landing → "Ver fretes" (/fretes) → cadastro/login.
  */
 
-import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import SiteFooter from '../components/SiteFooter';
-import WelcomeSplash, { hasSeenWelcome } from '../components/WelcomeSplash';
 
 /* Ícones em SVG inline (convenção do projeto: não usar libs de ícone). */
 type IconProps = { className?: string };
@@ -123,12 +121,9 @@ function Zap({ className }: IconProps) {
 export default function LandingPage() {
   useDocumentTitle(null);
   const navigate = useNavigate();
-  const [showSplash, setShowSplash] = useState(() => !hasSeenWelcome());
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
-      {showSplash && <WelcomeSplash durationMs={4000} onDone={() => setShowSplash(false)} />}
-
       {/* ===================== HERO ===================== */}
       <section className="relative overflow-hidden">
         {/* Camada 1: gradiente da marca (marinho → verde da logo) */}

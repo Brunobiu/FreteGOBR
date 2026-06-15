@@ -1,49 +1,106 @@
 /**
- * WelcomeSplash — tela de abertura ("mini propaganda") exibida por alguns
- * segundos antes da Landing aparecer.
+ * WelcomeSplash — tela de abertura do app, exibida quando o usuário entra.
  *
- * - Fundo no gradiente da marca (marinho → verde da logo).
- * - Logo central + saudação "Seja bem-vindo ao FreteGO".
- * - Some sozinha após `durationMs` com um fade suave.
- * - Só aparece uma vez por sessão do navegador (sessionStorage), pra não
- *   irritar quem navega entre páginas. O usuário também pode pular clicando.
+ * Toca a animação Lottie (`/public/splash-animation.json`) em tela cheia,
+ * uma única vez por sessão do navegador / abertura do app (sessionStorage),
+ * e some sozinha com um fade ao terminar. O usuário pode pular tocando.
  *
- * Acessibilidade: respeita `prefers-reduced-motion` encurtando o tempo.
+ * A animação roda logo após a splash nativa do Capacitor (a tela verde),
+ * funcionando como a "intro" dentro do app.
+ *
+ * Acessibilidade: respeita `prefers-reduced-motion` encurtando o tempo e
+ * pulando a animação.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import lottie, { type AnimationItem } from 'lottie-web';
 
 const SESSION_KEY = 'fretego_welcome_seen';
 
+/** Caminho do JSON da animação (servido de /public). */
+const ANIMATION_PATH = '/splash-animation.json';
+
+/** Teto de segurança: se o `complete` do Lottie não disparar, encerra mesmo assim. */
+const MAX_DURATION_MS = 9000;
+
 interface WelcomeSplashProps {
-  /** Tempo total visível antes de iniciar o fade-out (ms). */
-  durationMs?: number;
   /** Chamado quando a splash termina e deve ser removida da árvore. */
   onDone: () => void;
 }
 
-export default function WelcomeSplash({ durationMs = 4000, onDone }: WelcomeSplashProps) {
+export default function WelcomeSplash({ onDone }: WelcomeSplashProps) {
   const [leaving, setLeaving] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const animRef = useRef<AnimationItem | null>(null);
+  const doneRef = useRef(false);
 
   useEffect(() => {
-    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    const total = reduce ? 1200 : durationMs;
+    const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
 
-    const startFade = window.setTimeout(() => setLeaving(true), total);
-    // 500ms a mais para o fade-out concluir antes de desmontar.
-    const finish = window.setTimeout(() => {
-      sessionStorage.setItem(SESSION_KEY, '1');
-      onDone();
-    }, total + 500);
+    // Encerra (fade-out + onDone) — protegido contra chamadas duplas.
+    const finish = () => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      setLeaving(true);
+      window.setTimeout(() => {
+        try {
+          sessionStorage.setItem(SESSION_KEY, '1');
+        } catch {
+          /* sessionStorage indisponível — segue mesmo assim */
+        }
+        onDone();
+      }, 500);
+    };
+
+    // Acessibilidade: com movimento reduzido, não toca a animação.
+    if (reduce) {
+      const t = window.setTimeout(finish, 800);
+      return () => window.clearTimeout(t);
+    }
+
+    // Teto de segurança independente do player.
+    const safety = window.setTimeout(finish, MAX_DURATION_MS);
+
+    let anim: AnimationItem | null = null;
+    if (containerRef.current) {
+      anim = lottie.loadAnimation({
+        container: containerRef.current,
+        renderer: 'svg',
+        loop: false,
+        autoplay: true,
+        path: ANIMATION_PATH,
+        rendererSettings: {
+          // Preenche a tela mantendo proporção (corta sobras).
+          preserveAspectRatio: 'xMidYMid slice',
+        },
+      });
+      anim.setSpeed(1.6); // ~8s → ~5s
+      anim.addEventListener('complete', finish);
+      // Se o JSON falhar ao carregar, não trava a abertura.
+      anim.addEventListener('data_failed', finish);
+      animRef.current = anim;
+    }
 
     return () => {
-      window.clearTimeout(startFade);
-      window.clearTimeout(finish);
+      window.clearTimeout(safety);
+      if (anim) {
+        anim.removeEventListener('complete', finish);
+        anim.removeEventListener('data_failed', finish);
+        anim.destroy();
+      }
+      animRef.current = null;
     };
-  }, [durationMs, onDone]);
+  }, [onDone]);
 
   function skip() {
-    sessionStorage.setItem(SESSION_KEY, '1');
+    if (doneRef.current) return;
+    doneRef.current = true;
+    setLeaving(true);
+    try {
+      sessionStorage.setItem(SESSION_KEY, '1');
+    } catch {
+      /* ignore */
+    }
     onDone();
   }
 
@@ -51,48 +108,21 @@ export default function WelcomeSplash({ durationMs = 4000, onDone }: WelcomeSpla
     <div
       onClick={skip}
       role="presentation"
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gradient-to-br from-brand-navyDeep via-brand-navy to-brand-green transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[100] flex items-center justify-center bg-brand-navyDeep transition-opacity duration-500 ${
         leaving ? 'opacity-0' : 'opacity-100'
       }`}
     >
-      {/* Brilho radial sutil atrás da logo */}
-      <div
-        className="absolute h-72 w-72 rounded-full bg-brand-lime/10 blur-3xl"
-        aria-hidden="true"
-      />
+      {/* Container da animação Lottie (preenche a tela). */}
+      <div ref={containerRef} className="absolute inset-0 h-full w-full" aria-hidden="true" />
 
-      <div className="relative flex flex-col items-center px-6 text-center">
-        <img
-          src="/logo.png"
-          alt="FreteGO"
-          className="h-11 sm:h-16 w-auto object-contain select-none brightness-0 invert welcome-pop"
-          draggable={false}
-        />
-
-        <p className="mt-5 sm:mt-6 text-base sm:text-2xl font-semibold text-white welcome-rise">
-          Seja bem-vindo ao FreteGO
-        </p>
-        <p className="mt-1.5 sm:mt-2 text-xs sm:text-base text-white/70 welcome-rise-delayed">
-          Fretes que cabem na sua rota.
-        </p>
-
-        {/* Barra de progresso fina que enche enquanto a splash está visível */}
-        <div className="mt-7 sm:mt-8 h-1 w-36 sm:w-52 overflow-hidden rounded-full bg-white/15">
-          <div
-            className="h-full rounded-full bg-brand-lime welcome-progress"
-            style={{ animationDuration: `${durationMs}ms` }}
-          />
-        </div>
-      </div>
-
-      <span className="absolute bottom-6 text-[11px] sm:text-xs text-white/50">
+      <span className="absolute bottom-6 z-10 text-[11px] sm:text-xs text-white/60">
         Toque para pular
       </span>
     </div>
   );
 }
 
-/** Indica se a splash já foi vista nesta sessão do navegador. */
+/** Indica se a splash já foi vista nesta sessão do navegador / abertura do app. */
 export function hasSeenWelcome(): boolean {
   try {
     return sessionStorage.getItem(SESSION_KEY) === '1';

@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import NotificationToast from './components/NotificationToast';
@@ -16,6 +16,32 @@ import { lazyWithRetry, LazyBoundary } from './utils/lazyWithRetry';
 // Widget flutuante global: não é crítico para o primeiro paint, então
 // carrega depois (defer) para não pesar o bundle inicial.
 const FreteChatWidget = lazyWithRetry(() => import('./components/FreteChatWidget'));
+
+// Splash de abertura (animação Lottie). Lazy para não pesar o bundle inicial
+// com o lottie-web; a splash nativa do Capacitor cobre o tempo de carga.
+const WelcomeSplash = lazyWithRetry(() => import('./components/WelcomeSplash'));
+
+/**
+ * Mostra a WelcomeSplash uma vez por sessão/abertura do app, em qualquer
+ * porta de entrada (landing, login, home). Usa a mesma chave de sessão do
+ * componente (`fretego_welcome_seen`) sem importar o módulo (evita puxar o
+ * lottie-web pro bundle inicial).
+ */
+function WelcomeSplashGate() {
+  const [show, setShow] = useState(() => {
+    try {
+      return sessionStorage.getItem('fretego_welcome_seen') !== '1';
+    } catch {
+      return true;
+    }
+  });
+  if (!show) return null;
+  return (
+    <Suspense fallback={null}>
+      <WelcomeSplash onDone={() => setShow(false)} />
+    </Suspense>
+  );
+}
 
 // Páginas de entrada / fluxo de autenticação — convertidas de eager para lazy
 // com retry de chunk (Req 5.1, 5.2, 5.5). LoginPage e RegisterPage são named
@@ -133,6 +159,7 @@ function App() {
     <BrowserRouter>
       <CookieConsentProvider>
         <PixelProvider>
+          <WelcomeSplashGate />
           <NativeBackButton />
           <NativePushBootstrap />
           <NotificationToast />

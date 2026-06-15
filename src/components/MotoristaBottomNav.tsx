@@ -184,7 +184,7 @@ export default function MotoristaBottomNav() {
   return (
     <>
       <nav
-        className={`fixed bottom-3 left-3 right-3 z-40 transition-transform duration-300 ease-in-out ${
+        className={`fixed bottom-[calc(0.75rem+env(safe-area-inset-bottom))] left-3 right-3 z-40 transition-transform duration-300 ease-in-out ${
           hidden ? 'translate-y-[150%]' : 'translate-y-0'
         }`}
         aria-label="Navegação inferior"
