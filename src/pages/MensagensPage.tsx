@@ -12,13 +12,21 @@ import {
   getConversationPeer,
   markFreteMessagesAsRead,
   subscribeToFreteMessages,
-  getTotalUnreadCount,
+  getUnreadConversationsCount,
+  getFreteStatus,
   type FreteConversation,
   type FreteMessage,
   type ConversationPeer,
 } from '../services/chatFrete';
 import { resolveProfilePhotoUrl } from '../services/documents';
 import { supabase } from '../services/supabase';
+import {
+  gateToBadge,
+  freteStatusToGate,
+  effectiveStatus,
+  isInputBlocked,
+  type FreteGate,
+} from '../services/freteGate';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 const TYPING_TIMEOUT_MS = 3000;
@@ -68,6 +76,8 @@ export default function MensagensPage() {
   const [recording, setRecording] = useState(false);
   const [peerTyping, setPeerTyping] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [freteGate, setFreteGate] = useState<FreteGate>('unknown');
+  const [freteValue, setFreteValue] = useState<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -169,6 +179,8 @@ export default function MensagensPage() {
       setPeer(null);
       setPeerPhoto(null);
       setPeerTyping(false);
+      setFreteGate('unknown');
+      setFreteValue(null);
       return;
     }
     let cancelled = false;
@@ -195,6 +207,15 @@ export default function MensagensPage() {
         setMessages(enriched);
         setPeer(peerInfo);
 
+        // Recupera o status do frete vinculado para derivar o gating da
+        // Conversation_Screen (badge + bloqueio de input) — fresco na abertura.
+        const conv = conversations.find((c) => c.id === activeId);
+        const freteId = conv?.freteId ?? null;
+        const info = freteId ? await getFreteStatus(freteId) : null;
+        if (cancelled) return;
+        setFreteGate(freteStatusToGate(effectiveStatus(info)));
+        setFreteValue(info?.value ?? null);
+
         if (peerInfo) {
           const photoSrc =
             peerInfo.userType === 'embarcador'
@@ -213,8 +234,10 @@ export default function MensagensPage() {
         setConversations((prev) =>
           prev.map((c) => (c.id === activeId ? { ...c, unreadCount: 0 } : c))
         );
+        // Recomputa o Conversation_Badge_Count (conversas distintas não lidas)
+        // após marcar como lidas e propaga via Unread_Count_Event (Req 5.5, 5.6).
         try {
-          const total = await getTotalUnreadCount(user.id);
+          const total = await getUnreadConversationsCount(user.id);
           window.dispatchEvent(
             new CustomEvent<number>('fretego-chat-unread-count', { detail: total })
           );
@@ -389,6 +412,8 @@ export default function MensagensPage() {
     setPeer(null);
     setPeerPhoto(null);
     setPeerTyping(false);
+    setFreteGate('unknown');
+    setFreteValue(null);
     const next = new URLSearchParams(searchParams);
     next.delete('conversation');
     setSearchParams(next, { replace: true });
@@ -437,7 +462,7 @@ export default function MensagensPage() {
   };
 
   const startRecording = async () => {
-    if (recording) return;
+    if (recording || isInputBlocked(freteGate)) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
@@ -483,7 +508,7 @@ export default function MensagensPage() {
 
   // ── Drag-and-drop ──────────────────────────────────────────────────
   const handleDragEnter = (e: React.DragEvent) => {
-    if (!activeId) return;
+    if (!activeId || isInputBlocked(freteGate)) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer?.types.includes('Files')) {
@@ -498,7 +523,7 @@ export default function MensagensPage() {
     if (dragCounterRef.current === 0) setDragOver(false);
   };
   const handleDragOver = (e: React.DragEvent) => {
-    if (!activeId) return;
+    if (!activeId || isInputBlocked(freteGate)) return;
     e.preventDefault();
     e.stopPropagation();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
@@ -509,6 +534,7 @@ export default function MensagensPage() {
     dragCounterRef.current = 0;
     setDragOver(false);
     if (!activeId) return;
+    if (isInputBlocked(freteGate)) return;
     const files = Array.from(e.dataTransfer?.files ?? []);
     for (const file of files) {
       await handleAttach(file);
@@ -712,11 +738,6 @@ export default function MensagensPage() {
                         </p>
                       ) : (
                         <>
-                          {active?.frete && (
-                            <p className="text-[10px] text-blue-600 truncate leading-tight">
-                              {active.frete.origin} → {active.frete.destination}
-                            </p>
-                          )}
                           {peer?.userType === 'embarcador' && peer.companyName && (
                             <p className="text-[10px] text-gray-500 truncate leading-tight">
                               {peer.companyName}
@@ -758,6 +779,13 @@ export default function MensagensPage() {
                       </svg>
                     </button>
                   </header>
+
+                  <FreteCard
+                    origin={active?.frete?.origin}
+                    destination={active?.frete?.destination}
+                    value={freteValue}
+                    gate={freteGate}
+                  />
 
                   {/* Mensagens */}
                   <div className="flex-1 min-h-0 overflow-y-auto chat-bg p-3 space-y-1.5">
@@ -873,169 +901,173 @@ export default function MensagensPage() {
                   </div>
 
                   {/* Input */}
-                  <footer className="border-t border-gray-200 bg-white p-2 shrink-0">
-                    {attachmentError && (
-                      <p className="text-[11px] text-red-600 mb-1.5">{attachmentError}</p>
-                    )}
-                    {recording ? (
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2 flex-1 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                          <span className="text-[11px] text-red-700 font-medium">
-                            Gravando áudio...
-                          </span>
+                  {isInputBlocked(freteGate) ? (
+                    <BlockedNotice />
+                  ) : (
+                    <footer className="border-t border-gray-200 bg-white p-2 shrink-0">
+                      {attachmentError && (
+                        <p className="text-[11px] text-red-600 mb-1.5">{attachmentError}</p>
+                      )}
+                      {recording ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1 px-2.5 py-1.5 bg-red-50 border border-red-200 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                            <span className="text-[11px] text-red-700 font-medium">
+                              Gravando áudio...
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={cancelRecording}
+                            className="px-2 py-1 text-[11px] text-gray-600 hover:text-gray-800"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={stopRecording}
+                            className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+                            aria-label="Enviar áudio"
+                          >
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                              />
+                            </svg>
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={cancelRecording}
-                          className="px-2 py-1 text-[11px] text-gray-600 hover:text-gray-800"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={stopRecording}
-                          className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700"
-                          aria-label="Enviar áudio"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          ref={imageInputRef}
-                          type="file"
-                          accept="image/*"
-                          hidden
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleAttach(f, 'image');
-                            e.target.value = '';
-                          }}
-                        />
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          hidden
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) handleAttach(f, 'file');
-                            e.target.value = '';
-                          }}
-                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            ref={imageInputRef}
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleAttach(f, 'image');
+                              e.target.value = '';
+                            }}
+                          />
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            hidden
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleAttach(f, 'file');
+                              e.target.value = '';
+                            }}
+                          />
 
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={sending}
-                          title="Anexar arquivo"
-                          className="p-1.5 text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={sending}
+                            title="Anexar arquivo"
+                            className="p-1.5 text-gray-500 hover:text-blue-600 disabled:opacity-50"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                              />
+                            </svg>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={() => imageInputRef.current?.click()}
-                          disabled={sending}
-                          title="Enviar imagem"
-                          className="p-1.5 text-gray-500 hover:text-blue-600 disabled:opacity-50"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <button
+                            type="button"
+                            onClick={() => imageInputRef.current?.click()}
+                            disabled={sending}
+                            title="Enviar imagem"
+                            className="p-1.5 text-gray-500 hover:text-blue-600 disabled:opacity-50"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </button>
 
-                        <button
-                          type="button"
-                          onClick={startRecording}
-                          disabled={sending}
-                          title="Gravar áudio"
-                          className="p-1.5 text-gray-500 hover:text-red-600 disabled:opacity-50"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <button
+                            type="button"
+                            onClick={startRecording}
+                            disabled={sending}
+                            title="Gravar áudio"
+                            className="p-1.5 text-gray-500 hover:text-red-600 disabled:opacity-50"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8m-4-7a3 3 0 01-3-3V6a3 3 0 116 0v5a3 3 0 01-3 3z"
-                            />
-                          </svg>
-                        </button>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M19 11a7 7 0 01-14 0m7 7v3m-4 0h8m-4-7a3 3 0 01-3-3V6a3 3 0 116 0v5a3 3 0 01-3 3z"
+                              />
+                            </svg>
+                          </button>
 
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => handleTypingChange(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                          maxLength={1000}
-                          placeholder="Digite uma mensagem..."
-                          className="flex-1 px-3 py-1.5 text-[13px] bg-gray-100 border border-gray-200 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSend}
-                          disabled={sending || !newMessage.trim()}
-                          className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50"
-                          aria-label="Enviar"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
+                          <input
+                            type="text"
+                            value={newMessage}
+                            onChange={(e) => handleTypingChange(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                            maxLength={1000}
+                            placeholder="Digite uma mensagem..."
+                            className="flex-1 px-3 py-1.5 text-[13px] bg-gray-100 border border-gray-200 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSend}
+                            disabled={sending || !newMessage.trim()}
+                            className="p-1.5 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50"
+                            aria-label="Enviar"
                           >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    )}
-                  </footer>
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                              />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </footer>
+                  )}
                 </>
               )}
             </section>
@@ -1047,6 +1079,60 @@ export default function MensagensPage() {
 }
 
 // ─── Componentes auxiliares ──────────────────────────────────────────────────
+
+/**
+ * Frete_Card — faixa destacada entre o header e a Message_History com a
+ * origem→destino do frete vinculado, o valor (quando disponível) e o
+ * Status_Badge derivado do gate. Retorna `null` quando a conversa não tem
+ * frete vinculado (sem origem e sem destino). (Req 1.2, 1.3, 1.5, 1.6, 2.1)
+ */
+function FreteCard({
+  origin,
+  destination,
+  value,
+  gate,
+}: {
+  origin?: string;
+  destination?: string;
+  value: number | null;
+  gate: FreteGate;
+}) {
+  if (!origin && !destination) return null; // sem frete vinculado → sem card
+  const badge = gateToBadge(gate);
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-gray-50/60 shrink-0">
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-semibold text-gray-800 truncate">
+          {origin} <span className="text-gray-400">→</span> {destination}
+        </p>
+        {value != null && (
+          <p className="text-[11px] text-green-700 font-medium">
+            {value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+          </p>
+        )}
+      </div>
+      {badge && (
+        <span
+          className={`text-[10px] font-semibold rounded-full px-2 py-0.5 shrink-0 ${badge.className}`}
+        >
+          {badge.label}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Blocked_Notice — substitui a Input_Bar quando o frete não está mais ativo
+ * (`gate === 'blocked'`), preservando o histórico legível. (Req 4.6)
+ */
+function BlockedNotice() {
+  return (
+    <footer className="border-t border-gray-200 bg-gray-50 p-3 shrink-0 text-center">
+      <p className="text-[12px] text-gray-500">Este frete não está mais ativo.</p>
+    </footer>
+  );
+}
 
 /**
  * Tela inicial mostrada quando nenhuma conversa está aberta.

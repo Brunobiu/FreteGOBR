@@ -5,7 +5,7 @@ import FreteCalculator from './FreteCalculator';
 import { getEmbarcadorProfile } from '../services/embarcador';
 import { resolveProfilePhotoUrl } from '../services/documents';
 import { capitalizeName } from '../utils/textCase';
-import { getTotalUnreadCount } from '../services/chatFrete';
+import { getUnreadConversationsCount } from '../services/chatFrete';
 import { getUnreadNotificationCount } from '../services/notifications';
 import { NEW_NOTIFICATION_EVENT } from '../hooks/useNotificationsRealtime';
 import { useGeolocation } from '../hooks/useGeolocation';
@@ -184,7 +184,7 @@ export default function AppHeader() {
     if (!user) return;
     try {
       const [chat, notif] = await Promise.all([
-        getTotalUnreadCount(user.id),
+        getUnreadConversationsCount(user.id),
         getUnreadNotificationCount(user.id),
       ]);
       setChatUnread(chat);

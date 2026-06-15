@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { Suspense } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
@@ -105,7 +106,26 @@ function RootRoute() {
     );
   }
 
-  return <LazyRoute>{isAuthenticated ? <HomePage /> : <LandingPage />}</LazyRoute>;
+  if (isAuthenticated) {
+    return (
+      <LazyRoute>
+        <HomePage />
+      </LazyRoute>
+    );
+  }
+
+  // No app nativo (Capacitor) o usuário já baixou o app — não faz sentido cair
+  // na landing de marketing. Vai direto pro login. No navegador, mantém a
+  // LandingPage como porta de entrada.
+  if (Capacitor.isNativePlatform()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return (
+    <LazyRoute>
+      <LandingPage />
+    </LazyRoute>
+  );
 }
 
 function App() {

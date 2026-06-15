@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import {
   getUserConversations,
-  getTotalUnreadCount,
+  getUnreadConversationsCount,
   type FreteConversation,
 } from '../services/chatFrete';
 import { supabase } from '../services/supabase';
@@ -36,14 +36,15 @@ export default function FreteChatWidget() {
   const [totalUnread, setTotalUnread] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const recomputeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const isEligible =
     isAuthenticated && (user?.userType === 'motorista' || user?.userType === 'embarcador');
 
-  // Conta inicial de não lidas
+  // Conta inicial de não lidas (CONVERSAS distintas, não mensagens)
   useEffect(() => {
     if (!isEligible || !user) return;
-    getTotalUnreadCount(user.id)
+    getUnreadConversationsCount(user.id)
       .then(setTotalUnread)
       .catch(() => {});
   }, [isEligible, user]);
@@ -99,8 +100,8 @@ export default function FreteChatWidget() {
         );
         if (!cancelled) setConvPhotos(Object.fromEntries(photoEntries));
 
-        // Atualiza unread total
-        const unread = list.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+        // Atualiza unread total (CONVERSAS distintas com não lidas)
+        const unread = list.reduce((acc, c) => acc + ((c.unreadCount || 0) > 0 ? 1 : 0), 0);
         if (!cancelled) setTotalUnread(unread);
       } catch (err) {
         console.error('Erro ao carregar conversas:', err);
@@ -130,8 +131,15 @@ export default function FreteChatWidget() {
           };
           if (row.sender_id === user.id) return;
 
-          // Incrementa badge global
-          setTotalUnread((c) => c + 1);
+          // Recompute AUTORITATIVO do Conversation_Badge_Count (debounce ~250ms),
+          // idempotente por conversa (Req 5.2): segunda mensagem não lida na mesma
+          // conversa não altera o badge.
+          if (recomputeTimerRef.current) clearTimeout(recomputeTimerRef.current);
+          recomputeTimerRef.current = setTimeout(() => {
+            getUnreadConversationsCount(user.id)
+              .then(setTotalUnread)
+              .catch(() => {});
+          }, 250);
 
           let preview = row.content && row.content.trim() !== '' ? row.content : '';
           if (!preview && row.attachment_type === 'image') preview = '🖼 Imagem';
@@ -154,6 +162,7 @@ export default function FreteChatWidget() {
       )
       .subscribe();
     return () => {
+      if (recomputeTimerRef.current) clearTimeout(recomputeTimerRef.current);
       supabase.removeChannel(channel);
     };
   }, [isEligible, user]);

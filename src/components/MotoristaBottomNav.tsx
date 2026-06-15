@@ -2,7 +2,7 @@
  * MotoristaBottomNav - barra de navegacao inferior FLUTUANTE para motorista.
  *
  * Layout visual:
- *  - 5 itens: Inicio, Mapa, Marketplace (placeholder), ANTT, Menu
+ *  - 6 itens: Inicio, Chat, Mapa, ANTT, Marketplace, Menu
  *  - Barra flutuante com bordas arredondadas (estilo "pill"), descolada do
  *    rodape (margens laterais + inferior).
  *  - Auto-hide: desce (some) ao rolar a pagina para baixo e reaparece ao
@@ -19,6 +19,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useMotoristaCompletude } from '../hooks/useMotoristaCompletude';
 import { resolveProfilePhotoUrl } from '../services/documents';
+import { formatBadge, getUnreadConversationsCount } from '../services/chatFrete';
+import { supabase } from '../services/supabase';
 
 export default function MotoristaBottomNav() {
   const navigate = useNavigate();
@@ -72,6 +74,79 @@ export default function MotoristaBottomNav() {
     };
   }, [user?.profilePhotoUrl]);
 
+  // ─── Conversation_Badge_Count (Chat_Slot) ───────────────────────────
+  const isMotorista = user?.userType === 'motorista';
+  const [chatUnread, setChatUnread] = useState(0);
+
+  // Carga inicial do badge (apenas motorista); degrada para 0 em erro.
+  useEffect(() => {
+    if (!isMotorista || !user?.id) {
+      setChatUnread(0);
+      return;
+    }
+    let cancelled = false;
+    getUnreadConversationsCount(user.id)
+      .then((count) => {
+        if (!cancelled) setChatUnread(count);
+      })
+      .catch(() => {
+        if (!cancelled) setChatUnread(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isMotorista, user?.id]);
+
+  // Realtime: recompute debounced ao chegar mensagem de terceiro. Sem polling.
+  useEffect(() => {
+    if (!isMotorista || !user?.id) return;
+    const userId = user.id;
+    let cancelled = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const recompute = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        getUnreadConversationsCount(userId)
+          .then((count) => {
+            if (!cancelled) setChatUnread(count);
+          })
+          .catch(() => {
+            // Mantém o último valor válido; sem crash de UI.
+          });
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel(`messages-bottomnav-${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const row = payload.new as { sender_id: string };
+          if (row.sender_id === userId) return;
+          recompute();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [isMotorista, user?.id]);
+
+  // Unread_Count_Event: reflete o valor numérico recebido (Req 5.3).
+  useEffect(() => {
+    const onUnreadCount = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === 'number') setChatUnread(detail);
+    };
+    window.addEventListener('fretego-chat-unread-count', onUnreadCount);
+    return () => window.removeEventListener('fretego-chat-unread-count', onUnreadCount);
+  }, []);
+
   // Apenas os grupos OBRIGATORIOS contam para o alerta de pendencia.
   // Referencias e opcional (nao bloqueia contato com embarcador).
   const hasIncomplete =
@@ -89,8 +164,10 @@ export default function MotoristaBottomNav() {
   const goMapa = () => navigate('/motorista/mapa');
   const goMenu = () => navigate('/motorista/menu');
   const goMarketplace = () => navigate('/motorista/marketplace');
+  const goMensagens = () => navigate('/mensagens');
 
   const isHomeActive = location.pathname === '/';
+  const isChatActive = location.pathname === '/mensagens';
   const isMapaActive = location.pathname === '/motorista/mapa';
   const isTabelaActive = location.pathname === '/motorista/tabela-antt';
   const isMarketplaceActive = location.pathname.startsWith('/motorista/marketplace');
@@ -112,7 +189,7 @@ export default function MotoristaBottomNav() {
         }`}
         aria-label="Navegação inferior"
       >
-        <div className="relative max-w-md mx-auto h-16 grid grid-cols-5 items-center px-1 bg-gray-900 rounded-3xl border border-[#fde68a]/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+        <div className="relative max-w-md mx-auto h-16 grid grid-cols-6 items-center px-1 bg-gray-900 rounded-3xl border border-[#fde68a]/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
           {/* 1 - Inicio */}
           <button
             type="button"
@@ -123,7 +200,7 @@ export default function MotoristaBottomNav() {
             aria-label="Início"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -135,12 +212,50 @@ export default function MotoristaBottomNav() {
                 d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
               />
             </svg>
-            <span className={`text-[10px] ${isHomeActive ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[9px] ${isHomeActive ? 'font-bold' : 'font-medium'}`}>
               Início
             </span>
           </button>
 
-          {/* 2 - Mapa */}
+          {/* 2 - Chat */}
+          <button
+            type="button"
+            onClick={goMensagens}
+            className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
+              isChatActive ? 'text-green-400' : 'text-gray-300'
+            }`}
+            aria-label={
+              chatUnread > 0 ? `Chat - ${formatBadge(chatUnread)} conversas não lidas` : 'Chat'
+            }
+          >
+            {/* span relativo: o Chat_Badge e sobreposto aqui */}
+            <span className="relative">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                />
+              </svg>
+              {chatUnread > 0 && (
+                <span
+                  className="absolute -top-1 -right-2 min-w-[15px] h-[15px] px-1 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center border border-gray-900"
+                  aria-hidden="true"
+                >
+                  {formatBadge(chatUnread)}
+                </span>
+              )}
+            </span>
+            <span className={`text-[9px] ${isChatActive ? 'font-bold' : 'font-medium'}`}>Chat</span>
+          </button>
+
+          {/* 3 - Mapa */}
           <button
             type="button"
             onClick={goMapa}
@@ -150,7 +265,7 @@ export default function MotoristaBottomNav() {
             aria-label="Mapa"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -167,12 +282,10 @@ export default function MotoristaBottomNav() {
                 d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
               />
             </svg>
-            <span className={`text-[10px] ${isMapaActive ? 'font-bold' : 'font-medium'}`}>
-              Mapa
-            </span>
+            <span className={`text-[9px] ${isMapaActive ? 'font-bold' : 'font-medium'}`}>Mapa</span>
           </button>
 
-          {/* 3 - Tabela ANTT */}
+          {/* 4 - Tabela ANTT */}
           <button
             type="button"
             className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
@@ -181,7 +294,7 @@ export default function MotoristaBottomNav() {
             aria-label="Tabela ANTT"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -193,12 +306,12 @@ export default function MotoristaBottomNav() {
                 d="M3 10h18M3 6h18M3 14h18M3 18h18M9 6v12M15 6v12"
               />
             </svg>
-            <span className={`text-[10px] ${isTabelaActive ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[9px] ${isTabelaActive ? 'font-bold' : 'font-medium'}`}>
               ANTT
             </span>
           </button>
 
-          {/* 4 - Marketplace */}
+          {/* 5 - Marketplace */}
           <button
             type="button"
             onClick={goMarketplace}
@@ -208,7 +321,7 @@ export default function MotoristaBottomNav() {
             aria-label="Marketplace"
           >
             <svg
-              className="w-6 h-6"
+              className="w-5 h-5"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -220,12 +333,12 @@ export default function MotoristaBottomNav() {
                 d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
               />
             </svg>
-            <span className={`text-[10px] ${isMarketplaceActive ? 'font-bold' : 'font-medium'}`}>
+            <span className={`text-[9px] ${isMarketplaceActive ? 'font-bold' : 'font-medium'}`}>
               Marketplace
             </span>
           </button>
 
-          {/* 5 - Menu (foto do motorista + 3 barrinhas sobrepostas) */}
+          {/* 6 - Menu (foto do motorista + 3 barrinhas sobrepostas) */}
           <button
             type="button"
             onClick={goMenu}
@@ -237,7 +350,7 @@ export default function MotoristaBottomNav() {
             <span className="relative">
               {/* Avatar do motorista */}
               <span
-                className={`w-7 h-7 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border ${
+                className={`w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-gray-800 border ${
                   isMenuActive ? 'border-green-500' : 'border-gray-600'
                 }`}
               >
@@ -279,9 +392,7 @@ export default function MotoristaBottomNav() {
                 />
               )}
             </span>
-            <span className={`text-[10px] ${isMenuActive ? 'font-bold' : 'font-medium'}`}>
-              Menu
-            </span>
+            <span className={`text-[9px] ${isMenuActive ? 'font-bold' : 'font-medium'}`}>Menu</span>
           </button>
         </div>
       </nav>

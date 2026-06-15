@@ -5,6 +5,7 @@
 
 import { supabase } from './supabase';
 import { mapSupabaseError } from './chat';
+import type { FreteStatus, FreteSource } from './fretes';
 export { ChatError } from './chat';
 
 export interface FreteConversation {
@@ -15,7 +16,12 @@ export interface FreteConversation {
   createdAt: Date;
   // Joined data
   frete?: { origin: string; destination: string };
-  otherUser?: { id: string; name: string; photo: string | null; userType: 'motorista' | 'embarcador' };
+  otherUser?: {
+    id: string;
+    name: string;
+    photo: string | null;
+    userType: 'motorista' | 'embarcador';
+  };
   lastMessage?: string;
   unreadCount?: number;
 }
@@ -251,6 +257,94 @@ export async function markFreteMessagesAsRead(
 }
 
 /**
+ * Linha mínima de mensagem usada na contagem de não lidas (subset de `messages`).
+ * Tipo derivado em runtime — não persistido.
+ */
+export interface UnreadMessageRow {
+  conversationId: string;
+  senderId: string;
+  readAt: string | null;
+}
+
+/**
+ * Helper PURO: número de CONVERSAS distintas com ao menos uma mensagem não lida
+ * pelo usuário (remetente != usuário E `read_at` nulo). Sem I/O — testável por PBT.
+ *
+ * Mensagens do próprio usuário ou já lidas nunca contribuem, e múltiplas mensagens
+ * não lidas na mesma conversa contam como 1 (deduplicação via `Set`).
+ */
+export function countUnreadConversations(rows: UnreadMessageRow[], userId: string): number {
+  const unread = new Set<string>();
+  for (const r of rows) {
+    if (r.senderId !== userId && r.readAt === null) {
+      unread.add(r.conversationId);
+    }
+  }
+  return unread.size;
+}
+
+/**
+ * Helper PURO: número de mensagens não lidas pelo usuário DENTRO de uma conversa
+ * (remetente != usuário E `read_at` nulo). Retorna 0 quando não há nenhuma.
+ * Sem I/O — testável por PBT.
+ */
+export function countUnreadInConversation(rows: UnreadMessageRow[], userId: string): number {
+  let n = 0;
+  for (const r of rows) {
+    if (r.senderId !== userId && r.readAt === null) n++;
+  }
+  return n;
+}
+
+/**
+ * Helper PURO: formata o Conversation_Badge_Count para exibição no Chat_Badge.
+ * - `''` (sem badge) quando `n === 0`;
+ * - o próprio número como texto quando `1 <= n <= 9`;
+ * - exatamente `'9+'` quando `n > 9`.
+ *
+ * Sem I/O — testável por PBT.
+ */
+export function formatBadge(n: number): string {
+  if (n === 0) return '';
+  if (n > 9) return '9+';
+  return String(n);
+}
+
+/**
+ * Reducer PURO: aplica a chegada de uma mensagem ao conjunto de conversas não lidas.
+ *
+ * Retorna um NOVO `Set` igual a `set ∪ {conversationId}` quando o remetente NÃO é o
+ * motorista; caso contrário (mensagem do próprio motorista) retorna o conjunto
+ * inalterado (no-op). Não muta o `set` de entrada.
+ *
+ * A deduplicação por `conversationId` garante a idempotência: uma segunda mensagem
+ * não lida na mesma conversa não altera o tamanho do conjunto.
+ */
+export function applyIncomingMessage(
+  set: Set<string>,
+  conversationId: string,
+  senderIsMotorista: boolean
+): Set<string> {
+  if (senderIsMotorista) return set;
+  const next = new Set(set);
+  next.add(conversationId);
+  return next;
+}
+
+/**
+ * Reducer PURO: marca uma conversa como lida no conjunto de conversas não lidas.
+ *
+ * Retorna um NOVO `Set` igual a `set \ {conversationId}`. Quando `conversationId`
+ * não está no conjunto, o resultado é equivalente ao conjunto original (no-op).
+ * Não muta o `set` de entrada.
+ */
+export function applyMarkRead(set: Set<string>, conversationId: string): Set<string> {
+  const next = new Set(set);
+  next.delete(conversationId);
+  return next;
+}
+
+/**
  * Total de mensagens não lidas para um usuário
  */
 export async function getTotalUnreadCount(userId: string): Promise<number> {
@@ -272,6 +366,46 @@ export async function getTotalUnreadCount(userId: string): Promise<number> {
 
   if (error) return 0;
   return data?.length || 0;
+}
+
+/**
+ * Conversation_Badge_Count autoritativo do usuário: número de CONVERSAS distintas
+ * com ao menos uma mensagem não lida (remetente != usuário E `read_at` nulo).
+ *
+ * Reusa o mesmo padrão de fetch de `getTotalUnreadCount` (mesmas tabelas/colunas e
+ * filtros), mas deduplica por `conversation_id` via o helper puro
+ * `countUnreadConversations`. Em qualquer erro resolve `0` (degradação silenciosa,
+ * Req 6.3) e nunca lança. A RLS de `conversations`/`messages` garante o escopo do
+ * usuário (Req 7.2, 7.3).
+ */
+export async function getUnreadConversationsCount(userId: string): Promise<number> {
+  try {
+    const { data: convs, error: convErr } = await supabase
+      .from('conversations')
+      .select('id')
+      .or(`motorista_id.eq.${userId},embarcador_id.eq.${userId}`);
+
+    if (convErr || !convs || convs.length === 0) return 0;
+
+    const ids = convs.map((c) => c.id);
+    const { data, error } = await supabase
+      .from('messages')
+      .select('conversation_id, sender_id, read_at')
+      .in('conversation_id', ids)
+      .neq('sender_id', userId)
+      .is('read_at', null);
+
+    if (error) return 0; // degradação silenciosa: Req 6.3
+
+    const rows: UnreadMessageRow[] = (data ?? []).map((m) => ({
+      conversationId: m.conversation_id as string,
+      senderId: m.sender_id as string,
+      readAt: (m.read_at as string | null) ?? null,
+    }));
+    return countUnreadConversations(rows, userId);
+  } catch {
+    return 0; // nunca lança: Req 6.3
+  }
 }
 
 /**
@@ -420,4 +554,46 @@ export async function getConversationPeer(
     trailerAxles: r.trailer_axles !== null ? (r.trailer_axles as number) : null,
     cargoCapacity: r.cargo_capacity !== null ? Number(r.cargo_capacity) : null,
   };
+}
+
+/**
+ * Metadados leves do frete vinculado à conversa, usados para derivar o gating
+ * da Conversation_Screen (badge + bloqueio de input) e exibir o valor no
+ * Frete_Card.
+ */
+export interface FreteStatusInfo {
+  status: FreteStatus; // 'ativo' | 'encerrado' | 'cancelado'
+  source: FreteSource | null; // 'embarcador' | 'comunidade' | null
+  value: number | null; // valor do frete p/ exibir no Frete_Card (Req 1.3)
+}
+
+/**
+ * Recupera o status (e metadados leves) do frete vinculado à conversa.
+ *
+ * Consulta `fretes` por `id` selecionando apenas `status, source, value`.
+ * Fail-safe: retorna `null` em qualquer falha (erro do Supabase, ausência de
+ * dados ou exceção inesperada) — a camada de UI trata `null` como
+ * Status_Indisponivel (`unknown`), nunca bloqueando o usuário por engano
+ * (Req 3.5). A função NUNCA lança.
+ *
+ * _Requirements: 3.1, 3.5_
+ */
+export async function getFreteStatus(freteId: string): Promise<FreteStatusInfo | null> {
+  try {
+    const { data, error } = await supabase
+      .from('fretes')
+      .select('status, source, value')
+      .eq('id', freteId)
+      .single();
+
+    if (error || !data) return null;
+
+    return {
+      status: data.status as FreteStatus,
+      source: (data.source as FreteSource) ?? null,
+      value: data.value != null ? Number(data.value) : null,
+    };
+  } catch {
+    return null;
+  }
 }
