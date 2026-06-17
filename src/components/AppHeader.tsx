@@ -102,6 +102,7 @@ export default function AppHeader() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLocated, geo.point?.latitude, geo.point?.longitude]);
 
   // Solicita localizacao automaticamente quando usuario logado

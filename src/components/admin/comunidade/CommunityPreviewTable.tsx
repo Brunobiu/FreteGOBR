@@ -40,6 +40,7 @@ interface Props {
   onPublished: (result: PublishResult) => void;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function toPreviewRows(rows: ImportRow[]): PreviewRow[] {
   return rows.map((r) => ({
     ...r,

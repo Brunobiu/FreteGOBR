@@ -61,6 +61,7 @@ function categorize(type: string | null | undefined): CategoryKey {
 /**
  * Helper export para uso em testes property-based (CP-1).
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const categorizeNotification = categorize;
 
 function timeAgoBR(date: Date): string {

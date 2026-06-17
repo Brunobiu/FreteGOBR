@@ -125,6 +125,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     ); // 50 minutes
 
     return () => clearInterval(refreshInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const saveAuthData = (authResponse: AuthResponse) => {
@@ -236,6 +237,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -245,6 +247,7 @@ export function useAuth() {
 }
 
 // Helper hook to get the access token
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAccessToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }

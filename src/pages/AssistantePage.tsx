@@ -192,6 +192,7 @@ export default function AssistentePage() {
         setIsThinking(false);
       }
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeConvId, isThinking, conversations, messages, fretes, calc, effectiveLoc]
   );
 

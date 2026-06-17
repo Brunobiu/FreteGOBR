@@ -30,6 +30,7 @@ export interface PlanInfo {
  * Valores informativos dos planos (Req 5.5). Exportado para reuso e para
  * testes de presença dos valores. NENHUMA cobrança é realizada nesta spec.
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export const PLAN_INFO: readonly PlanInfo[] = [
   { id: 'mensal', name: 'Mensal', priceLabel: 'R$ 39,00/mês', detail: '' },
   {

@@ -123,6 +123,7 @@ export default function WelcomeSplash({ onDone }: WelcomeSplashProps) {
 }
 
 /** Indica se a splash já foi vista nesta sessão do navegador / abertura do app. */
+// eslint-disable-next-line react-refresh/only-export-components
 export function hasSeenWelcome(): boolean {
   try {
     return sessionStorage.getItem(SESSION_KEY) === '1';

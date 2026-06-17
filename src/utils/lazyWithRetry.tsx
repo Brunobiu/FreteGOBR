@@ -41,6 +41,7 @@ const DEFAULT_RETRIES = 1;
  * ultimo erro (permitindo que um error boundary local trate de forma
  * recuperavel).
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function retryImport<T>(
   factory: () => Promise<T>,
   retries: number = DEFAULT_RETRIES
@@ -69,6 +70,7 @@ export function retryImport<T>(
 // `lazyWithRetry` seja um drop-in real: aceita tanto componentes sem props
 // quanto componentes que recebem props (ex.: paginas com `view`), sem forcar
 // casts no ponto de uso.
+// eslint-disable-next-line react-refresh/only-export-components
 export function lazyWithRetry<T extends ComponentType<any>>( // eslint-disable-line @typescript-eslint/no-explicit-any
   factory: () => Promise<{ default: T }>
 ): LazyExoticComponent<T> {

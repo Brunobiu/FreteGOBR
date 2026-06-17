@@ -269,6 +269,7 @@ export default function MensagensPage() {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, user]);
 
   // Realtime de INSERT em messages (mensagens novas)
