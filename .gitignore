@@ -7,41 +7,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node modules - NUNCA commitar (muito grande)
 node_modules
+
+# Build outputs locais
 dist
 dist-ssr
 *.local
 
-# Cobertura de testes (gerada localmente; nunca commitar)
-coverage/
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-
-# Environment variables
+# Environment variables - SECRETS
 .env
 .env.local
 .env.production
 
-# Test credentials (local only)
+# Credenciais - SECRETS  
+Credencial/
 logins
+**/google-services.json
+**/firebase-adminsdk-*.json
+**/*-firebase-adminsdk-*.json
+firebase-service-account.json
 
-# Pasta com credenciais locais (Bruno)
-Credencial/
-
-# Pasta com credenciais locais
-Credencial/
-
-
-# Capacitor / Mobile
+# Capacitor builds temporários
 android/.gradle/
 android/.idea/
 android/build/
@@ -53,38 +40,36 @@ android/app/*.iml
 android/app/release/
 android/app/debug/
 android/keystore.properties
-android/**/google-services.json
-# Firebase service account / admin SDK keys (qualquer JSON com esse padrao)
-**/firebase-adminsdk-*.json
-**/*-firebase-adminsdk-*.json
-firebase-service-account.json
 ios/App/App.xcworkspace/xcuserdata/
 ios/App/Pods/
 ios/App/build/
 ios/App/.gradle/
 
-# Capacitor build outputs
+# Build outputs mobile
 *.apk
 *.aab
 *.ipa
 *.keystore
 *.jks
 
-# Capacitor sync (regenerados)
-android/app/src/main/assets/capacitor.config.json
-android/app/src/main/assets/capacitor.plugins.json
-android/capacitor-cordova-android-plugins/
-
-# Supabase CLI temporary state (generated locally; never commit)
+# Supabase temporários
 supabase/.temp/
 
-# Local build artifacts/outputs (ad-hoc captures)
-build_out.txt
-
-# Backups do banco (gerados localmente; contem dados — NUNCA commitar)
+# Backups de banco - NUNCA commitar (contém dados)
 backups/
 *.sql.gz
 db_backup_*.sql
 
-# Ferramentas portáteis baixadas localmente (ex: pg_dump portátil)
+# Ferramentas locais
 tools/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
