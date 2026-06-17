@@ -41,9 +41,19 @@ const RULES: Rule[] = [
 const SCAN_DIRS = ['src', 'supabase/functions', 'scripts'];
 const SCAN_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
-// Arquivos/caminhos ignorados: testes do próprio scanner (contêm padrões de
-// exemplo propositais) e node_modules.
-const IGNORE_SUBSTR = ['node_modules', 'secretScan', 'logAssertions', '_helpers/helpers.test'];
+// Arquivos/caminhos ignorados: testes que contêm padrões de segredo
+// propositais (fixtures realistas para validar mascaramento/não-vazamento) e
+// node_modules. NÃO incluir código de produção aqui — só testes.
+const IGNORE_SUBSTR = [
+  'node_modules',
+  'secretScan',
+  'logAssertions',
+  '_helpers/helpers.test',
+  // Testes de não-vazamento de segredos do WhatsApp: usam valores
+  // `sb_secret_...` realistas para verificar que NUNCA voltam na superfície.
+  '__tests__/admin/whatsapp/ai.test',
+  '__tests__/admin/whatsapp/gating.test',
+];
 
 function walk(dir: string, acc: string[]): void {
   let entries: string[];

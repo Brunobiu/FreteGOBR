@@ -185,3 +185,85 @@ export async function getDispatchStatistics(
     estimatedCompletionMs: estimatedCompletionMs(row.pending_count, row.send_interval_sec),
   };
 }
+
+/* ========================================================================== *
+ * Progresso / resumo de um Dispatch_Job (Req 11) — camada de serviço (LEITURA)*
+ *                                                                            *
+ * Visão de PROGRESSO derivada das Dispatch_Statistics (task 14.2). NÃO há RPC *
+ * nova: reusa `getDispatchStatistics` (migration 105, lê do estado persistido *
+ * — Req 11.3) e a função pura `progressPercent` (Req 11.4), mantendo a fórmula *
+ * em um único lugar testável. Expõe os campos da barra de progresso (total,   *
+ * enviados, restantes, percentual — Req 11.1) e o resumo final (enviados/     *
+ * falhos/ignorados) exibido ao `COMPLETED` (Req 11.5).                        *
+ *                                                                            *
+ * `isComplete` é derivado do estado persistido: todos os destinatários em     *
+ * estado terminal (`SENT + FAILED + SKIPPED == total`), sem depender de uma   *
+ * leitura adicional do status do job. LEITURA — não audita.                  *
+ * ========================================================================== */
+
+/**
+ * Resumo final de um disparo (Req 11.5), exibido quando o Dispatch_Job conclui.
+ */
+export interface DispatchSummary {
+  sent: number;
+  failed: number;
+  skipped: number;
+}
+
+/**
+ * Progresso de um Dispatch_Job, como exposto à UI (Req 11.1, 11.4, 11.5).
+ * Derivado exclusivamente do estado persistido (Req 11.3), escopado por instância.
+ */
+export interface DispatchProgress {
+  jobId: string;
+  /** Total de destinatários do job (Req 11.1). */
+  totalCount: number;
+  /** Quantidade enviada (`SENT`) (Req 11.1). */
+  sentCount: number;
+  /** Quantidade restante (`PENDING`) (Req 11.1). */
+  remainingCount: number;
+  /** Percentual concluído em `[0, 1]` = processados/total (Req 11.4). */
+  progress: number;
+  /** `true` quando todos os destinatários estão em estado terminal (Req 11.5). */
+  isComplete: boolean;
+  /** Resumo final (enviados/falhos/ignorados), relevante ao concluir (Req 11.5). */
+  summary: DispatchSummary;
+}
+
+/**
+ * Lê o progresso/resumo de um Dispatch_Job (Req 11.1, 11.3, 11.4, 11.5),
+ * reusando `getDispatchStatistics` (estado persistido) e `progressPercent`.
+ *
+ * `progress` é a razão processados/total, onde processados = `SENT + FAILED +
+ * SKIPPED`. `isComplete` reflete se todos os destinatários já estão em estado
+ * terminal (base para exibir o resumo final ao `COMPLETED`).
+ *
+ * @param instanceId Active_Instance alvo (escopo exclusivo).
+ * @param jobId      Dispatch_Job cujo progresso será lido.
+ * @returns O `DispatchProgress` no shape camelCase.
+ * @throws `Error` com a mensagem mapeada — anti-enumeração (Canonical_Message
+ *   pt-BR) quando a instância/job é inexistente ou cruzado entre instâncias.
+ */
+export async function getDispatchProgress(
+  instanceId: string,
+  jobId: string
+): Promise<DispatchProgress> {
+  const stats = await getDispatchStatistics(instanceId, jobId);
+  const processed = stats.sentCount + stats.failedCount + stats.skippedCount;
+
+  return {
+    jobId: stats.jobId,
+    totalCount: stats.totalCount,
+    sentCount: stats.sentCount,
+    remainingCount: stats.pendingCount,
+    // Percentual concluído (Req 11.4) — fórmula pura única e testável.
+    progress: progressPercent(processed, stats.totalCount),
+    // Concluído = todos os destinatários em estado terminal (Req 11.5).
+    isComplete: stats.totalCount > 0 && processed === stats.totalCount,
+    summary: {
+      sent: stats.sentCount,
+      failed: stats.failedCount,
+      skipped: stats.skippedCount,
+    },
+  };
+}

@@ -2,68 +2,64 @@
 // Edge Function: whatsapp-job-worker
 // ============================================================================
 // Spec: .kiro/specs/whatsapp-automation/{requirements,design,tasks}.md
-//   Task 12.1 — Esqueleto do TICK do drenador de fila durável + claim atomico
-//               de jobs elegiveis e do proximo recipient PENDING -> SENDING
-//               (idempotencia por destinatario; um SENT NUNCA e reenviado).
+//   Task 12.1 — claim atomico de jobs e recipients (PENDING -> SENDING).
+//   Task 12.2 — pacing por relogio (shouldSendNow) + quota por execucao
+//               (exec_sent_count >= execution_quota -> PAUSED com pendentes).
+//   Task 12.3 — envio via sessao da PROPRIA instancia (renderMessage no momento
+//               do envio), marcacao SENT/FAILED + failure_reason, e transicao
+//               para COMPLETED quando todos processados.
+//   Task 12.4 — varredura de Scheduled_Dispatches vencidos (-> QUEUED) no inicio
+//               do tick.
+//   Task 12.5 — recuperacao (Req 27): recipients SENDING orfaos -> PENDING e
+//               jobs inconsistentes (sem recipients) -> JOB_FAILED, seguindo com
+//               os demais.
 //
-// O processamento de disparos e SERVER-SIDE e DURAVEL (design.md > Architecture
-// "Worker durável"): a fila vive em Postgres e este worker, acionado pelo
-// pg_cron a cada minuto (`* * * * *`, SECTION 11 da migration 092 via
-// net.http_post/pg_net), drena a fila em background. Cada tick e STATELESS: le
-// o estado duravel, faz uma fatia de trabalho e persiste o progresso. Se o tick
-// morrer no meio, o proximo tick retoma do proximo Dispatch_Recipient PENDING.
-// Nao ha estado em memoria a recuperar — a "recuperacao" e o comportamento
-// normal do proximo tick (Recovery_Process, Req 27; task 12.5).
+// O processamento de disparos e SERVER-SIDE e DURAVEL (design.md > "Worker
+// duravel"): a fila vive em Postgres e este worker, acionado pelo pg_cron a cada
+// minuto (`* * * * *`, SECTION 11 da migration 092 via net.http_post/pg_net),
+// drena a fila em background. Cada tick e STATELESS: le o estado duravel, faz
+// uma fatia de trabalho respeitando Send_Interval/quota e persiste o progresso.
+// Se o tick morre no meio, o proximo tick retoma do proximo Dispatch_Recipient
+// PENDING (a "recuperacao" e o comportamento normal do proximo tick, reforcado
+// pela varredura de orfaos da task 12.5).
+//
+// Pacing sem dormir (Req 8.6): como os ticks sao curtos, o worker NAO dorme pelo
+// Send_Interval — ele OLHA O RELOGIO. Apos um envio, last_send_at = now; a
+// proxima iteracao do mesmo tick so enviaria se now >= last_send_at + interval,
+// o que (para qualquer interval > 0) e falso dentro do mesmo tick. Resultado:
+// no maximo ~1 envio por tick por job, espacando os envios por >= o periodo do
+// cron (anti-ban). A quota por execucao acumula ATRAVES de ticks (exec_sent_count
+// e persistido; so e zerado no RESUME — migration 101); ao atingir a quota com
+// pendentes, o job vai a PAUSED ate o Admin_User clicar "Continuar".
 //
 // Postura de seguranca (design.md > "Security Posture"):
-//   * verify_jwt = FALSE: este endpoint NAO recebe JWT de admin — quem o invoca
-//     e o pg_cron (server-to-server). Deploy:
+//   * verify_jwt = FALSE: acionado pelo pg_cron (server-to-server). Deploy:
 //       supabase functions deploy whatsapp-job-worker --no-verify-jwt
-//   * A autenticidade e garantida validando um SEGREDO DE INVOCACAO proprio que
-//     SOMENTE o pg_cron conhece, enviado no header `x-worker-secret`. O segredo
-//     vive no Vault em `whatsapp_worker_secret` (provisionado fora da migration)
-//     e NUNCA trafega ao browser nem aparece em respostas/colunas/logs.
-//   * FAIL-CLOSED: segredo ausente/invalido => 401 SEM efeito (nenhuma claim,
-//     nenhuma mutacao). O segredo nunca e logado nem ecoado; comparacao em
-//     tempo constante (evita timing-attack).
-//   * Todo dado externo e tratado como NAO CONFIAVEL; nenhum segredo e ecoado.
-//
-// ESCOPO DESTA TASK (12.1) — apenas os PRIMITIVOS de claim:
-//   1. Valida o segredo de invocacao (401 fail-closed).
-//   2. Reivindica os jobs elegiveis (QUEUED|RUNNING) via RPC
-//      `whatsapp_claim_due_jobs` (FOR UPDATE SKIP LOCKED, marca RUNNING).
-//   3. Para cada job, reivindica ATOMICAMENTE o proximo recipient PENDING ->
-//      SENDING via RPC `whatsapp_claim_next_recipient` (idempotencia: um SENT
-//      jamais e reivindicado). No esqueleto, como o ENVIO ainda nao existe
-//      (task 12.3), o recipient reivindicado e DEVOLVIDO a PENDING (release)
-//      para nao ficar preso em SENDING — mantendo o tick um no-op seguro e
-//      repetivel ate as proximas tasks ligarem o envio real.
-//
-// FORA DE ESCOPO (extension points marcados abaixo, NAO implementar aqui):
-//   - task 12.2: pacing por relogio (`shouldSendNow`) + quota por execucao
-//                (`exec_sent_count >= execution_quota` -> PAUSED).
-//   - task 12.3: envio via sessao da instancia (renderMessage no momento do
-//                envio), marcacao SENT/FAILED + failure_reason, COMPLETED.
-//   - task 12.4: varredura de Scheduled_Dispatches vencidos -> QUEUED.
-//   - task 12.5: recuperacao fina (SENDING orfao, jobs inconsistentes ->
-//                JOB_FAILED) e semantica de retomada por estado.
+//   * Autenticidade via SEGREDO DE INVOCACAO no header `x-worker-secret`, que
+//     SOMENTE o pg_cron conhece (Vault `whatsapp_worker_secret`). FAIL-CLOSED:
+//     segredo ausente/invalido => 401 SEM efeito. Comparacao em tempo constante.
+//   * Cada job usa EXCLUSIVAMENTE a WhatsApp_Session e a Evolution_Api_Key do
+//     `instance_id` do PROPRIO job (Req 10.9, 27.7). A chave e lida do Vault
+//     (`whatsapp_evolution_key_<instance_id>`) e NUNCA trafega ao browser nem e
+//     logada. Todo dado externo e tratado como NAO CONFIAVEL.
 //
 // Contrato de requisicao (POST, JSON; corpo do pg_cron e opcional/ignorado):
 //   headers: { 'x-worker-secret': '<segredo do Vault>' }
-//   body:    { source?: string, invoked_at?: string }   // tratado como dado nao confiavel
 //
 // Contrato de resposta (JSON):
-//   sucesso:        200 { ok: true, jobsClaimed: number, recipientsClaimed: number }
+//   sucesso:        200 { ok: true, jobsClaimed, sent, failed, scheduledSwept,
+//                         recoveredRecipients, failedJobs }
 //   segredo invalido: 401 { ok: false, error: 'unauthorized' }
 //   metodo != POST:   405 { ok: false, error: 'method_not_allowed' }
 //
 // Env vars:
 //   SUPABASE_URL               (auto-injetado)
-//   SUPABASE_SERVICE_ROLE_KEY  (auto-injetado) — chama as RPCs de claim (que
-//                              sao GRANTed apenas a service_role) e le o Vault.
+//   SUPABASE_SERVICE_ROLE_KEY  (auto-injetado) — chama as RPCs (GRANT service_role)
+//                              e le o Vault.
 //   WHATSAPP_WORKER_SECRET     (opcional) — segredo de invocacao esperado; se
-//                              ausente, cai no segredo de Vault
-//                              `whatsapp_worker_secret`.
+//                              ausente, cai no Vault `whatsapp_worker_secret`.
+//   EVOLUTION_API_URL          (opcional) — base URL da Evolution; se ausente,
+//                              cai no Vault `whatsapp_evolution_url`.
 // ============================================================================
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
@@ -74,9 +70,21 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 const WORKER_SECRET_ENV = Deno.env.get('WHATSAPP_WORKER_SECRET') ?? '';
+const EVOLUTION_API_URL_ENV = Deno.env.get('EVOLUTION_API_URL') ?? '';
 
 // Teto defensivo de jobs reivindicados por tick (alinhado ao p_limit da RPC).
 const MAX_JOBS_PER_TICK = 50;
+// Janela (segundos) para considerar um recipient SENDING como orfao (task 12.5).
+const ORPHAN_STALE_SECONDS = 300;
+// Validade (segundos) da signed URL de midia enviada a Evolution.
+const MEDIA_URL_TTL_SECONDS = 120;
+
+// Mensagens de falha (pt-BR, sem segredos — Req 10.6, 23.8).
+const MSG_SEND_FAILED = 'Falha ao enviar a mensagem.';
+const MSG_CONTENT_UNAVAILABLE = 'Conteudo do disparo indisponivel.';
+const MSG_MEDIA_UNAVAILABLE = 'Midia do disparo indisponivel.';
+const MSG_EMPTY_CONTENT = 'Conteudo do disparo vazio.';
+const MSG_NO_TARGET = 'Destinatario sem numero/grupo valido.';
 
 // ===================== Helpers de I/O =======================================
 
@@ -89,8 +97,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 /**
  * Comparacao de strings em tempo constante (evita timing-attack na validacao do
- * segredo de invocacao). Difere imediatamente apenas no tamanho — o segredo
- * nunca e logado nem ecoado.
+ * segredo de invocacao). O segredo nunca e logado nem ecoado.
  */
 function safeEq(a: string, b: string): boolean {
   if (!a || !b || a.length !== b.length) return false;
@@ -99,102 +106,201 @@ function safeEq(a: string, b: string): boolean {
   return r === 0;
 }
 
+async function safeJson(resp: Response): Promise<unknown> {
+  try {
+    return await resp.json();
+  } catch {
+    return null;
+  }
+}
+
+// ===================== Logica PURA inline (espelha src/.../worker.ts) ========
+// A Edge Function roda em Deno e NAO importa de src/. Estes helpers sao copias
+// fieis de `src/services/admin/whatsapp/{dispatch,render,worker}.ts`, que sao
+// os ESPELHOS TESTAVEIS (vitest) desta logica. Manter ambos em sincronia.
+
+/** Pacing por relogio (Req 8.6). epoch ms; `lastSendAtMs` null no 1o envio. */
+function shouldSendNow(nowMs: number, lastSendAtMs: number | null, intervalSec: number): boolean {
+  if (lastSendAtMs === null) return true;
+  return nowMs >= lastSendAtMs + intervalSec * 1000;
+}
+
+/** Quota da execucao atingida (Req 8.5). quota null => sem limite. */
+function quotaReached(execSentCount: number, executionQuota: number | null): boolean {
+  return executionQuota !== null && execSentCount >= executionQuota;
+}
+
+const VARIABLE_MARKER = /\{\{\s*([^{}]*?)\s*\}\}/g;
+const SUPPORTED_VARIABLES = ['nome', 'telefone', 'empresa'];
+
+/** Renderiza Message_Variables (Req 25); nunca vaza marcador literal (P8). */
+function renderMessage(template: string, data: Record<string, unknown>): string {
+  return template.replace(VARIABLE_MARKER, (_m, rawName: string) => {
+    const name = String(rawName).trim().toLowerCase();
+    if (!SUPPORTED_VARIABLES.includes(name)) return '';
+    const value = data?.[name];
+    return typeof value === 'string' && value !== '' ? value : '';
+  });
+}
+
+/** Nome deterministico da instancia na Evolution (Req 4.6). */
+function deriveInstanceName(instanceId: string): string {
+  return `frego_wa_${instanceId}`;
+}
+
+/** Mapeia o dominio media_type (IMAGE/...) para o `mediatype` da Evolution. */
+function mapMediaType(mediaType: string): string {
+  switch (String(mediaType).toUpperCase()) {
+    case 'IMAGE':
+      return 'image';
+    case 'VIDEO':
+      return 'video';
+    case 'AUDIO':
+      return 'audio';
+    default:
+      return 'document';
+  }
+}
+
 // ===================== Segredo de invocacao (env -> Vault) ==================
 
-// Cache em memoria do segredo esperado (resolvido uma vez por cold start). `null`
-// = ainda nao resolvido.
 let cachedExpectedSecret: string | null = null;
+
+/** Le um segredo do Vault pelo nome (service-role). '' quando ausente. */
+async function readVaultSecret(sb: SupabaseClient, name: string): Promise<string> {
+  try {
+    const { data, error } = await sb
+      .schema('vault')
+      .from('decrypted_secrets')
+      .select('decrypted_secret')
+      .eq('name', name)
+      .limit(1)
+      .maybeSingle();
+    if (error) return '';
+    const secret = (data as { decrypted_secret?: unknown } | null)?.decrypted_secret;
+    return typeof secret === 'string' ? secret : '';
+  } catch {
+    return '';
+  }
+}
 
 /**
  * Resolve o segredo de invocacao esperado: env `WHATSAPP_WORKER_SECRET` tem
- * prioridade; fallback no segredo de Vault `whatsapp_worker_secret` (lido via
- * service-role — o mesmo nome usado pelo pg_cron na SECTION 11 da migration
- * 092). Retorna string vazia quando nenhum esta configurado (validacao SEMPRE
- * falha => 401, fail-closed). O valor nunca e logado nem retornado.
+ * prioridade; fallback no Vault `whatsapp_worker_secret`. '' => validacao SEMPRE
+ * falha (401, fail-closed). O valor nunca e logado nem retornado.
  */
 async function resolveExpectedSecret(sb: SupabaseClient): Promise<string> {
   if (cachedExpectedSecret !== null) return cachedExpectedSecret;
-
   let secret = WORKER_SECRET_ENV.trim();
-  if (!secret) {
-    try {
-      const { data } = await sb
-        .schema('vault')
-        .from('decrypted_secrets')
-        .select('decrypted_secret')
-        .eq('name', 'whatsapp_worker_secret')
-        .limit(1)
-        .maybeSingle();
-      const value = (data as { decrypted_secret?: unknown } | null)?.decrypted_secret;
-      if (typeof value === 'string') secret = value.trim();
-    } catch {
-      // sem vault exposto / segredo ausente => vazio (fail-closed)
-    }
-  }
+  if (!secret) secret = (await readVaultSecret(sb, 'whatsapp_worker_secret')).trim();
   cachedExpectedSecret = secret;
   return secret;
 }
 
-/**
- * Extrai o segredo apresentado pelo invocador no header dedicado
- * `x-worker-secret` (o mesmo header que o pg_cron envia). Header e dado nao
- * confiavel; retornamos string vazia quando ausente.
- */
+/** Segredo apresentado pelo invocador no header `x-worker-secret` (nao confiavel). */
 function extractPresentedSecret(req: Request): string {
   return (req.headers.get('x-worker-secret') ?? '').trim();
 }
 
-// ===================== Tipos do dominio (claim) =============================
+/**
+ * Base URL da Evolution: env `EVOLUTION_API_URL` ou Vault `whatsapp_evolution_url`.
+ * Sem barra final; '' quando ausente (=> envio impossivel).
+ */
+async function resolveEvolutionBaseUrl(sb: SupabaseClient): Promise<string> {
+  let base = EVOLUTION_API_URL_ENV.trim();
+  if (!base) base = (await readVaultSecret(sb, 'whatsapp_evolution_url')).trim();
+  return base ? base.replace(/\/+$/, '') : '';
+}
 
-/** Job reivindicado (subconjunto retornado por whatsapp_claim_due_jobs). */
+/** Evolution_Api_Key da PROPRIA instancia (Vault, escopo por instance_id). */
+async function readEvolutionKey(sb: SupabaseClient, instanceId: string): Promise<string> {
+  return (await readVaultSecret(sb, `whatsapp_evolution_key_${instanceId}`)).trim();
+}
+
+// ===================== Tipos do dominio =====================================
+
 interface ClaimedJob {
   id: string;
   instance_id: string;
   kind: string;
   status: string;
-  // Campos consumidos pelas tasks 12.2/12.3 (pacing/quota/envio):
   send_interval_sec: number;
   execution_quota: number | null;
   exec_sent_count: number;
   last_send_at: string | null;
 }
 
-/** Extrai os jobs reivindicados de um retorno jsonb (array) nao tipado. */
+interface ClaimedRecipient {
+  id: string;
+  instance_id: string;
+  target_kind: string;
+  phone: string | null;
+  group_jid: string | null;
+  recipient_data: Record<string, unknown>;
+  assigned_content_id: string | null;
+}
+
+interface ContentToSend {
+  body: string;
+  media: { mediaType: string; storagePath: string } | null;
+}
+
+// ===================== Parsers de payload nao confiavel =====================
+
 function parseClaimedJobs(data: unknown): ClaimedJob[] {
   if (!Array.isArray(data)) return [];
   const out: ClaimedJob[] = [];
   for (const item of data) {
     if (typeof item !== 'object' || item === null) continue;
-    const obj = item as Record<string, unknown>;
-    if (typeof obj.id !== 'string' || typeof obj.instance_id !== 'string') continue;
+    const o = item as Record<string, unknown>;
+    if (typeof o.id !== 'string' || typeof o.instance_id !== 'string') continue;
     out.push({
-      id: obj.id,
-      instance_id: obj.instance_id,
-      kind: typeof obj.kind === 'string' ? obj.kind : '',
-      status: typeof obj.status === 'string' ? obj.status : '',
-      send_interval_sec: typeof obj.send_interval_sec === 'number' ? obj.send_interval_sec : 0,
-      execution_quota: typeof obj.execution_quota === 'number' ? obj.execution_quota : null,
-      exec_sent_count: typeof obj.exec_sent_count === 'number' ? obj.exec_sent_count : 0,
-      last_send_at: typeof obj.last_send_at === 'string' ? obj.last_send_at : null,
+      id: o.id,
+      instance_id: o.instance_id,
+      kind: typeof o.kind === 'string' ? o.kind : '',
+      status: typeof o.status === 'string' ? o.status : '',
+      send_interval_sec: typeof o.send_interval_sec === 'number' ? o.send_interval_sec : 0,
+      execution_quota: typeof o.execution_quota === 'number' ? o.execution_quota : null,
+      exec_sent_count: typeof o.exec_sent_count === 'number' ? o.exec_sent_count : 0,
+      last_send_at: typeof o.last_send_at === 'string' ? o.last_send_at : null,
     });
   }
   return out;
 }
 
-/** Extrai o id do recipient reivindicado (ou null se nenhum). */
-function parseClaimedRecipientId(data: unknown): string | null {
+function parseClaimedRecipient(data: unknown): ClaimedRecipient | null {
   if (typeof data !== 'object' || data === null) return null;
-  const id = (data as Record<string, unknown>).id;
-  return typeof id === 'string' ? id : null;
+  const o = data as Record<string, unknown>;
+  if (typeof o.id !== 'string' || typeof o.instance_id !== 'string') return null;
+  return {
+    id: o.id,
+    instance_id: o.instance_id,
+    target_kind: typeof o.target_kind === 'string' ? o.target_kind : 'CONTACT',
+    phone: typeof o.phone === 'string' ? o.phone : null,
+    group_jid: typeof o.group_jid === 'string' ? o.group_jid : null,
+    recipient_data:
+      typeof o.recipient_data === 'object' && o.recipient_data !== null
+        ? (o.recipient_data as Record<string, unknown>)
+        : {},
+    assigned_content_id: typeof o.assigned_content_id === 'string' ? o.assigned_content_id : null,
+  };
 }
 
-// ===================== Primitivos de claim (RPCs da migration 103) ==========
+/** Extrai o provider_message_id de uma resposta nao confiavel da Evolution. */
+function extractMessageId(data: unknown): string | null {
+  if (typeof data !== 'object' || data === null) return null;
+  const o = data as Record<string, unknown>;
+  const key = o.key;
+  if (typeof key === 'object' && key !== null) {
+    const id = (key as Record<string, unknown>).id;
+    if (typeof id === 'string' && id.length > 0) return id;
+  }
+  if (typeof o.id === 'string' && o.id.length > 0) return o.id;
+  return null;
+}
 
-/**
- * Reivindica os jobs elegiveis (QUEUED|RUNNING) via RPC SECURITY DEFINER
- * `whatsapp_claim_due_jobs` (FOR UPDATE SKIP LOCKED; marca RUNNING + started_at).
- * Erro de RPC => lista vazia (o tick e best-effort; o proximo tick re-tenta).
- */
+// ===================== RPC wrappers (migrations 103 + 111) ==================
+
 async function claimDueJobs(sb: SupabaseClient, limit: number): Promise<ClaimedJob[]> {
   try {
     const { data, error } = await sb.rpc('whatsapp_claim_due_jobs', { p_limit: limit });
@@ -205,145 +311,387 @@ async function claimDueJobs(sb: SupabaseClient, limit: number): Promise<ClaimedJ
   }
 }
 
-/**
- * Reivindica ATOMICAMENTE o proximo recipient PENDING do job (PENDING ->
- * SENDING) via RPC `whatsapp_claim_next_recipient`. Idempotencia por
- * destinatario: um recipient SENT/FAILED/SKIPPED jamais e reivindicado. Sem
- * PENDING (ou erro) => null.
- */
-async function claimNextRecipient(sb: SupabaseClient, jobId: string): Promise<string | null> {
+async function claimNextRecipient(
+  sb: SupabaseClient,
+  jobId: string
+): Promise<ClaimedRecipient | null> {
   try {
-    const { data, error } = await sb.rpc('whatsapp_claim_next_recipient', {
-      p_job_id: jobId,
-    });
+    const { data, error } = await sb.rpc('whatsapp_claim_next_recipient', { p_job_id: jobId });
     if (error) return null;
-    return parseClaimedRecipientId(data);
+    return parseClaimedRecipient(data);
   } catch {
     return null;
   }
 }
 
-/**
- * SKELETON-ONLY (task 12.1): devolve um recipient reivindicado de volta a
- * PENDING (SENDING -> PENDING), evitando que ele fique preso em SENDING enquanto
- * o ENVIO real (task 12.3) nao existe. Idempotente e seguro: so afeta a linha
- * que este tick acabou de reivindicar e somente se ainda estiver em SENDING.
- *
- * >>> Sera REMOVIDO na task 12.3: no lugar deste release entrara o fluxo
- *     render + sendMessage + marcacao SENT/FAILED (ver extension point abaixo).
- */
+/** Marca SENT; retorna o exec_sent_count atualizado (ou null em erro). */
+async function markSent(
+  sb: SupabaseClient,
+  recipientId: string,
+  providerMessageId: string | null,
+  nowIso: string
+): Promise<{ execSentCount: number | null }> {
+  try {
+    const { data, error } = await sb.rpc('whatsapp_worker_mark_sent', {
+      p_recipient_id: recipientId,
+      p_provider_message_id: providerMessageId,
+      p_now: nowIso,
+    });
+    if (error || typeof data !== 'object' || data === null) return { execSentCount: null };
+    const exec = (data as Record<string, unknown>).exec_sent_count;
+    return { execSentCount: typeof exec === 'number' ? exec : null };
+  } catch {
+    return { execSentCount: null };
+  }
+}
+
+async function markFailed(
+  sb: SupabaseClient,
+  recipientId: string,
+  failureReason: string
+): Promise<void> {
+  try {
+    await sb.rpc('whatsapp_worker_mark_failed', {
+      p_recipient_id: recipientId,
+      p_failure_reason: failureReason,
+    });
+  } catch {
+    // best-effort: a recuperacao (task 12.5) cobre recipients presos em SENDING.
+  }
+}
+
 async function releaseRecipient(sb: SupabaseClient, recipientId: string): Promise<void> {
   try {
-    await sb
-      .from('whatsapp_dispatch_recipients')
-      .update({ status: 'PENDING' })
-      .eq('id', recipientId)
-      .eq('status', 'SENDING');
+    await sb.rpc('whatsapp_worker_release_recipient', { p_recipient_id: recipientId });
   } catch {
-    // best-effort: se falhar, a task 12.5 (recuperacao de SENDING orfao) cobre.
+    // best-effort
   }
+}
+
+async function finalizeJob(sb: SupabaseClient, jobId: string): Promise<void> {
+  try {
+    await sb.rpc('whatsapp_worker_finalize_job', { p_job_id: jobId });
+  } catch {
+    // best-effort: o proximo tick re-finaliza.
+  }
+}
+
+async function sweepScheduled(sb: SupabaseClient): Promise<number> {
+  try {
+    const { data, error } = await sb.rpc('whatsapp_worker_sweep_scheduled', { p_limit: 100 });
+    if (error || typeof data !== 'object' || data === null) return 0;
+    const promoted = (data as Record<string, unknown>).promoted;
+    return typeof promoted === 'number' ? promoted : 0;
+  } catch {
+    return 0;
+  }
+}
+
+async function recover(sb: SupabaseClient): Promise<{ recipients: number; jobs: number }> {
+  try {
+    const { data, error } = await sb.rpc('whatsapp_worker_recover', {
+      p_stale_seconds: ORPHAN_STALE_SECONDS,
+      p_limit: 500,
+    });
+    if (error || typeof data !== 'object' || data === null) return { recipients: 0, jobs: 0 };
+    const o = data as Record<string, unknown>;
+    return {
+      recipients: typeof o.recovered_recipients === 'number' ? o.recovered_recipients : 0,
+      jobs: typeof o.failed_jobs === 'number' ? o.failed_jobs : 0,
+    };
+  } catch {
+    return { recipients: 0, jobs: 0 };
+  }
+}
+
+// ===================== Leitura de sessao e conteudo =========================
+
+async function readSessionStatus(sb: SupabaseClient, instanceId: string): Promise<string> {
+  try {
+    const { data, error } = await sb
+      .from('whatsapp_sessions')
+      .select('status')
+      .eq('instance_id', instanceId)
+      .maybeSingle();
+    if (error || !data) return 'DISCONNECTED';
+    const status = (data as { status?: unknown }).status;
+    return typeof status === 'string' ? status : 'DISCONNECTED';
+  } catch {
+    return 'DISCONNECTED';
+  }
+}
+
+/** Carrega o Content (body + 1a midia) do assigned_content_id. null se ausente. */
+async function loadContent(sb: SupabaseClient, contentId: string): Promise<ContentToSend | null> {
+  try {
+    const { data: content, error } = await sb
+      .from('whatsapp_contents')
+      .select('id, body')
+      .eq('id', contentId)
+      .maybeSingle();
+    if (error || !content) return null;
+
+    let media: { mediaType: string; storagePath: string } | null = null;
+    const { data: mediaRow } = await sb
+      .from('whatsapp_content_media')
+      .select('media_type, storage_path')
+      .eq('content_id', contentId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (mediaRow) {
+      const m = mediaRow as Record<string, unknown>;
+      if (typeof m.media_type === 'string' && typeof m.storage_path === 'string') {
+        media = { mediaType: m.media_type, storagePath: m.storage_path };
+      }
+    }
+
+    const body = typeof (content as { body?: unknown }).body === 'string' ? (content as { body: string }).body : '';
+    return { body, media };
+  } catch {
+    return null;
+  }
+}
+
+/** Cria signed URL temporaria para a midia no bucket privado whatsapp-media. */
+async function createMediaSignedUrl(sb: SupabaseClient, storagePath: string): Promise<string | null> {
+  try {
+    const { data, error } = await sb.storage
+      .from('whatsapp-media')
+      .createSignedUrl(storagePath, MEDIA_URL_TTL_SECONDS);
+    if (error) return null;
+    const url = (data as { signedUrl?: unknown } | null)?.signedUrl;
+    return typeof url === 'string' && url.length > 0 ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+// ===================== Envio via Evolution (sessao da instancia) ============
+
+interface SendResult {
+  ok: boolean;
+  messageId: string | null;
+}
+
+async function sendText(
+  baseUrl: string,
+  instanceName: string,
+  apiKey: string,
+  number: string,
+  text: string
+): Promise<SendResult> {
+  try {
+    const resp = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify({ number, text }),
+    });
+    const data = resp.ok ? await safeJson(resp) : null;
+    return { ok: resp.ok, messageId: extractMessageId(data) };
+  } catch {
+    return { ok: false, messageId: null };
+  }
+}
+
+async function sendMedia(
+  baseUrl: string,
+  instanceName: string,
+  apiKey: string,
+  number: string,
+  mediatype: string,
+  mediaUrl: string,
+  caption: string
+): Promise<SendResult> {
+  try {
+    const body: Record<string, unknown> = { number, mediatype, media: mediaUrl };
+    if (caption.length > 0) body.caption = caption;
+    const resp = await fetch(`${baseUrl}/message/sendMedia/${encodeURIComponent(instanceName)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: apiKey },
+      body: JSON.stringify(body),
+    });
+    const data = resp.ok ? await safeJson(resp) : null;
+    return { ok: resp.ok, messageId: extractMessageId(data) };
+  } catch {
+    return { ok: false, messageId: null };
+  }
+}
+
+// ===================== Processamento de um job (uma fatia) ==================
+
+/**
+ * Processa uma fatia do job (tasks 12.2/12.3): respeita quota e pacing,
+ * reivindica/envia/marca um recipient por vez e finaliza o job. Usa
+ * EXCLUSIVAMENTE a sessao/chave do `instance_id` do proprio job (Req 10.9).
+ */
+async function processJob(
+  sb: SupabaseClient,
+  job: ClaimedJob,
+  baseUrl: string
+): Promise<{ sent: number; failed: number }> {
+  let sent = 0;
+  let failed = 0;
+
+  // Sessao da PROPRIA instancia precisa estar CONNECTED (Req 4.5/10.9). Caso
+  // contrario, nao queima tentativas como falhas: deixa o job RUNNING (finalize
+  // mantem RUNNING com pendentes) e aguarda reconexao no proximo tick.
+  const session = await readSessionStatus(sb, job.instance_id);
+  if (session !== 'CONNECTED') {
+    await finalizeJob(sb, job.id);
+    return { sent, failed };
+  }
+
+  // Chave da Evolution escopada por instancia; sem chave/baseUrl, envio
+  // impossivel => nao falha em massa, apenas aguarda configuracao.
+  const apiKey = await readEvolutionKey(sb, job.instance_id);
+  if (!baseUrl || !apiKey) {
+    await finalizeJob(sb, job.id);
+    return { sent, failed };
+  }
+  const instanceName = deriveInstanceName(job.instance_id);
+
+  let execSentCount = job.exec_sent_count;
+  let lastSendAtMs = job.last_send_at ? Date.parse(job.last_send_at) : null;
+  if (Number.isNaN(lastSendAtMs as number)) lastSendAtMs = null;
+  const intervalSec = job.send_interval_sec;
+  const quota = job.execution_quota;
+
+  for (;;) {
+    // (1) Quota da execucao (Req 8.5): atingida => para (finalize => PAUSED).
+    if (quotaReached(execSentCount, quota)) break;
+
+    // (2) Claim atomico do proximo PENDING (idempotencia por destinatario).
+    const rec = await claimNextRecipient(sb, job.id);
+    if (!rec) break; // sem PENDING — finalize decide COMPLETED.
+
+    // (3) Pacing por relogio (Req 8.6): se nao venceu, devolve e aguarda tick.
+    const nowMs = Date.now();
+    if (!shouldSendNow(nowMs, lastSendAtMs, intervalSec)) {
+      await releaseRecipient(sb, rec.id);
+      break;
+    }
+
+    // (4) Resolve destino e conteudo.
+    const number = rec.target_kind === 'GROUP' ? rec.group_jid : rec.phone;
+    if (!number) {
+      await markFailed(sb, rec.id, MSG_NO_TARGET);
+      failed++;
+      continue;
+    }
+    const content = rec.assigned_content_id ? await loadContent(sb, rec.assigned_content_id) : null;
+    if (!content) {
+      await markFailed(sb, rec.id, MSG_CONTENT_UNAVAILABLE);
+      failed++;
+      continue;
+    }
+
+    // (5) Render no momento do envio (Req 25.2); template nunca e alterado.
+    const text = renderMessage(content.body, rec.recipient_data);
+
+    // (6) Envio via sessao da instancia. Midia => uma mensagem com legenda;
+    //     senao texto. Conteudo vazio (sem texto e sem midia) => FAILED.
+    let result: SendResult;
+    if (content.media) {
+      const url = await createMediaSignedUrl(sb, content.media.storagePath);
+      if (!url) {
+        await markFailed(sb, rec.id, MSG_MEDIA_UNAVAILABLE);
+        failed++;
+        continue;
+      }
+      result = await sendMedia(
+        baseUrl,
+        instanceName,
+        apiKey,
+        number,
+        mapMediaType(content.media.mediaType),
+        url,
+        text
+      );
+    } else if (text.length > 0) {
+      result = await sendText(baseUrl, instanceName, apiKey, number, text);
+    } else {
+      await markFailed(sb, rec.id, MSG_EMPTY_CONTENT);
+      failed++;
+      continue;
+    }
+
+    // (7) Marcacao duravel imediata (Req 10.3) + atualizacao do pacing/quota.
+    if (result.ok) {
+      const snap = await markSent(sb, rec.id, result.messageId, new Date().toISOString());
+      sent++;
+      execSentCount = snap.execSentCount ?? execSentCount + 1;
+      lastSendAtMs = Date.now();
+    } else {
+      await markFailed(sb, rec.id, MSG_SEND_FAILED);
+      failed++;
+    }
+    // A proxima iteracao re-checa pacing: como last_send_at = agora, para
+    // qualquer interval > 0 o tick encerra aqui (~1 envio/tick por job).
+  }
+
+  // (8) Finaliza o job: COMPLETED se drenado, PAUSED se quota com pendentes.
+  await finalizeJob(sb, job.id);
+  return { sent, failed };
 }
 
 // ===================== Tick =================================================
 
-/**
- * Executa um tick do worker (escopo task 12.1): reivindica os jobs elegiveis e,
- * por job, reivindica o proximo recipient PENDING (demonstrando os primitivos
- * atomicos). Como o envio nao existe ainda, o recipient e devolvido a PENDING.
- *
- * Retorna contadores para observabilidade (sem nenhum dado de PII/segredo).
- */
 async function runTick(sb: SupabaseClient): Promise<{
   jobsClaimed: number;
-  recipientsClaimed: number;
+  sent: number;
+  failed: number;
+  scheduledSwept: number;
+  recoveredRecipients: number;
+  failedJobs: number;
 }> {
+  // (A) Recuperacao (task 12.5): orfaos SENDING -> PENDING; jobs sem recipients
+  //     -> JOB_FAILED. Roda ANTES do claim para reabilitar pendentes recuperados.
+  const rec = await recover(sb);
+
+  // (B) Varredura de agendados vencidos (task 12.4): DRAFT -> QUEUED.
+  const scheduledSwept = await sweepScheduled(sb);
+
+  // (C) Claim dos jobs elegiveis (QUEUED/RUNNING), marca RUNNING.
   const jobs = await claimDueJobs(sb, MAX_JOBS_PER_TICK);
-  let recipientsClaimed = 0;
 
-  for (const _job of jobs) {
-    // ========================================================================
-    // >>> EXTENSION POINT (task 12.2 — pacing + quota) <<<
-    // Antes de reivindicar/enviar, o worker decidira por job se PODE enviar
-    // agora:
-    //   - pacing por relogio: `shouldSendNow(now, last_send_at, send_interval_sec)`
-    //     (Req 8.6); se ainda nao venceu, encerra a fatia deste job (sem claim)
-    //     e aguarda o proximo tick.
-    //   - quota por execucao: se `exec_sent_count >= execution_quota`, transiciona
-    //     o job para PAUSED quando restam PENDING (Req 8.5, 8.7).
-    // ========================================================================
+  // (D) Base URL da Evolution (server unico; a chave e por instancia).
+  const baseUrl = await resolveEvolutionBaseUrl(sb);
 
-    // Claim atomico do proximo recipient PENDING -> SENDING (task 12.1).
-    // Idempotencia: um recipient ja SENT nunca e reivindicado de novo.
-    const recipientId = await claimNextRecipient(sb, _job.id);
-    if (recipientId === null) {
-      // Sem PENDING para este job no momento.
-      // >>> EXTENSION POINT (task 12.3 — COMPLETED): quando NAO ha mais PENDING
-      //     e nada esta SENDING, o job sera transicionado para COMPLETED
-      //     (completed_at = now), Req 10.7.
-      continue;
-    }
-
-    recipientsClaimed++;
-
-    // ========================================================================
-    // >>> EXTENSION POINT (task 12.3 — envio + marcacao) <<<
-    // Aqui entrara, para o recipient reivindicado:
-    //   1. render da mensagem (renderMessage(template, recipient_data) no
-    //      momento do envio — Req 25.2), usando a sessao da PROPRIA instancia;
-    //   2. envio via Evolution API (sendMessage) lendo a Evolution_Api_Key do
-    //      Vault escopada por instancia;
-    //   3. sucesso => SENT + provider_message_id, last_send_at = now,
-    //      exec_sent_count++, sent_count++ (Req 10.3, 10.6);
-    //      falha => FAILED + failure_reason (pt-BR, sem segredos), prossegue
-    //      (Req 10.6, 10.9).
-    // Enquanto isso NAO existe, devolvemos o recipient a PENDING para nao deixa-
-    // lo preso em SENDING (skeleton-only; ver releaseRecipient).
-    // ========================================================================
-    await releaseRecipient(sb, recipientId);
+  let sent = 0;
+  let failed = 0;
+  for (const job of jobs) {
+    const r = await processJob(sb, job, baseUrl);
+    sent += r.sent;
+    failed += r.failed;
   }
 
-  // ==========================================================================
-  // >>> EXTENSION POINT (task 12.4 — scheduled sweep) <<<
-  // No inicio do tick (antes do claim de jobs) entrara a varredura de
-  // Scheduled_Dispatches vencidos: `scheduled_at <= now AND executed_at IS NULL`
-  // -> QUEUED (Req 13.3), executando na primeira varredura apos indisponibilidade
-  // (Req 13.6, 27.4).
-  //
-  // >>> EXTENSION POINT (task 12.5 — recuperacao) <<<
-  // Retomada por estado (QUEUED/RUNNING retomam do proximo PENDING; PAUSED
-  // permanece), recuperacao de SENDING orfao e marcacao de job inconsistente
-  // como FAILED/JOB_FAILED seguindo com os demais (Req 27).
-  // ==========================================================================
-
-  return { jobsClaimed: jobs.length, recipientsClaimed };
+  return {
+    jobsClaimed: jobs.length,
+    sent,
+    failed,
+    scheduledSwept,
+    recoveredRecipients: rec.recipients,
+    failedJobs: rec.jobs,
+  };
 }
 
 // ===================== Handler ==============================================
 
 Deno.serve(async (req: Request): Promise<Response> => {
-  // O pg_cron invoca via POST. Outros metodos => 405 (sem efeito).
   if (req.method !== 'POST') {
     return jsonResponse({ ok: false, error: 'method_not_allowed' }, 405);
   }
 
   const sb = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
 
-  // 1. Autenticidade: segredo de invocacao no header `x-worker-secret`. Falha
-  //    => 401, SEM efeito (fail-closed). Nunca revelamos o motivo nem ecoamos
-  //    o segredo. Comparacao em tempo constante.
+  // Autenticidade: segredo de invocacao no header `x-worker-secret` (fail-closed).
   const expectedSecret = await resolveExpectedSecret(sb);
   const presentedSecret = extractPresentedSecret(req);
   if (!expectedSecret || !safeEq(presentedSecret, expectedSecret)) {
     return jsonResponse({ ok: false, error: 'unauthorized' }, 401);
   }
 
-  // 2. Tick: claim atomico de jobs + recipients (task 12.1). Best-effort —
-  //    qualquer falha pontual e re-tentada no proximo tick (durabilidade).
   const result = await runTick(sb);
-
-  return jsonResponse({
-    ok: true,
-    jobsClaimed: result.jobsClaimed,
-    recipientsClaimed: result.recipientsClaimed,
-  });
+  return jsonResponse({ ok: true, ...result });
 });

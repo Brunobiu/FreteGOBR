@@ -1,245 +1,148 @@
-import { useId, useRef, useState } from 'react';
+/**
+ * MediaUploader (task 20.5 / 9.2, Req 6.2, 6.3, 6.4)
+ *
+ * Anexa mídias (imagem/vídeo/áudio/documento) a um WhatsApp_Content já
+ * persistido, via `uploadContentMedia` (valida o MIME ANTES do upload —
+ * `INVALID_FILE_TYPE` — e sobe ao bucket privado `whatsapp-media` isolado por
+ * instância). Remove mídias via `removeContentMedia`.
+ *
+ * Como não há serviço de LISTAGEM de mídias (apenas `mediaCount` no Content),
+ * este uploader rastreia as mídias enviadas NESTA sessão de composição — fluxo
+ * principal (contents criados agora). Notifica o parent da contagem para a
+ * regra de validade do Content (texto OU ≥1 mídia — Req 6.5).
+ *
+ * Requer um `contentId` persistido (a composição cria o Content antes de
+ * permitir anexos). O gate `SETTINGS_EDIT` é responsabilidade do parent.
+ */
+
+import { useRef, useState } from 'react';
 import {
   uploadContentMedia,
   removeContentMedia,
   MediaValidationError,
   type WhatsAppContentMedia,
+  type WhatsAppMediaType,
 } from '../../../services/admin/whatsapp/media';
 import { SUPPORTED_MIME_SET } from '../../../services/admin/whatsapp/validation';
 
-/**
- * MediaUploader — uploader compacto de midias de um WhatsApp_Content (task 9.2).
- *
- * Aceita arquivos (imagem/video/audio/documento), valida o MIME e chama o
- * servico `uploadContentMedia` (que sobe ao bucket privado `whatsapp-media` e
- * registra a midia, recalculando a validade do Content — Req 6.2, 6.3, 6.4, 6.5).
- * Mostra o status por arquivo durante o envio e lista as midias ja anexadas com
- * acao de remover.
- *
- * Acessibilidade: input rotulado, botoes com `aria-label`, e mensagens de erro
- * com `role="alert"`. Estilo compacto seguindo a convencao do painel admin
- * (project-conventions: botoes `text-xs px-2.5 py-1`).
- *
- * Sera integrado ao `ContentEditor` na task 20.5; por isso recebe a lista de
- * midias e notifica mudancas via `onChange`, sem assumir o estado externo.
- *
- * _Requirements: 6.2, 6.3, 6.4_
- */
-
-/** Status de envio de um arquivo individual selecionado pelo usuario. */
-interface UploadItem {
-  /** Chave local estavel para render. */
-  key: string;
-  /** Nome do arquivo (exibicao). */
-  name: string;
-  /** Estado do envio. */
-  status: 'uploading' | 'error';
-  /** Mensagem de erro pt-BR (quando `status === 'error'`). */
-  error?: string;
-}
-
-export interface MediaUploaderProps {
-  /** Instancia ativa (isolamento multi-instancia). */
+interface Props {
   instanceId: string;
-  /** Content ao qual as midias sao anexadas. */
   contentId: string;
-  /** Midias ja anexadas ao Content (controlado externamente quando informado). */
-  media?: WhatsAppContentMedia[];
-  /** Notifica a lista atualizada de midias apos anexar/remover. */
-  onChange?: (media: WhatsAppContentMedia[]) => void;
-  /** Desabilita interacoes (ex.: usuario sem SETTINGS_EDIT). */
-  disabled?: boolean;
+  /** Notifica o parent quando a quantidade de mídias muda (validade Req 6.5). */
+  onCountChange?: (count: number) => void;
 }
 
-/** Rotulo pt-BR por media_type, para exibicao acessivel na lista. */
-const MEDIA_TYPE_LABEL: Record<WhatsAppContentMedia['mediaType'], string> = {
+const MEDIA_LABEL: Record<WhatsAppMediaType, string> = {
   IMAGE: 'Imagem',
   VIDEO: 'Vídeo',
   AUDIO: 'Áudio',
   DOCUMENT: 'Documento',
 };
 
-/** Extrai o nome do arquivo a partir do storage_path (ultimo segmento). */
-function fileNameFromPath(storagePath: string): string {
-  const parts = storagePath.split('/');
-  return parts[parts.length - 1] || storagePath;
-}
+/** Atributo `accept` do input a partir dos MIME suportados (Req 6.3). */
+const ACCEPT = Array.from(SUPPORTED_MIME_SET).join(',');
 
-export default function MediaUploader({
-  instanceId,
-  contentId,
-  media,
-  onChange,
-  disabled = false,
-}: MediaUploaderProps) {
-  const inputId = useId();
-  const inputRef = useRef<HTMLInputElement | null>(null);
+export default function MediaUploader({ instanceId, contentId, onCountChange }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [media, setMedia] = useState<WhatsAppContentMedia[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Lista de midias: controlada externamente (prop `media`) ou interna.
-  const [internalMedia, setInternalMedia] = useState<WhatsAppContentMedia[]>(media ?? []);
-  const attached = media ?? internalMedia;
-
-  const [pending, setPending] = useState<UploadItem[]>([]);
-  const [removingId, setRemovingId] = useState<string | null>(null);
-
-  const acceptAttr = Array.from(SUPPORTED_MIME_SET).join(',');
-
-  /** Propaga a nova lista para fora e/ou atualiza o estado interno. */
-  const commitMedia = (next: WhatsAppContentMedia[]) => {
-    if (media === undefined) {
-      setInternalMedia(next);
-    }
-    onChange?.(next);
-  };
-
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0 || disabled) return;
-
-    const selected = Array.from(files);
-    // Marca todos como "uploading" para feedback imediato.
-    const items: UploadItem[] = selected.map((f, i) => ({
-      key: `${Date.now()}_${i}_${f.name}`,
-      name: f.name,
-      status: 'uploading',
-    }));
-    setPending((prev) => [...prev, ...items]);
-
-    let current = attached;
-    for (let i = 0; i < selected.length; i++) {
-      const file = selected[i];
-      const item = items[i];
-      try {
-        const created = await uploadContentMedia(instanceId, contentId, file);
-        current = [...current, created];
-        commitMedia(current);
-        // Remove o item da lista de pendentes (sucesso).
-        setPending((prev) => prev.filter((p) => p.key !== item.key));
-      } catch (err) {
-        const message =
-          err instanceof MediaValidationError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Não foi possível enviar a mídia.';
-        setPending((prev) =>
-          prev.map((p) => (p.key === item.key ? { ...p, status: 'error', error: message } : p))
-        );
-      }
-    }
-
-    // Permite reenviar o mesmo arquivo (reseta o input).
+  const handleSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Permite re-selecionar o mesmo arquivo depois.
     if (inputRef.current) inputRef.current.value = '';
+    if (!file) return;
+
+    setUploading(true);
+    setError(null);
+    try {
+      const uploaded = await uploadContentMedia(instanceId, contentId, file);
+      setMedia((prev) => {
+        const next = [...prev, uploaded];
+        onCountChange?.(next.length);
+        return next;
+      });
+    } catch (err) {
+      // MIME inválido (INVALID_FILE_TYPE) ou falha de upload — mensagem pt-BR.
+      const message =
+        err instanceof MediaValidationError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Não foi possível anexar o arquivo.';
+      setError(message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleRemove = async (mediaId: string) => {
-    if (disabled || removingId) return;
-    setRemovingId(mediaId);
+    setError(null);
     try {
       await removeContentMedia(instanceId, mediaId);
-      commitMedia(attached.filter((m) => m.id !== mediaId));
-    } catch {
-      // Em falha, mantemos a midia na lista; o usuario pode tentar de novo.
-    } finally {
-      setRemovingId(null);
+      setMedia((prev) => {
+        const next = prev.filter((m) => m.id !== mediaId);
+        onCountChange?.(next.length);
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível remover o anexo.');
     }
   };
 
-  const dismissError = (key: string) => {
-    setPending((prev) => prev.filter((p) => p.key !== key));
-  };
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <label htmlFor={inputId} className="text-xs font-medium text-gray-700">
-          Mídias do conteúdo
-        </label>
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled}
-          className="text-xs px-2.5 py-1 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Anexar arquivo
-        </button>
         <input
           ref={inputRef}
-          id={inputId}
           type="file"
-          multiple
-          accept={acceptAttr}
-          className="sr-only"
-          disabled={disabled}
-          onChange={(e) => void handleFiles(e.target.files)}
+          accept={ACCEPT}
+          onChange={(e) => void handleSelect(e)}
+          disabled={uploading}
+          className="hidden"
+          id={`media-${contentId}`}
         />
+        <label
+          htmlFor={`media-${contentId}`}
+          className={`cursor-pointer rounded border border-gray-700 bg-gray-800 px-2.5 py-1 text-xs text-gray-200 hover:bg-gray-700 ${
+            uploading ? 'pointer-events-none opacity-50' : ''
+          }`}
+        >
+          {uploading ? 'Enviando...' : '+ Anexar mídia'}
+        </label>
+        {media.length > 0 && (
+          <span className="text-[11px] text-gray-500">
+            {media.length} anexo{media.length > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
 
-      {/* Lista de midias ja anexadas. */}
-      {attached.length > 0 && (
-        <ul className="space-y-1" aria-label="Mídias anexadas">
-          {attached.map((m) => (
+      {media.length > 0 && (
+        <ul className="space-y-1">
+          {media.map((m) => (
             <li
               key={m.id}
-              className="flex items-center justify-between gap-2 rounded border border-gray-200 bg-gray-50 px-2 py-1"
+              className="flex items-center justify-between rounded border border-gray-800 bg-gray-900 px-2 py-1 text-xs"
             >
-              <span className="min-w-0 truncate text-xs text-gray-700">
-                <span className="font-medium">{MEDIA_TYPE_LABEL[m.mediaType]}</span>
-                {' · '}
-                {fileNameFromPath(m.storagePath)}
-              </span>
+              <span className="text-gray-300">{MEDIA_LABEL[m.mediaType] ?? 'Arquivo'}</span>
               <button
                 type="button"
                 onClick={() => void handleRemove(m.id)}
-                disabled={disabled || removingId === m.id}
-                aria-label={`Remover ${fileNameFromPath(m.storagePath)}`}
-                className="shrink-0 text-xs px-2.5 py-1 rounded border border-red-200 text-red-700 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-red-300 hover:text-red-200"
+                aria-label="Remover anexo"
               >
-                {removingId === m.id ? 'Removendo…' : 'Remover'}
+                Remover
               </button>
             </li>
           ))}
         </ul>
       )}
 
-      {/* Status por arquivo em envio / com erro. */}
-      {pending.length > 0 && (
-        <ul className="space-y-1">
-          {pending.map((p) =>
-            p.status === 'uploading' ? (
-              <li
-                key={p.key}
-                className="flex items-center gap-2 rounded border border-gray-200 px-2 py-1 text-xs text-gray-500"
-              >
-                <span className="min-w-0 truncate">{p.name}</span>
-                <span aria-live="polite">Enviando…</span>
-              </li>
-            ) : (
-              <li
-                key={p.key}
-                role="alert"
-                className="flex items-center justify-between gap-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700"
-              >
-                <span className="min-w-0 truncate">
-                  {p.name}: {p.error}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => dismissError(p.key)}
-                  aria-label="Dispensar erro"
-                  className="shrink-0 text-xs px-2 py-0.5 rounded hover:bg-red-100"
-                >
-                  ✕
-                </button>
-              </li>
-            )
-          )}
-        </ul>
-      )}
-
-      {attached.length === 0 && pending.length === 0 && (
-        <p className="text-xs text-gray-400">
-          Nenhuma mídia anexada. O conteúdo pode ter texto, mídia ou ambos.
-        </p>
+      {error && (
+        <div className="rounded border border-red-900/40 bg-red-500/10 px-2 py-1 text-[11px] text-red-300" role="alert">
+          {error}
+        </div>
       )}
     </div>
   );
