@@ -21,8 +21,10 @@
  */
 
 import { Link, useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import SiteFooter from '../components/SiteFooter';
+import AppMiniFooter from '../components/AppMiniFooter';
 
 /* Ícones em SVG inline (convenção do projeto: não usar libs de ícone). */
 type IconProps = { className?: string };
@@ -121,6 +123,10 @@ function Zap({ className }: IconProps) {
 export default function LandingPage() {
   useDocumentTitle(null);
   const navigate = useNavigate();
+
+  // App nativo (Android/iOS): rodape minimo e profissional.
+  // Web: mantem o SiteFooter completo, sem alteracao.
+  const isApp = Capacitor.isNativePlatform();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-100">
@@ -279,7 +285,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <SiteFooter />
+      {isApp ? <AppMiniFooter /> : <SiteFooter />}
     </div>
   );
 }

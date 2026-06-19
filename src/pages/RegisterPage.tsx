@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom';
+import { Capacitor } from '@capacitor/core';
 import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { usePixel } from '../components/marketing/pixelContext';
 import SiteFooter from '../components/SiteFooter';
+import AppMiniFooter from '../components/AppMiniFooter';
 import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
@@ -12,6 +14,10 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const { trackBusinessEvent } = usePixel();
+
+  // App nativo (Android/iOS): rodape minimo e profissional.
+  // Web: mantem o SiteFooter completo, sem alteracao.
+  const isApp = Capacitor.isNativePlatform();
 
   const handleRegister = async (data: RegisterData) => {
     await register(data);
@@ -46,7 +52,7 @@ export function RegisterPage() {
       <div className="flex-1 flex items-start md:items-center justify-center p-4 pt-6 md:py-8">
         <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
       </div>
-      <SiteFooter />
+      {isApp ? <AppMiniFooter /> : <SiteFooter />}
     </div>
   );
 }
