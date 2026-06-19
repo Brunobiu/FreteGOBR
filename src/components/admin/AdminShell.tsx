@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import SessionTimer from './SessionTimer';
+import TopbarSearch from './busca/TopbarSearch';
 import { useSessionTimeout } from '../../hooks/useSessionTimeout';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle';
 
@@ -45,6 +46,8 @@ export default function AdminShell() {
       </button>
 
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Barra superior: Pesquisa Global (TopbarSearch some por completo sem USER_VIEW) */}
+        <TopbarSearch />
         <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
           <Outlet />
         </main>

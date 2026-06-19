@@ -192,6 +192,38 @@ SELECT * FROM find_nearby_fretes(
 SELECT * FROM get_platform_metrics();
 ```
 
+### 116_admin_cliente_360.sql
+**Purpose**: Cliente 360 — Pesquisa Global + Visão 360 do Cliente (spec `admin-cliente-360`)
+
+**Contents**:
+- Creates `admin_user_notes` (Internal_Note: `user_id` CASCADE, `author_id` SET NULL, `body` CHECK 1..5000) + `updated_at` trigger + index
+- Admin-only RLS on `admin_user_notes`: SELECT gated by `USER_NOTE_VIEW`; direct INSERT/UPDATE/DELETE denied (writes only via SECURITY DEFINER RPCs)
+- Re-asserts `is_admin_with_permission` preserving the prior body (030 + 048 deny-list + 115 `FAQ_VIEW`); `USER_NOTE_VIEW`/`USER_NOTE_EDIT` granted by construction to SUPER_ADMIN/ADMIN only
+- RPCs `SECURITY DEFINER`: `admin_global_search` (USER_VIEW), `admin_user_financial_history` (FINANCEIRO_VIEW), `admin_user_login_history` (USER_VIEW), `admin_user_note_create`/`_update`/`_delete` (USER_NOTE_EDIT)
+- Reads only (never rewrites): `users`/`embarcadores`/`subscriptions`/`subscription_charges`/`financial_repasses`/`support_tickets`/`conversations`/`login_attempts`
+
+**Key Features**:
+- Idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY IF EXISTS`), defensive `DO $check$`, commented `-- VERIFY` block
+- Negative audit logs: `GLOBAL_SEARCH_VIEW_DENIED`/`FINANCEIRO_VIEW_DENIED`/`USER_VIEW_DENIED`/`USER_NOTE_VIEW_DENIED`; `permission_denied` precedence over input validation; Master_Admin (`Nexus_Vortex99`) immutable as note target
+- Paired with documented `116_admin_cliente_360_rollback.sql` (not auto-applied)
+
+### 117_admin_central_operacao.sql
+**Purpose**: Central de Operação — Painel Operacional + Sistema de Alertas + Logs (spec `admin-central-operacao`)
+
+**Contents**:
+- Creates `system_alerts` (closed CHECK domains for `alert_type`/`severity`/`state`; PARTIAL unique index `uq_system_alerts_active_dedup` on `dedup_key` `WHERE state IN ('OPEN','ACKNOWLEDGED')` — at most one active alert per situation; list/type indexes; `operacao_touch_updated_at` trigger)
+- Admin-only RLS on `system_alerts`: SELECT gated by `ALERT_VIEW`; direct INSERT/UPDATE/DELETE denied (`no_dml` USING/CHECK false — writes only via SECURITY DEFINER RPCs)
+- Re-asserts `is_admin_with_permission` preserving the on-disk body (030 + 048 deny-list + 115 `FAQ_VIEW`); `ALERT_VIEW`/`ALERT_ACK`/`ALERT_RESOLVE`/`LOG_VIEW` recognized by construction (SUPER_ADMIN wildcard, ADMIN allow-all minus deny-list); `DASHBOARD_VIEW` reused
+- RPCs `SECURITY DEFINER`: `admin_operations_metrics` (DASHBOARD_VIEW; 4 degradation sub-blocks; `USERS_ONLINE` always `available=false`), `admin_alerts_list` (ALERT_VIEW), `admin_logs_list` (LOG_VIEW; Log_Event_Map forward/reverse + fixed pt-BR summary), `admin_alerts_evaluate` (pg_cron service-role OR ALERT_VIEW; dedup via partial index `ON CONFLICT DO UPDATE last_seen_at` + auto-resolve), `admin_alert_acknowledge` (ALERT_ACK), `admin_alert_resolve` (ALERT_RESOLVE)
+- `pg_cron` defensive `DO` block scheduling `SELECT public.admin_alerts_evaluate()` every minute (mirrors 092; no-op without the extension)
+- Reads only (never rewrites): `users`/`subscriptions`/`support_tickets`/`whatsapp_*` (whatsapp is a SOFT dependency — absence degrades message KPIs/alerts at runtime)
+
+**Key Features**:
+- Idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY/TRIGGER IF EXISTS`), defensive `DO $check$`, commented `-- VERIFY` block
+- Audit by construction: `ALERT_GENERATED`/`ALERT_ACK_SKIPPED`/`ALERT_RESOLVE_SKIPPED` written inside the RPCs (success path); negative `DASHBOARD_VIEW_DENIED`/`ALERT_VIEW_DENIED`/`LOG_VIEW_DENIED`; positive `ALERT_ACK`/`ALERT_RESOLVE` written by the TS service layer. Evaluate-path audit inserts guarded by `IF v_caller IS NOT NULL` (cron path has no `auth.uid()`; `admin_audit_logs.admin_id` is NOT NULL)
+- `permission_denied` precedence over input validation; Master_Admin (`Nexus_Vortex99`) immutable by construction (no `users` mutation)
+- Paired with documented `117_admin_central_operacao_rollback.sql` (not auto-applied)
+
 ## Migration Best Practices
 
 1. **Always backup** before running migrations in production

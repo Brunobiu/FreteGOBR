@@ -37,10 +37,16 @@ import AdminTutoriaisPage from '../../pages/admin/AdminTutoriaisPage';
 import AdminTicketsPage from '../../pages/admin/AdminTicketsPage';
 import AdminTicketDetailPage from '../../pages/admin/AdminTicketDetailPage';
 import AdminSupportChatPage from '../../pages/admin/AdminSupportChatPage';
+import SuporteListPage from '../../pages/admin/suporte/SuporteListPage';
+import SuporteTicketDetailPage from '../../pages/admin/suporte/SuporteTicketDetailPage';
+import SearchPage from '../../pages/admin/busca/SearchPage';
 import AssistantPage from '../../pages/admin/assistant/AssistantPage';
 import MarketingMetricsPage from '../../pages/admin/marketing/MarketingMetricsPage';
 import MarketingConfigPage from '../../pages/admin/marketing/MarketingConfigPage';
 import SettingsPage from '../../pages/admin/settings/SettingsPage';
+import OperacaoDashboardPage from '../../pages/admin/operacao/OperacaoDashboardPage';
+import OperacaoAlertasPage from '../../pages/admin/operacao/OperacaoAlertasPage';
+import OperacaoLogsPage from '../../pages/admin/operacao/OperacaoLogsPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -52,6 +58,7 @@ export default function AdminLayoutRoute() {
         <Route element={<AdminGuard />}>
           <Route element={<AdminShell />}>
             <Route index element={<AdminDashboardPage />} />
+            <Route path="busca" element={<SearchPage />} />
             <Route path="users" element={<UsersListPage />} />
             <Route path="users/admins" element={<AdminsListPage />} />
             <Route path="users/:id" element={<UserDetailPage />} />
@@ -66,6 +73,9 @@ export default function AdminLayoutRoute() {
             <Route path="trial" element={<TrialListPage />} />
             <Route path="assinaturas" element={<SubscriptionsListPage />} />
             <Route path="frete-comunidade" element={<CommunityListPage />} />
+            <Route path="operacao" element={<OperacaoDashboardPage />} />
+            <Route path="operacao/alertas" element={<OperacaoAlertasPage />} />
+            <Route path="operacao/logs" element={<OperacaoLogsPage />} />
             <Route path="marketing" element={<MarketingMetricsPage />} />
             <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
             <Route path="settings" element={<SettingsPage />} />
@@ -77,9 +87,11 @@ export default function AdminLayoutRoute() {
               path="comunicados"
               element={<Navigate to="/admin/anuncios?tab=comunicados" replace />}
             />
+            <Route path="suporte" element={<SuporteListPage />} />
             <Route path="suporte/tickets" element={<AdminTicketsPage />} />
             <Route path="suporte/tickets/:id" element={<AdminTicketDetailPage />} />
             <Route path="suporte/chat" element={<AdminSupportChatPage />} />
+            <Route path="suporte/:id" element={<SuporteTicketDetailPage />} />
             <Route path="assistant" element={<AssistantPage />} />
             <Route path="perfil" element={<AdminProfilePage />} />
           </Route>

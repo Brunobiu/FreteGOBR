@@ -6,16 +6,19 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   forceLogout,
-  getUserDetail,
   isValidUuid,
   requestPasswordReset,
   toggleActive,
   unbanUser,
   USERS_ERROR_MESSAGES,
   UsersServiceError,
-  type UserDetailBundle,
   type UserRow,
 } from '../../../services/admin/users';
+import {
+  getCliente360Detail,
+  type Cliente360Bundle,
+  type Cliente360Caps,
+} from '../../../services/admin/cliente360';
 import { useAdminContext } from '../../../components/admin/AdminProvider';
 import { useAdminPermission } from '../../../hooks/useAdminPermission';
 import Stealth404 from '../../../components/admin/Stealth404';
@@ -27,6 +30,12 @@ import UserChatMetadataBlock from '../../../components/admin/users/UserChatMetad
 import UserBanInfoBlock from '../../../components/admin/users/UserBanInfoBlock';
 import EditUserModal from '../../../components/admin/users/EditUserModal';
 import DeleteUserModal from '../../../components/admin/users/DeleteUserModal';
+import PlanoBlock from '../../../components/admin/cliente360/PlanoBlock';
+import FinanceiroBlock from '../../../components/admin/cliente360/FinanceiroBlock';
+import SuporteBlock from '../../../components/admin/cliente360/SuporteBlock';
+import MensagensBlock from '../../../components/admin/cliente360/MensagensBlock';
+import LoginBlock from '../../../components/admin/cliente360/LoginBlock';
+import NotasBlock from '../../../components/admin/cliente360/NotasBlock';
 
 export default function UserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,8 +47,13 @@ export default function UserDetailPage() {
   const { allowed: canEdit } = useAdminPermission('USER_EDIT');
   const { allowed: canToggleActive } = useAdminPermission('USER_TOGGLE_ACTIVE');
   const { allowed: canDelete } = useAdminPermission('USER_DELETE');
+  const { allowed: canFinanceiro } = useAdminPermission('FINANCEIRO_VIEW');
+  const { allowed: canSuporte } = useAdminPermission('SUPORTE_VIEW');
+  const { allowed: canNotes } = useAdminPermission('USER_NOTE_VIEW');
+  const { allowed: canNotesEdit } = useAdminPermission('USER_NOTE_EDIT');
+  const { allowed: canSuporteReply } = useAdminPermission('SUPORTE_REPLY');
 
-  const [bundle, setBundle] = useState<UserDetailBundle | null>(null);
+  const [bundle, setBundle] = useState<Cliente360Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -50,7 +64,13 @@ export default function UserDetailPage() {
     if (!id) return;
     setLoading(true);
     try {
-      const b = await getUserDetail(id);
+      const caps: Cliente360Caps = {
+        financeiro: canFinanceiro,
+        suporte: canSuporte,
+        notas: canNotes,
+        suporteReply: canSuporteReply,
+      };
+      const b = await getCliente360Detail(id, caps);
       setBundle(b);
       setNotFound(false);
     } catch (err) {
@@ -62,7 +82,7 @@ export default function UserDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, canFinanceiro, canSuporte, canNotes, canSuporteReply]);
 
   useEffect(() => {
     if (!id || !isValidUuid(id) || !canView) {
@@ -189,6 +209,49 @@ export default function UserDetailPage() {
       <UserRatingsBlock ratings={bundle.ratings} error={bundle.errors.ratings} />
 
       <UserChatMetadataBlock chat={bundle.chat} error={bundle.errors.chat} />
+
+      {/* ===== Visao 360 (admin-cliente-360) — blocos adicionados apos os existentes ===== */}
+      <PlanoBlock
+        plano={bundle.plano}
+        createdAt={user.created_at}
+        error={bundle.errors.plano}
+        onRetry={() => void loadBundle()}
+      />
+      {canFinanceiro && (
+        <FinanceiroBlock
+          financeiro={bundle.financeiro}
+          error={bundle.errors.financeiro}
+          onRetry={() => void loadBundle()}
+        />
+      )}
+      {canSuporte && (
+        <SuporteBlock
+          suporte={bundle.suporte}
+          error={bundle.errors.suporte}
+          onRetry={() => void loadBundle()}
+        />
+      )}
+      <MensagensBlock
+        mensagens={bundle.mensagens}
+        suporteReply={canSuporteReply}
+        error={bundle.errors.mensagens}
+        onRetry={() => void loadBundle()}
+      />
+      <LoginBlock
+        login={bundle.login}
+        error={bundle.errors.login}
+        onRetry={() => void loadBundle()}
+      />
+      {canNotes && (
+        <NotasBlock
+          notas={bundle.notas}
+          canEdit={canNotesEdit}
+          userId={user.id}
+          error={bundle.errors.notas}
+          onRetry={() => void loadBundle()}
+          onChanged={() => void loadBundle()}
+        />
+      )}
 
       {editing && (
         <EditUserModal

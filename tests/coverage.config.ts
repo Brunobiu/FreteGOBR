@@ -42,4 +42,40 @@ export const CRITICAL_MODULES: Record<string, number> = {
   'src/services/admin/whatsapp/extractor.ts': 95, // medido 100
   'src/services/admin/whatsapp/guards.ts': 85, // medido ~93
   'src/services/admin/whatsapp/dispatch.ts': 85, // medido ~94
+
+  // Central de Suporte Inteligente (suporte-inteligente, migration 115). Núcleo
+  // puro espelho da autoridade SQL, coberto por property tests CP1-CP10 + unit.
+  // Thresholds com margem abaixo do medido. O service suporte.ts (wrappers de
+  // RPC) e a UI (.tsx, validada por build) ficam fora do gate por ora — como o
+  // padrão do whatsapp.
+  'src/services/admin/suporte/statusMachine.ts': 95,
+  'src/services/admin/suporte/priorityClassifier.ts': 95,
+  'src/services/admin/suporte/validation.ts': 90,
+  'src/services/admin/suporte/responderModeReducer.ts': 90,
+  'src/services/admin/suporte/listFilter.ts': 90,
+  'src/services/admin/suporte/knowledgeBase.ts': 90,
+
+  // Cliente 360 (admin-cliente-360, migration 116). Núcleo puro espelho da
+  // autoridade SQL (busca/ranking/sanitização/correlação de login), coberto por
+  // property tests CP1-CP3/CP9 + unit. Thresholds com margem abaixo do medido
+  // (search/loginCorrelation ~100%, ranking ~87-90% com variação dos property
+  // tests). O service cliente360.ts (wrappers de RPC) e a UI (.tsx, validada por
+  // build) ficam fora do gate por ora — como o padrão de suporte/whatsapp.
+  'src/services/admin/cliente360/search.ts': 95,
+  'src/services/admin/cliente360/ranking.ts': 80,
+  'src/services/admin/cliente360/loginCorrelation.ts': 90,
+
+  // Central de Operação (admin-central-operacao, migration 117). Núcleo puro
+  // espelho da autoridade SQL (forma de métricas, máquina de refresh, evaluator/
+  // reconciliação, redutor de ack/resolve, ordenação, Log_Event_Map), coberto por
+  // property tests CP1-CP10 + unit. Thresholds com margem abaixo do medido
+  // (alertEvaluator ~98%, demais ~100%). O service operacao.ts (wrappers de RPC)
+  // e a UI (.tsx, validada por build) ficam fora do gate por ora — como o padrão
+  // de cliente360/suporte/whatsapp.
+  'src/services/admin/operacao/metricsShape.ts': 95,
+  'src/services/admin/operacao/realtimeRefresh.ts': 95,
+  'src/services/admin/operacao/alertEvaluator.ts': 90,
+  'src/services/admin/operacao/alertLifecycle.ts': 95,
+  'src/services/admin/operacao/ordering.ts': 95,
+  'src/services/admin/operacao/logEventMap.ts': 95,
 };

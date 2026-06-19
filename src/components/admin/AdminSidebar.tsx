@@ -37,9 +37,21 @@ const ITEMS: MenuItem[] = [
     end: true,
   },
   {
+    to: '/admin/operacao',
+    label: 'Operacao',
+    icon: 'M3 12h4l3 8 4-16 3 8h4',
+    permission: 'DASHBOARD_VIEW',
+  },
+  {
     to: '/admin/users',
     label: 'Usuarios',
     icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 3a3 3 0 11-6 0 3 3 0 016 0z',
+    permission: 'USER_VIEW',
+  },
+  {
+    to: '/admin/busca',
+    label: 'Busca',
+    icon: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z',
     permission: 'USER_VIEW',
   },
   { to: '/admin/fretes', label: 'Fretes', icon: 'M5 13l4 4L19 7', permission: 'FRETE_VIEW' },
@@ -87,6 +99,13 @@ const ITEMS: MenuItem[] = [
     label: 'Marketing',
     icon: 'M2.25 18L9 11.25l4.306 4.307a11.95 11.95 0 015.814-5.519l2.74-1.22m0 0l-5.94-2.28m5.94 2.28l-2.28 5.941',
     permission: 'MARKETING_VIEW',
+  },
+  {
+    to: '/admin/suporte',
+    label: 'Suporte',
+    icon: 'M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z',
+    permission: 'SUPORTE_VIEW',
+    end: true,
   },
   {
     to: '/admin/suporte/tickets',
@@ -204,7 +223,7 @@ export default function AdminSidebar({ open, onClose }: Props) {
         onClick={onClose}
       />
       <aside
-        className={`fixed md:static z-40 inset-y-0 left-0 w-56 bg-gray-900 border-r border-gray-800 flex flex-col transition-transform ${
+        className={`fixed md:sticky md:top-0 md:self-start md:h-screen z-40 inset-y-0 left-0 w-56 bg-gray-900 border-r border-gray-800 flex flex-col transition-transform ${
           open ? 'translate-x-0' : '-translate-x-full md:hidden'
         }`}
       >
