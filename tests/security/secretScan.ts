@@ -53,6 +53,16 @@ const IGNORE_SUBSTR = [
   // `sb_secret_...` realistas para verificar que NUNCA voltam na superfície.
   '__tests__/admin/whatsapp/ai.test',
   '__tests__/admin/whatsapp/gating.test',
+  // Idem para Central de Operação, Cliente 360 e IA Supervisora: os testes de
+  // precedência de erro e de isolamento/não-vazamento injetam um token
+  // `sb_secret_...` fake para provar que a sanitização/erro mapeado nunca o
+  // devolve. Mesma razão dos fixtures do WhatsApp acima (só testes).
+  '__tests__/admin/operacao/cp7_permission_precedence',
+  '__tests__/admin/operacao/cp8_isolation_no_leak',
+  '__tests__/admin/cliente-360/cliente360_service.test',
+  '__tests__/admin/supervisor/cp6_permission_precedence',
+  '__tests__/admin/supervisor/cp7_isolation_no_leak',
+  '__tests__/admin/supervisor/supervisor_service.test',
 ];
 
 function walk(dir: string, acc: string[]): void {
