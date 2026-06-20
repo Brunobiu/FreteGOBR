@@ -71,6 +71,13 @@ export const ADMIN_ACTIONS = [
   'ALERT_ACK',
   'ALERT_RESOLVE',
   'LOG_VIEW',
+  // IA Supervisora (admin-ia-supervisora, migration 118): console/chat/diagnóstico/
+  // insights (SUPERVISOR_VIEW) e reconhecer/descartar insights (SUPERVISOR_MANAGE).
+  // Concedidas SOMENTE a SUPER_ADMIN (wildcard) e ADMIN (allow-all menos ADMIN_DENY).
+  // NAO entram em ADMIN_DENY nem nos *_PERMS de SUPORTE/FINANCEIRO/MODERADOR
+  // (negação por construção). Espelha is_admin_with_permission re-asserida na 118.
+  'SUPERVISOR_VIEW',
+  'SUPERVISOR_MANAGE',
 ] as const;
 
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];

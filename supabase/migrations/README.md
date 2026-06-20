@@ -224,6 +224,23 @@ SELECT * FROM get_platform_metrics();
 - `permission_denied` precedence over input validation; Master_Admin (`Nexus_Vortex99`) immutable by construction (no `users` mutation)
 - Paired with documented `117_admin_central_operacao_rollback.sql` (not auto-applied)
 
+### 118_admin_ia_supervisora.sql
+**Purpose**: IA Supervisora — Painel Inteligente (chat read-only) + Central de Diagnóstico + Insights/Anomalias + Resumo periódico (spec `admin-ia-supervisora`)
+
+**Contents**:
+- Creates `supervisor_diagnostics` (rolling idempotent record: `UNIQUE(dedup_key)` + `occurrence_count` + `first_seen_at`/`last_seen_at`; closed CHECK on `severity`; list/module indexes) and `supervisor_insights` (closed CHECK domains for `insight_type` `ANOMALY/SUGGESTION/SUMMARY/SECURITY`, `severity`, `state` `OPEN/ACKNOWLEDGED/DISMISSED` with DISMISSED terminal; PARTIAL unique index `uq_supervisor_insights_active_dedup` on `dedup_key` `WHERE state IN ('OPEN','ACKNOWLEDGED')` — at most one active insight per situation; list/type indexes); both with `supervisor_touch_updated_at` trigger
+- Admin-only RLS on both tables: SELECT gated by `SUPERVISOR_VIEW`; direct INSERT/UPDATE/DELETE denied (`no_dml` USING/CHECK false — writes only via SECURITY DEFINER RPCs)
+- Re-asserts `is_admin_with_permission` preserving the on-disk body (030 + 048 deny-list + 115 `FAQ_VIEW` + 116 `USER_NOTE_*` + 117 `ALERT_*`/`LOG_VIEW`); `SUPERVISOR_VIEW`/`SUPERVISOR_MANAGE` recognized by construction (SUPER_ADMIN wildcard, ADMIN allow-all minus deny-list; SUPORTE/FINANCEIRO/MODERADOR closed allowlists deny them)
+- 8 RPCs `SECURITY DEFINER`: `supervisor_record_diagnostic` (service-role OR SUPERVISOR_VIEW; rolling `ON CONFLICT(dedup_key) DO UPDATE occurrence_count++`; `detail` arrives pre-sanitized from the service), `supervisor_diagnostics_list`/`supervisor_insights_list` (SUPERVISOR_VIEW; `{items,total}`), `supervisor_chat_context` (SUPERVISOR_VIEW; reuses `admin_operations_metrics(300)` + counts, aggregates only — no PII), `supervisor_evaluate` (pg_cron service-role OR SUPERVISOR_VIEW; opens ANOMALY from recurrent diagnostics via partial-index dedup + auto-dismiss extinct anomalies, `dismissed_by NULL`), `supervisor_generate_summary` (service-role OR SUPERVISOR_VIEW; SUMMARY insight idempotent per `'SUMMARY:<period>:<bucket>'` window), `supervisor_insight_acknowledge`/`supervisor_insight_dismiss` (SUPERVISOR_MANAGE; OPEN→ACKNOWLEDGED→DISMISSED with optimistic `expected_updated_at` + `STALE_VERSION`; `INVALID_STATE_TRANSITION` on ack of DISMISSED; `_SKIPPED` idempotency)
+- `pg_cron` defensive `DO` block scheduling `supervisor_evaluate()` every 5 min + `supervisor_generate_summary('daily')` at 00:05 (mirrors 092/117; no-op without the extension)
+- Reads only (never rewrites): `users`/`subscriptions`/`support_tickets`/`system_alerts` + the 117 metrics bundle; notifications-hub (041) and admin-assistant (047, Provider_Abstraction + Vault key) are SOFT dependencies — absence degrades proactive notifications / the chat at runtime. The IA is **read-only by design** (observes/answers/suggests/notifies — never an automatic destructive action)
+
+**Key Features**:
+- Idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY/TRIGGER IF EXISTS`), defensive `DO $check$` (hard deps 030/117) + `DO $soft$` (041), commented `-- VERIFY` block
+- Audit by construction: `SUPERVISOR_DIAGNOSTIC_RECORDED`/`SUPERVISOR_INSIGHT_GENERATED`/`*_ACK_SKIPPED`/`*_DISMISS_SKIPPED` written inside the RPCs (success path); negative `SUPERVISOR_VIEW_DENIED`; positive `SUPERVISOR_INSIGHT_ACK`/`SUPERVISOR_INSIGHT_DISMISS` written by the TS service layer. Cron-path audit inserts guarded by `IF v_caller IS NOT NULL` (cron has no `auth.uid()`; `admin_audit_logs.admin_id` is NOT NULL)
+- `permission_denied` precedence over input validation; `detail` never carries PII/secrets (sanitized in the service before persisting); Master_Admin (`Nexus_Vortex99`) immutable by construction (no `users` mutation)
+- Paired with documented `118_admin_ia_supervisora_rollback.sql` (not auto-applied)
+
 ## Migration Best Practices
 
 1. **Always backup** before running migrations in production

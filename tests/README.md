@@ -340,3 +340,102 @@ reconhecendo `ALERT_VIEW`/`ALERT_ACK`/`ALERT_RESOLVE`/`LOG_VIEW`; RPCs
 `admin_operations_metrics`/`admin_alerts_list`/`admin_logs_list`/
 `admin_alerts_evaluate`/`admin_alert_acknowledge`/`admin_alert_resolve`; agendamento
 `pg_cron` defensivo) + par `_rollback` documentado.
+
+## Regression_Suite — feature IA Supervisora (Painel Inteligente + Diagnóstico + Insights + Resumo)
+
+Testes incorporados à suíte de regressão (rodam no pre-commit + CI). Núcleo
+puro + property-based (CP1–CP9 obrigatórias) + serviço + UI. A IA é **read-only**
+por design (observa/responde/sugere/notifica, sem ação destrutiva automática).
+Qualquer falha (inclusive flaky pós-retry) bloqueia merge/deploy.
+
+Property tests (`src/__tests__/admin/supervisor/`):
+
+- `cp1_severity_classifier.property.test.ts` — Severity_Classifier determinístico
+  e total (CP1): toda entrada mapeia para `CRITICAL`/`WARNING`/`INFO`; módulos
+  críticos (`financeiro`/`auth`/`integration`/`queue`) elevam a severidade; mesma
+  entrada ⇒ mesma saída.
+- `cp2_anomaly_detector.property.test.ts` — Anomaly_Detector determinístico (CP2):
+  mesmo conjunto de diagnósticos ⇒ mesmo conjunto de anomalias; `occurrence_count`
+  abaixo do threshold nunca gera anomalia; `dedup_key` estável.
+- `cp3_reconcile_dedup.property.test.ts` — dedup/idempotência da reconciliação
+  (CP3): `reconcile` não reabre situação ativa; reaplicar ⇒ `toOpen` vazio;
+  anomalia extinta entra em `toDismiss`.
+- `cp4_insight_lifecycle.property.test.ts` — idempotência/versionamento de
+  ack/dismiss (CP4, model-based `applyInsightOp`): `_SKIPPED`/`STALE_VERSION` sem
+  mutar; `DISMISSED` terminal; ack de `DISMISSED` ⇒ `INVALID_STATE_TRANSITION`;
+  checagem de estado precede a de versão.
+- `cp5_summary_builder.property.test.ts` — Summary_Builder determinístico e sem
+  PII (CP5): texto pt-BR estável por janela; `summaryDedupKey` idempotente;
+  `expectNoSecrets` no texto gerado.
+- `cp6_permission_precedence.property.test.ts` — precedência de `permission_denied`
+  (CP6) sobre validação simultânea, em qualquer papel (modelo da ordem do servidor
+  + `mapSupervisorError`).
+- `cp7_isolation_no_leak.property.test.ts` — isolamento e não-vazamento (CP7):
+  `sanitizeSupervisorDetail`/`buildSummaryText`/contexto agregado nunca emitem
+  PII/segredos (`expectNoSecrets`); guard sem permissão recusa sem dados.
+- `cp8_ordering.property.test.ts` — ordenação total determinística (CP8):
+  `compareInsights` (severidade ↑, `created_at` ↓, `id`) / `compareDiagnostics`
+  (`last_seen_at` ↓, `id`) antissimétricas/transitivas/estáveis.
+- `cp9_question_context_plan.property.test.ts` — Question_Context_Plan total e
+  determinístico (CP9): `planIntents` sempre retorna intents válidos; pergunta sem
+  sinal ⇒ `OVERVIEW`; idempotente.
+
+Unit/serviço/UI:
+
+- `pureFunctions.unit.test.ts` — exemplos/edge dos sete módulos puros
+  (severityClassifier, anomalyDetector, insightLifecycle, summaryBuilder, ordering,
+  questionContextPlan, sanitize).
+- `permissions_supervisor.unit.test.ts` — delta da Permission_Matrix
+  (`SUPERVISOR_VIEW`/`SUPERVISOR_MANAGE` só `SUPER_ADMIN`/`ADMIN`).
+- `supervisor_service.test.ts` — `mapSupervisorError` (precedência, sem vazar erro
+  cru), `listDiagnostics`/`listInsights` (mapeamento + sanitização), ack/dismiss
+  (audit positivo só em mutação real; `_SKIPPED` sem audit; `STALE_VERSION`/
+  `INVALID_STATE_TRANSITION`; audit-fail-não-bloqueia), `askSupervisor` (degradação
+  controlada — nunca lança), `triggerEvaluate`/`generateSummary`/`recordDiagnostic`
+  (sanitiza `detail` antes da RPC).
+- `supervisorUI.test.tsx` — gating Stealth_404 (chat/diagnóstico/insights/resumo);
+  `InsightActionsCell` por `SUPERVISOR_MANAGE` + estado; chat read-only + estado
+  `IA indisponível`; diagnóstico somente-leitura + estado vazio; ack wiring +
+  paginação default 10; resumo "Gerar agora"; ausência de `<h1>`; item
+  "Supervisor IA" na sidebar gated por `SUPERVISOR_VIEW`.
+
+Integração (`tests/admin/supervisor/`, só CI — branch Supabase efêmero):
+
+- `migration118_schema.integration.test.ts` — CHECK de `severity` (diagnostics) e
+  `insight_type`/`severity`/`state` (insights); `UNIQUE(dedup_key)` em diagnostics
+  (registro rolling); índice único PARCIAL de dedup de insights (1 ativo por
+  situação; reabre após `DISMISSED`); RLS bloqueia anon nas duas tabelas; trigger
+  `updated_at`.
+- `supervisor_rls_rbac.integration.test.ts` — RLS de `supervisor_diagnostics`/
+  `supervisor_insights` (anon/Cliente/SUPORTE/FINANCEIRO/MODERADOR ⇒ 0 linhas;
+  ADMIN lê; escrita direta negada via `no_dml`) + paridade `is_admin_with_permission`
+  das 2 ações novas (só SUPER_ADMIN/ADMIN, por construção).
+- `supervisor_rpcs_gating.integration.test.ts` — admin lê `supervisor_diagnostics_list`/
+  `supervisor_insights_list`/`supervisor_chat_context` (agregados, sem PII); Cliente
+  ⇒ `permission_denied` (42501) nas 8 RPCs; isolamento (Cliente não lê `supervisor_*`).
+- `supervisor_lifecycle.integration.test.ts` — `supervisor_record_diagnostic`
+  idempotente (`occurrence_count` 1→2); `supervisor_evaluate` abre/dedup/auto-dismiss
+  de ANOMALY (`SUPERVISOR_INSIGHT_GENERATED` persistido; `dismissed_by` NULL no
+  automático); SUGGESTION sobrevive ao evaluate; ack/dismiss com versionamento;
+  `_SKIPPED` (`SUPERVISOR_INSIGHT_ACK_SKIPPED`/`_DISMISS_SKIPPED`) + audit positivo
+  `SUPERVISOR_INSIGHT_ACK` persistidos; `STALE_VERSION`/`INVALID_STATE_TRANSITION`;
+  `supervisor_generate_summary` idempotente por janela; ack não toca `users`
+  (Master_Admin imutável por construção).
+
+Núcleo puro (Critical_Modules em `tests/coverage.config.ts`):
+`src/services/admin/supervisor/{severityClassifier,anomalyDetector,insightLifecycle,
+summaryBuilder,ordering,questionContextPlan,sanitize}.ts`. O service `supervisor.ts`
+(wrappers de RPC + edge function) e a UI (`.tsx`) ficam fora do gate por ora.
+
+Migration: `118_admin_ia_supervisora.sql` (tabelas `supervisor_diagnostics` +
+`supervisor_insights` + índice único parcial de dedup de insights + RLS admin-only;
+re-asserção de `is_admin_with_permission` reconhecendo `SUPERVISOR_VIEW`/
+`SUPERVISOR_MANAGE`; 8 RPCs `SECURITY DEFINER` `supervisor_record_diagnostic`/
+`supervisor_diagnostics_list`/`supervisor_insights_list`/`supervisor_chat_context`/
+`supervisor_evaluate`/`supervisor_generate_summary`/`supervisor_insight_acknowledge`/
+`supervisor_insight_dismiss`; agendamento `pg_cron` defensivo) + par `_rollback`
+documentado.
+
+Edge Function: `supabase/functions/ia-supervisor` (chat read-only; reusa a
+Provider_Abstraction de `admin-assistant`; chave no Vault, nunca no frontend;
+contexto agregado sem PII; degrada para "IA indisponível" sem lançar).

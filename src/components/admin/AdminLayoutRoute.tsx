@@ -47,6 +47,10 @@ import SettingsPage from '../../pages/admin/settings/SettingsPage';
 import OperacaoDashboardPage from '../../pages/admin/operacao/OperacaoDashboardPage';
 import OperacaoAlertasPage from '../../pages/admin/operacao/OperacaoAlertasPage';
 import OperacaoLogsPage from '../../pages/admin/operacao/OperacaoLogsPage';
+import SupervisorChatPage from '../../pages/admin/supervisor/SupervisorChatPage';
+import SupervisorDiagnosticsPage from '../../pages/admin/supervisor/SupervisorDiagnosticsPage';
+import SupervisorInsightsPage from '../../pages/admin/supervisor/SupervisorInsightsPage';
+import SupervisorSummaryPage from '../../pages/admin/supervisor/SupervisorSummaryPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -76,6 +80,10 @@ export default function AdminLayoutRoute() {
             <Route path="operacao" element={<OperacaoDashboardPage />} />
             <Route path="operacao/alertas" element={<OperacaoAlertasPage />} />
             <Route path="operacao/logs" element={<OperacaoLogsPage />} />
+            <Route path="supervisor" element={<SupervisorChatPage />} />
+            <Route path="supervisor/diagnostico" element={<SupervisorDiagnosticsPage />} />
+            <Route path="supervisor/insights" element={<SupervisorInsightsPage />} />
+            <Route path="supervisor/resumo" element={<SupervisorSummaryPage />} />
             <Route path="marketing" element={<MarketingMetricsPage />} />
             <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
             <Route path="settings" element={<SettingsPage />} />

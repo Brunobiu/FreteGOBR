@@ -78,4 +78,20 @@ export const CRITICAL_MODULES: Record<string, number> = {
   'src/services/admin/operacao/alertLifecycle.ts': 95,
   'src/services/admin/operacao/ordering.ts': 95,
   'src/services/admin/operacao/logEventMap.ts': 95,
+
+  // IA Supervisora (admin-ia-supervisora, migration 118). Núcleo puro read-only
+  // espelho da autoridade SQL (classificação de severidade, detector de anomalias,
+  // reconciliação/dedup, ciclo de vida de insight, builder de resumo, ordenação,
+  // plano de intents do chat, sanitização anti-PII), coberto por property tests
+  // CP1-CP9 + unit. Thresholds com margem abaixo do medido (statements 100% em
+  // todos os 7 módulos). O service supervisor.ts (wrappers de RPC + edge fn) e a
+  // UI (.tsx, validada por build) ficam fora do gate por ora — como o padrão de
+  // operacao/cliente360/suporte/whatsapp.
+  'src/services/admin/supervisor/severityClassifier.ts': 95,
+  'src/services/admin/supervisor/anomalyDetector.ts': 90,
+  'src/services/admin/supervisor/insightLifecycle.ts': 95,
+  'src/services/admin/supervisor/summaryBuilder.ts': 95,
+  'src/services/admin/supervisor/ordering.ts': 95,
+  'src/services/admin/supervisor/questionContextPlan.ts': 90,
+  'src/services/admin/supervisor/sanitize.ts': 90,
 };
