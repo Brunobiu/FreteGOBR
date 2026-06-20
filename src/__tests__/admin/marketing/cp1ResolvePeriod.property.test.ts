@@ -66,6 +66,20 @@ const instantArb = fc.date({
   noInvalidDate: true,
 });
 
+// Instantes da ERA ATUAL (>= 2020) para a invariante de "início do dia local".
+// O Brasil aboliu o horário de verão em out/2019 (Decreto 9.772/2019); desde
+// então America/Sao_Paulo é UTC-3 fixo. `resolvePeriod` só é chamada com o
+// instante de referência ≈ agora (KPIs do painel), nunca com datas históricas.
+// A faixa ampla (1990–2099) gerava dias de spring-forward em que a meia-noite
+// local NÃO existia (ex.: 2012-10-21 pulou 00:00→01:00), quebrando a asserção
+// de "from é 00:00:00 local" — cenário impossível no uso real. Por isso a
+// invariante de início-de-dia é verificada na era sem DST.
+const currentEraInstantArb = fc.date({
+  min: new Date('2020-01-01T00:00:00.000Z'),
+  max: new Date('2099-12-31T23:59:59.999Z'),
+  noInvalidDate: true,
+});
+
 describe('CP-1: resolvePeriod — mapeamento determinístico de período', () => {
   // 1. Determinismo: mesmo input ⇒ mesmo output.
   it('é determinístico (mesmo input ⇒ output profundamente igual)', () => {
@@ -116,7 +130,7 @@ describe('CP-1: resolvePeriod — mapeamento determinístico de período', () =>
   // 5. today ⇒ from é o início do dia local em America/Sao_Paulo.
   it('today ⇒ from é 00:00:00 local (SP) no mesmo dia-calendário do referenceInstant', () => {
     fc.assert(
-      fc.property(instantArb, (instant) => {
+      fc.property(currentEraInstantArb, (instant) => {
         const { from, to } = resolvePeriod('today', instant);
 
         // A hora de parede de `from` em São Paulo deve ser meia-noite exata.
