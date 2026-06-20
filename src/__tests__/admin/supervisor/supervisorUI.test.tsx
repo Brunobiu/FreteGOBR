@@ -53,6 +53,12 @@ vi.mock('../../../services/admin/supervisor', async (importOriginal) => {
   const dismissSpy = vi.fn();
   const evalSpy = vi.fn();
   const genSpy = vi.fn();
+  const createSessionSpy = vi.fn();
+  const listSessionsSpy = vi.fn();
+  const listMessagesSpy = vi.fn();
+  const appendMsgSpy = vi.fn();
+  const renameSpy = vi.fn();
+  const deleteSpy = vi.fn();
   g.__listDiagSpy = listDiagSpy;
   g.__listInsightsSpy = listInsightsSpy;
   g.__askSpy = askSpy;
@@ -60,6 +66,12 @@ vi.mock('../../../services/admin/supervisor', async (importOriginal) => {
   g.__dismissSpy = dismissSpy;
   g.__evalSpy = evalSpy;
   g.__genSpy = genSpy;
+  g.__createSessionSpy = createSessionSpy;
+  g.__listSessionsSpy = listSessionsSpy;
+  g.__listMessagesSpy = listMessagesSpy;
+  g.__appendMsgSpy = appendMsgSpy;
+  g.__renameSpy = renameSpy;
+  g.__deleteSpy = deleteSpy;
   return {
     ...actual,
     listDiagnostics: (...a: unknown[]) => listDiagSpy(...a),
@@ -69,6 +81,12 @@ vi.mock('../../../services/admin/supervisor', async (importOriginal) => {
     dismissInsight: (...a: unknown[]) => dismissSpy(...a),
     triggerEvaluate: (...a: unknown[]) => evalSpy(...a),
     generateSummary: (...a: unknown[]) => genSpy(...a),
+    createChatSession: (...a: unknown[]) => createSessionSpy(...a),
+    listChatSessions: (...a: unknown[]) => listSessionsSpy(...a),
+    listChatMessages: (...a: unknown[]) => listMessagesSpy(...a),
+    appendChatMessage: (...a: unknown[]) => appendMsgSpy(...a),
+    renameChatSession: (...a: unknown[]) => renameSpy(...a),
+    deleteChatSession: (...a: unknown[]) => deleteSpy(...a),
   };
 });
 
@@ -268,6 +286,60 @@ describe('SupervisorChatPage — chat read-only', () => {
     clickButton('Perguntar');
     await flush();
     expect(container.textContent ?? '').toContain('IA indisponível');
+  });
+});
+
+// ─── Chat: histórico de conversas (119) ─────────────────────────────────────
+
+describe('SupervisorChatPage — histórico de conversas', () => {
+  it('lista as conversas na lateral + botão "Nova conversa"', async () => {
+    setPerms({ SUPERVISOR_VIEW: true });
+    spy('__listSessionsSpy').mockResolvedValue([
+      { id: 's1', admin_id: 'a', title: 'Erros de pagamento', created_at: 't', updated_at: 't' },
+      { id: 's2', admin_id: 'a', title: 'Status do WhatsApp', created_at: 't', updated_at: 't' },
+    ]);
+    render(createElement(SupervisorChatPage));
+    await flush();
+    const text = container.textContent ?? '';
+    expect(text).toContain('Erros de pagamento');
+    expect(text).toContain('Status do WhatsApp');
+    expect(text).toContain('Nova conversa');
+  });
+
+  it('selecionar conversa carrega as mensagens (listChatMessages)', async () => {
+    setPerms({ SUPERVISOR_VIEW: true });
+    spy('__listSessionsSpy').mockResolvedValue([
+      { id: 's1', admin_id: 'a', title: 'Conversa 1', created_at: 't', updated_at: 't' },
+    ]);
+    spy('__listMessagesSpy').mockResolvedValue([
+      { id: 'm1', session_id: 's1', role: 'user', content: 'pergunta antiga', created_at: 't' },
+      { id: 'm2', session_id: 's1', role: 'ai', content: 'resposta antiga', created_at: 't' },
+    ]);
+    render(createElement(SupervisorChatPage));
+    await flush();
+    clickButton('Conversa 1');
+    await flush();
+    expect(spy('__listMessagesSpy')).toHaveBeenCalledWith('s1');
+    const text = container.textContent ?? '';
+    expect(text).toContain('pergunta antiga');
+    expect(text).toContain('resposta antiga');
+  });
+
+  it('perguntar sem sessão ativa cria a sessão e persiste user + ai', async () => {
+    setPerms({ SUPERVISOR_VIEW: true });
+    spy('__listSessionsSpy').mockResolvedValue([]);
+    spy('__createSessionSpy').mockResolvedValue({ id: 'new1', title: 'quantos…' });
+    spy('__appendMsgSpy').mockResolvedValue({ id: 'mx' });
+    spy('__askSpy').mockResolvedValue({ answer: 'Resposta da IA.', degraded: false });
+    render(createElement(SupervisorChatPage));
+    await flush();
+    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    typeInto(input, 'quantos usuários hoje?');
+    clickButton('Perguntar');
+    await flush();
+    expect(spy('__createSessionSpy')).toHaveBeenCalledWith('quantos usuários hoje?');
+    expect(spy('__appendMsgSpy')).toHaveBeenCalledWith('new1', 'user', 'quantos usuários hoje?');
+    expect(spy('__appendMsgSpy')).toHaveBeenCalledWith('new1', 'ai', 'Resposta da IA.');
   });
 });
 

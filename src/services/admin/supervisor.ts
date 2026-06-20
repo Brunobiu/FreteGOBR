@@ -15,8 +15,14 @@
 
 import { supabase } from '../supabase';
 import { logAdminAction } from './audit';
-import { sanitizeSupervisorDetail } from './supervisor/sanitize';
+import { sanitizeSupervisorDetail, sanitizeSupervisorText } from './supervisor/sanitize';
 import { planIntents } from './supervisor/questionContextPlan';
+import {
+  deriveTitle,
+  validateMessage,
+  CHAT_LIMITS,
+  type ChatRole,
+} from './supervisor/chatHistory';
 import type { InsightSeverity } from './supervisor/severityClassifier';
 import type { InsightState } from './supervisor/insightLifecycle';
 import type { InsightType } from './supervisor/anomalyDetector';
@@ -428,4 +434,138 @@ export async function recordDiagnostic(input: {
   if (error) throw mapSupervisorError(error);
   const raw = (data ?? {}) as { id?: string; occurrence_count?: number };
   return { id: raw.id ?? '', occurrence_count: raw.occurrence_count ?? 0 };
+}
+
+
+// ─── Histórico de conversas do chat (supervisor-chat-history / 119) ─────────
+
+export type { ChatRole } from './supervisor/chatHistory';
+export { deriveTitle, CHAT_LIMITS } from './supervisor/chatHistory';
+
+export interface SupervisorChatSession {
+  id: string;
+  admin_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SupervisorChatMessage {
+  id: string;
+  session_id: string;
+  role: ChatRole;
+  content: string;
+  created_at: string;
+}
+
+/** Resultado de mutação idempotente de sessão (rename/delete). */
+export type ChatMutationResult = { ok: true } | { skipped: true; reason: string };
+
+function rowToChatSession(row: unknown): SupervisorChatSession {
+  const r = (row ?? {}) as Record<string, unknown>;
+  return {
+    id: String(r.id ?? ''),
+    admin_id: String(r.admin_id ?? ''),
+    title: String(r.title ?? ''),
+    created_at: String(r.created_at ?? ''),
+    updated_at: String(r.updated_at ?? ''),
+  };
+}
+
+function rowToChatMessage(row: unknown): SupervisorChatMessage {
+  const r = (row ?? {}) as Record<string, unknown>;
+  // content é sanitizado também na leitura (defesa-em-profundidade; sem PII).
+  return {
+    id: String(r.id ?? ''),
+    session_id: String(r.session_id ?? ''),
+    role: (r.role === 'ai' ? 'ai' : 'user') as ChatRole,
+    content: sanitizeSupervisorText(String(r.content ?? '')),
+    created_at: String(r.created_at ?? ''),
+  };
+}
+
+/** Cria uma conversa. Deriva o título da 1ª mensagem (puro, sem PII). */
+export async function createChatSession(firstMessage?: string): Promise<{ id: string; title: string }> {
+  const title = deriveTitle(firstMessage ?? '');
+  const { data, error } = await supabase.rpc('supervisor_chat_session_create', { p_title: title });
+  if (error) throw mapSupervisorError(error);
+  const r = (data ?? {}) as { id?: string; title?: string };
+  return { id: r.id ?? '', title: r.title ?? title };
+}
+
+/** Lista as conversas do admin (gated SUPERVISOR_VIEW; só do dono). */
+export async function listChatSessions(): Promise<SupervisorChatSession[]> {
+  const { data, error } = await supabase.rpc('supervisor_chat_sessions_list', {
+    p_limit: 50,
+    p_offset: 0,
+  });
+  if (error) throw mapSupervisorError(error);
+  const raw = (data ?? {}) as { items?: unknown[] };
+  return (raw.items ?? []).map(rowToChatSession);
+}
+
+/** Lista as mensagens de uma conversa (do dono; vazio se não for dono). */
+export async function listChatMessages(sessionId: string): Promise<SupervisorChatMessage[]> {
+  const { data, error } = await supabase.rpc('supervisor_chat_messages_list', {
+    p_session: sessionId,
+  });
+  if (error) throw mapSupervisorError(error);
+  const raw = (data ?? {}) as { items?: unknown[] };
+  return (raw.items ?? []).map(rowToChatMessage);
+}
+
+/**
+ * Anexa uma mensagem (user/ai) à conversa. O content é SANITIZADO (sem PII) e
+ * validado antes de enviar. Best-effort: falha de persistência NÃO lança ao
+ * chamador do chat (Req 6.2) — retorna null. Retorna `{ id }` em sucesso.
+ */
+export async function appendChatMessage(
+  sessionId: string,
+  role: ChatRole,
+  content: string
+): Promise<{ id: string } | null> {
+  const sanitized = sanitizeSupervisorText(content).slice(0, CHAT_LIMITS.CONTENT_MAX);
+  const v = validateMessage(role, sanitized);
+  if (!v.ok) return null;
+  try {
+    const { data, error } = await supabase.rpc('supervisor_chat_message_append', {
+      p_session: sessionId,
+      p_role: role,
+      p_content: sanitized,
+    });
+    if (error) throw mapSupervisorError(error);
+    const r = (data ?? {}) as { id?: string };
+    return { id: r.id ?? '' };
+  } catch {
+    // Persistência do histórico não pode quebrar o chat.
+    return null;
+  }
+}
+
+function unwrapChatMutation(data: unknown): ChatMutationResult {
+  const raw = (data ?? {}) as { ok?: boolean; skipped?: boolean; reason?: string };
+  if (raw.skipped) return { skipped: true, reason: raw.reason ?? 'SKIPPED' };
+  return { ok: true };
+}
+
+/** Renomeia uma conversa do dono (1..TITLE_MAX). */
+export async function renameChatSession(
+  sessionId: string,
+  title: string
+): Promise<ChatMutationResult> {
+  const { data, error } = await supabase.rpc('supervisor_chat_session_rename', {
+    p_session: sessionId,
+    p_title: title.slice(0, CHAT_LIMITS.TITLE_MAX),
+  });
+  if (error) throw mapSupervisorError(error);
+  return unwrapChatMutation(data);
+}
+
+/** Exclui uma conversa do dono (idempotente; CASCADE nas mensagens). */
+export async function deleteChatSession(sessionId: string): Promise<ChatMutationResult> {
+  const { data, error } = await supabase.rpc('supervisor_chat_session_delete', {
+    p_session: sessionId,
+  });
+  if (error) throw mapSupervisorError(error);
+  return unwrapChatMutation(data);
 }

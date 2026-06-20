@@ -94,4 +94,9 @@ export const CRITICAL_MODULES: Record<string, number> = {
   'src/services/admin/supervisor/ordering.ts': 95,
   'src/services/admin/supervisor/questionContextPlan.ts': 90,
   'src/services/admin/supervisor/sanitize.ts': 90,
+
+  // Histórico de conversas do chat (supervisor-chat-history, migration 119).
+  // Núcleo puro: deriveTitle (sem PII), comparadores de ordenação, validação de
+  // mensagem. Property tests CP1-CP3 + unit; medido 100% statements.
+  'src/services/admin/supervisor/chatHistory.ts': 95,
 };

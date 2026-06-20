@@ -241,6 +241,22 @@ SELECT * FROM get_platform_metrics();
 - `permission_denied` precedence over input validation; `detail` never carries PII/secrets (sanitized in the service before persisting); Master_Admin (`Nexus_Vortex99`) immutable by construction (no `users` mutation)
 - Paired with documented `118_admin_ia_supervisora_rollback.sql` (not auto-applied)
 
+### 119_supervisor_chat_history.sql
+**Purpose**: Histórico de conversas do chat da IA Supervisora — persiste sessões + mensagens e lista as conversas na lateral (spec `supervisor-chat-history`, complementa 118)
+
+**Contents**:
+- Creates `supervisor_chat_sessions` (conversa: `admin_id` dono CASCADE, `title` CHECK 1..120, timestamps) + `supervisor_chat_messages` (`session_id` CASCADE, `role` CHECK `user`/`ai`, `content` CHECK 1..8000); índices `(admin_id, updated_at DESC)` e `(session_id, created_at ASC)`; reusa o trigger `supervisor_touch_updated_at` (118)
+- RLS admin-only **POR DONO**: SELECT gated por `SUPERVISOR_VIEW` **AND** `admin_id = auth.uid()` (mensagens via `EXISTS` na sessão do dono); `no_dml` (escrita só via RPC)
+- Reusa a ação RBAC `SUPERVISOR_VIEW` (sem nova ação): gating em `is_admin_with_permission` (118)
+- 6 RPCs `SECURITY DEFINER`: `supervisor_chat_session_create` (título derivado no client), `supervisor_chat_sessions_list` (só do dono), `supervisor_chat_messages_list` (valida posse; sessão alheia/inexistente ⇒ `[]`), `supervisor_chat_message_append` (valida posse + role + content 1..8000; toca `updated_at`; content chega pré-sanitizado do service), `supervisor_chat_session_rename` (do dono; não-dono ⇒ skipped), `supervisor_chat_session_delete` (idempotente `ALREADY_GONE`; CASCADE)
+- Persistência **dirigida pelo frontend**: a página chama `append` após a pergunta e após a resposta — **a edge function `ia-supervisor` NÃO muda** (sem redeploy)
+
+**Key Features**:
+- Idempotente (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY IF EXISTS`), defensive `DO $check$` (030 + 118), commented `-- VERIFY` block
+- Audit by construction: `SUPERVISOR_CHAT_SESSION_CREATED`/`_DELETED` gravados nas RPCs (guarded `IF v_caller IS NOT NULL`); negative `SUPERVISOR_VIEW_DENIED`
+- `permission_denied` precedence; `content`/`title` nunca carregam PII (sanitizados no service via `sanitizeSupervisorText` antes de persistir)
+- Paired with documented `119_supervisor_chat_history_rollback.sql` (not auto-applied)
+
 ## Migration Best Practices
 
 1. **Always backup** before running migrations in production

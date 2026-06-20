@@ -53,3 +53,19 @@ export function sanitizeSupervisorDetail(detail: unknown): Record<string, unknow
   if (!detail || typeof detail !== 'object' || Array.isArray(detail)) return {};
   return sanitizeObject(detail as Record<string, unknown>);
 }
+
+/**
+ * Redige (substitui por `[oculto]`) qualquer PII/segredo num texto livre — usado
+ * no título da conversa e no conteúdo das mensagens do chat do Supervisor
+ * (supervisor-chat-history / 119). PURO e total: não-string ⇒ `''`. Reusa os
+ * mesmos PII_SECRET_PATTERNS (fonte única de verdade).
+ */
+export function sanitizeSupervisorText(text: unknown): string {
+  if (typeof text !== 'string') return '';
+  let out = text;
+  for (const re of PII_SECRET_PATTERNS) {
+    const flags = re.flags.includes('g') ? re.flags : `${re.flags}g`;
+    out = out.replace(new RegExp(re.source, flags), REDACTED);
+  }
+  return out;
+}

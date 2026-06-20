@@ -439,3 +439,55 @@ documentado.
 Edge Function: `supabase/functions/ia-supervisor` (chat read-only; reusa a
 Provider_Abstraction de `admin-assistant`; chave no Vault, nunca no frontend;
 contexto agregado sem PII; degrada para "IA indisponível" sem lançar).
+
+## Regression_Suite — feature Histórico de Conversas da IA Supervisora
+
+Testes incorporados à suíte de regressão (pre-commit + CI). Complementa a IA
+Supervisora (118) persistindo as conversas do chat. Núcleo puro + property
+(CP1–CP3) + serviço + UI + integração. Persistência **dirigida pelo frontend**
+(a edge function `ia-supervisor` não muda).
+
+Property tests (`src/__tests__/admin/supervisor/`):
+
+- `cp1_chat_title.property.test.ts` — Title_Derivation determinística, total e
+  SEM PII (CP1): `deriveTitle` mesma entrada ⇒ mesma saída; `expectNoSecrets`;
+  comprimento ≤ 80; vazio/só-espaços/não-string ⇒ `'Nova conversa'`.
+- `cp2_chat_ordering.property.test.ts` — ordenação total (CP2): `compareSessions`
+  (`updated_at` desc, `id`) / `compareMessages` (`created_at` asc, `id`)
+  antissimétricas/transitivas/estáveis; permutação invariante.
+- `cp3_chat_validation.property.test.ts` — `validateMessage` determinística e
+  total (CP3): role∈{user,ai}; content 1..8000; entradas inválidas ⇒ INVALID_INPUT.
+
+Unit/serviço/UI:
+
+- `chatHistory.unit.test.ts` — exemplos/edge (deriveTitle colapsa espaços/redige
+  PII/trunca; comparadores; validateMessage).
+- `supervisor_chat_service.test.ts` — createChatSession (título sem PII),
+  list sessions/messages (content sanitizado na leitura), appendChatMessage
+  (sanitiza antes da RPC; inválido ⇒ null sem chamar RPC; erro de RPC ⇒ null sem
+  lançar — o chat não quebra), rename/delete (`_SKIPPED`), `permission_denied`.
+- `supervisorUI.test.tsx` (estendido) — sidebar lista as conversas + "Nova
+  conversa"; selecionar carrega mensagens (`listChatMessages`); perguntar sem
+  sessão cria a sessão (`createChatSession`) e persiste user + ai
+  (`appendChatMessage`).
+
+Integração (`tests/admin/supervisor/`, só CI — branch Supabase efêmero):
+
+- `migration119_chat_schema.integration.test.ts` — CHECK de `role`/`content`/
+  `title`; FK CASCADE (excluir sessão remove mensagens); RLS bloqueia anon;
+  trigger `updated_at`.
+- `chat_history_rls_gating.integration.test.ts` — RLS POR DONO (admin B não vê a
+  conversa de A; não lê mensagens; append ⇒ 42501; rename/delete de A ⇒ skipped
+  sem alterar); Cliente ⇒ 42501 nas 6 RPCs; anon/Cliente não leem direto.
+- `chat_history_lifecycle.integration.test.ts` — create (`SUPERVISOR_CHAT_SESSION_CREATED`
+  persistido); append user+ai ordenado + `updated_at` avança; rename do dono;
+  delete (`SUPERVISOR_CHAT_SESSION_DELETED` + CASCADE + idempotente `ALREADY_GONE`).
+
+Núcleo puro (Critical_Module em `tests/coverage.config.ts`):
+`src/services/admin/supervisor/chatHistory.ts`. O service `supervisor.ts`
+(wrappers de RPC) e a UI (`.tsx`) ficam fora do gate por ora.
+
+Migration: `119_supervisor_chat_history.sql` (tabelas `supervisor_chat_sessions` +
+`supervisor_chat_messages` + RLS por dono + 6 RPCs `SECURITY DEFINER`, reusa
+`SUPERVISOR_VIEW`) + par `_rollback` documentado. Aplicação manual (sem redeploy
+de edge function — persistência dirigida pelo frontend).

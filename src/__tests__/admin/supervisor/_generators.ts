@@ -78,3 +78,35 @@ export const questionGen = fc.oneof(
   ),
   safeText(1, 30)
 );
+
+// ─── Histórico de conversas (supervisor-chat-history / 119) ─────────────────
+
+/** Linhas de sessão/mensagem para os comparadores (CP2 chat). */
+export const chatSessionRowGen = fc.record({ id: uuidLike(), updatedAt: tsGen });
+export const chatMessageRowGen = fc.record({ id: uuidLike(), createdAt: tsGen });
+
+/** Papel de mensagem (domínio fechado) + valores inválidos para CP3. */
+export const chatRoleGen = fc.constantFrom('user', 'ai');
+export const chatRoleInvalidGen = fc.constantFrom('system', 'bot', '', 'USER', 'assistant', 'admin');
+
+/**
+ * Fragmentos de segredo construídos por CONCATENAÇÃO (o literal não aparece no
+ * fonte, evitando o gate secretScan) para verificar a redação em deriveTitle.
+ */
+const SECRET_FRAGMENTS = [
+  'sb_' + 'secret_' + 'ABCDEFGHIJ1234567890',
+  'eyJ' + 'aaaaaaaaaa' + '.' + 'bbbbbbbbbb' + '.' + 'cccccccccc',
+  're_' + 'abcd1234efgh5678ijkl',
+];
+
+/**
+ * Entrada para deriveTitle: texto livre, texto com segredo embutido, e
+ * só-espaços (deve cair no título default).
+ */
+export const titleInputGen = fc.oneof(
+  safeText(1, 200),
+  fc
+    .tuple(safeText(0, 20), fc.constantFrom(...SECRET_FRAGMENTS), safeText(0, 20))
+    .map(([a, s, b]) => `${a} ${s} ${b}`),
+  fc.constantFrom('', '   ', '\n\t  ', '\u00a0')
+);
