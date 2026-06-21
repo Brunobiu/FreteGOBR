@@ -34,7 +34,6 @@ body {
   width: 100%;
 }
 
-
 /* Slide-in pra toast de notificações realtime */
 @keyframes slide-in-right {
   from {
@@ -47,7 +46,6 @@ body {
   }
 }
 
-
 /* ── Transição entre abas da barra inferior (estilo PageView) ──────────────
  * A nova página desliza para dentro conforme a direção da navegação:
  *  - avançar (aba à direita): entra da direita p/ esquerda
@@ -56,12 +54,20 @@ body {
  * conteúdo — a barra inferior fica fora dele e permanece fixa.
  * Respeita prefers-reduced-motion. */
 @keyframes page-enter-from-right {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 @keyframes page-enter-from-left {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 .page-slide-right {
   animation: page-enter-from-right 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
@@ -76,16 +82,18 @@ body {
   }
 }
 
-
 /* Fundo temático do chat (mensagens) — estilo WhatsApp suave com motivo de
    caminhão pra ficar relacionado a frete. */
 .chat-bg {
   background-color: #eef2f7;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(59,130,246,0.08), transparent 60%),
-    radial-gradient(circle at 80% 90%, rgba(34,197,94,0.07), transparent 55%),
+    radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.08), transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(34, 197, 94, 0.07), transparent 55%),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='none' stroke='%2394a3b8' stroke-width='1' stroke-opacity='0.18'><path d='M10 80h70v-18h12l8 12h12v6H10z'/><circle cx='30' cy='86' r='5'/><circle cx='90' cy='86' r='5'/></g></svg>");
-  background-size: auto, auto, 120px 120px;
+  background-size:
+    auto,
+    auto,
+    120px 120px;
   background-repeat: no-repeat, no-repeat, repeat;
 }
 
@@ -93,19 +101,26 @@ body {
 .chat-empty-bg {
   background-color: #f8fafc;
   background-image:
-    radial-gradient(circle at 30% 20%, rgba(59,130,246,0.10), transparent 60%),
-    radial-gradient(circle at 70% 80%, rgba(99,102,241,0.08), transparent 55%);
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.1), transparent 60%),
+    radial-gradient(circle at 70% 80%, rgba(99, 102, 241, 0.08), transparent 55%);
 }
 
 /* Animação dos pontinhos do "digitando..." */
 @keyframes typing-blink {
-  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
-  30% { transform: translateY(-3px); opacity: 1; }
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
 }
 .typing-dot {
   animation: typing-blink 1.2s infinite ease-in-out;
 }
-
 
 /* ── Botão "Pergunte à IA" (IA) ──────────────────────────────────────────
  * Pílula branca com borda gradiente animada (turquesa → azul → roxo).
@@ -144,7 +159,7 @@ body {
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
+  mask-composite: exclude;
   z-index: -1;
   pointer-events: none;
 }
@@ -152,13 +167,23 @@ body {
   background: linear-gradient(120deg, #6d28d9 0%, #9333ea 50%, #db2777 100%);
 }
 @keyframes trip-shimmer {
-  0%   { background-position:   0% 50%; }
-  50%  { background-position: 100% 50%; }
-  100% { background-position:   0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 @keyframes trip-glow {
-  0%   { background-position: -120% 0; }
-  100% { background-position:  220% 0; }
+  0% {
+    background-position: -120% 0;
+  }
+  100% {
+    background-position: 220% 0;
+  }
 }
 
 /* Orbit de loading da análise */
@@ -172,35 +197,49 @@ body {
   animation: trip-orbit 1s linear infinite;
 }
 @keyframes trip-orbit {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
-
 
 /* Mascote bouncing */
 @keyframes mascote-bounce {
-  0%, 100% { transform: translateY(0) rotate(-1deg); }
-  50%      { transform: translateY(-3px) rotate(1deg); }
+  0%,
+  100% {
+    transform: translateY(0) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(1deg);
+  }
 }
 .mascote-bounce {
   animation: mascote-bounce 2.4s ease-in-out infinite;
   transform-origin: center bottom;
 }
 
-
 /* Drawer lateral esquerdo */
 @keyframes slide-in-left {
-  from { transform: translateX(-100%); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
 }
 .animate-slide-in-left {
   animation: slide-in-left 0.22s ease-out;
 }
 
-
 /* Skeleton shimmer (loading bonito da home) */
 @keyframes welcome-shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 .welcome-shimmer {
   background: linear-gradient(
@@ -215,8 +254,16 @@ body {
 
 /* Bolinhas pulsantes do "Carregando fretes..." */
 @keyframes welcome-pulse {
-  0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
-  40%           { transform: scale(1.2); opacity: 1;   }
+  0%,
+  80%,
+  100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
 }
 .welcome-dot {
   display: inline-block;
@@ -226,14 +273,26 @@ body {
   background: #2563eb;
   animation: welcome-pulse 1.2s ease-in-out infinite;
 }
-.welcome-dot-1 { animation-delay: 0s;    }
-.welcome-dot-2 { animation-delay: 0.15s; }
-.welcome-dot-3 { animation-delay: 0.3s;  }
+.welcome-dot-1 {
+  animation-delay: 0s;
+}
+.welcome-dot-2 {
+  animation-delay: 0.15s;
+}
+.welcome-dot-3 {
+  animation-delay: 0.3s;
+}
 
 /* Animacao fadeIn para transicoes de login */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .animate-fadeIn {
   animation: fadeIn 0.4s ease-out both;
@@ -241,23 +300,26 @@ body {
 
 /* Pulse lento para indicador de erro/GPS inativo */
 @keyframes pulseSlow {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }
 .animate-pulse-slow {
   animation: pulseSlow 2s ease-in-out infinite;
 }
 
-
 /* Esconde scrollbar mas mantem scroll funcional (usado em carrossel horizontal) */
 .scrollbar-hide {
   -ms-overflow-style: none; /* IE/Edge */
-  scrollbar-width: none;    /* Firefox */
+  scrollbar-width: none; /* Firefox */
 }
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;            /* Chrome/Safari */
+  display: none; /* Chrome/Safari */
 }
-
 
 /* ─── Tema Escuro ────────────────────────────────────────────────────────────
  * O FreteGO foi escrito todo com classes Tailwind explicitas
@@ -457,15 +519,15 @@ html[data-theme='dark'] .welcome-shimmer {
 html[data-theme='dark'] .chat-bg {
   background-color: #0e1218;
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(59,130,246,0.18), transparent 60%),
-    radial-gradient(circle at 80% 90%, rgba(34,197,94,0.16), transparent 55%),
+    radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.18), transparent 60%),
+    radial-gradient(circle at 80% 90%, rgba(34, 197, 94, 0.16), transparent 55%),
     url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'><g fill='none' stroke='%2364748b' stroke-width='1' stroke-opacity='0.22'><path d='M10 80h70v-18h12l8 12h12v6H10z'/><circle cx='30' cy='86' r='5'/><circle cx='90' cy='86' r='5'/></g></svg>");
 }
 html[data-theme='dark'] .chat-empty-bg {
   background-color: #0f1318;
   background-image:
-    radial-gradient(circle at 30% 20%, rgba(59,130,246,0.18), transparent 60%),
-    radial-gradient(circle at 70% 80%, rgba(99,102,241,0.16), transparent 55%);
+    radial-gradient(circle at 30% 20%, rgba(59, 130, 246, 0.18), transparent 60%),
+    radial-gradient(circle at 70% 80%, rgba(99, 102, 241, 0.16), transparent 55%);
 }
 
 /* Botao "Pergunte a IA" — miolo branco vira escuro mantendo a borda gradiente */
@@ -473,8 +535,6 @@ html[data-theme='dark'] .trip-suggest-btn {
   background: #1a1d24;
   color: #f3f4f6;
 }
-
-
 
 /* ── Gating de secoes do MotoristaPerfilPage por view ──────────────────────
  * O componente MotoristaPerfilPage carrega TUDO (Dados Pessoais, Veiculo,
@@ -502,7 +562,6 @@ form[data-view='contrato'] section[data-secao]:not([data-secao='contrato']) {
   display: none;
 }
 
-
 /* Dentro da view 'referencias', mostramos APENAS o bloco de referencias
  * dentro de "Dados Pessoais". O resto da secao Dados Pessoais (campos,
  * documentos, footer) some. A secao em si fica visivel pra encapsular
@@ -521,7 +580,6 @@ form[data-view='referencias'] section[data-secao='perfil'] > *:not([data-bloco='
 form[data-view='perfil'] section[data-secao='perfil'] [data-bloco='referencias'] {
   display: none;
 }
-
 
 /* Badges do tile "Planos" no MotoristaMenuPage.
  * Usamos classes proprias (em vez de utilitarias do Tailwind) pra
@@ -554,7 +612,6 @@ html[data-theme='dark'] .menu-badge-trial {
   color: #000000;
 }
 
-
 /* Sub-views da secao Veiculo: tracao / carroceria / complemento.
  * Cada <div> da secao Veiculo pode ter data-grupo="tracao",
  * data-grupo="carroceria" ou data-grupo="complemento". Quando a view
@@ -565,10 +622,14 @@ html[data-theme='dark'] .menu-badge-trial {
 form[data-view='tracao'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='tracao']) {
   display: none;
 }
-form[data-view='carroceria'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='carroceria']) {
+form[data-view='carroceria']
+  section[data-secao='veiculo']
+  [data-grupo]:not([data-grupo='carroceria']) {
   display: none;
 }
-form[data-view='complemento'] section[data-secao='veiculo'] [data-grupo]:not([data-grupo='complemento']) {
+form[data-view='complemento']
+  section[data-secao='veiculo']
+  [data-grupo]:not([data-grupo='complemento']) {
   display: none;
 }
 
@@ -580,7 +641,6 @@ form[data-view='carroceria'] section[data-secao]:not([data-secao='veiculo']),
 form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
   display: none;
 }
-
 
 /* ===================== WelcomeSplash (tela de abertura) ===================== */
 
@@ -644,19 +704,28 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
   }
 }
 
-
 /* Shake (tremida) para código de verificação incorreto */
 @keyframes otpShake {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-6px);
+  }
+  40% {
+    transform: translateX(6px);
+  }
+  60% {
+    transform: translateX(-4px);
+  }
+  80% {
+    transform: translateX(4px);
+  }
 }
 .animate-otp-shake {
   animation: otpShake 0.4s ease-in-out;
 }
-
 
 /* ===================== Campos do Login ===================== */
 /* (estilos antigos de login-field removidos — o login usa inputs padrão
@@ -680,4 +749,13 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
+}
+
+/* Sombra suave atrás de texto sobre imagem (ex.: hero da LandingPage).
+   Destaca o texto da foto sem precisar de um overlay escuro forte.
+   Duas camadas: uma curta pra nitidez + uma borrada pra separar do fundo. */
+.text-shadow-soft {
+  text-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.4),
+    0 2px 12px rgba(0, 0, 0, 0.35);
 }

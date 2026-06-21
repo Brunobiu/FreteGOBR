@@ -77,6 +77,7 @@ const AssistentePage = lazyWithRetry(() => import('./pages/AssistantePage'));
 const PublicTicketPage = lazyWithRetry(() => import('./pages/PublicTicketPage'));
 const TermosPage = lazyWithRetry(() => import('./pages/TermosPage'));
 const PrivacidadePage = lazyWithRetry(() => import('./pages/PrivacidadePage'));
+const AudienceLandingPage = lazyWithRetry(() => import('./pages/AudienceLandingPage'));
 const RedefinirSenhaPage = lazyWithRetry(() => import('./pages/RedefinirSenhaPage'));
 const MyTicketsPage = lazyWithRetry(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazyWithRetry(() => import('./pages/NewTicketPage'));
@@ -221,6 +222,22 @@ function App() {
               element={
                 <LazyRoute>
                   <PrivacidadePage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/para-embarcadores"
+              element={
+                <LazyRoute>
+                  <AudienceLandingPage audience="embarcador" />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/para-caminhoneiros"
+              element={
+                <LazyRoute>
+                  <AudienceLandingPage audience="motorista" />
                 </LazyRoute>
               }
             />
