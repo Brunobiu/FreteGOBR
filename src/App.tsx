@@ -1,13 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Capacitor } from '@capacitor/core';
-import { Suspense, useState } from 'react';
+import { Suspense } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import NotificationToast from './components/NotificationToast';
 import NativeBackButton from './components/NativeBackButton';
+import ScrollManager from './components/ScrollManager';
 import NativePushBootstrap from './components/NativePushBootstrap';
 import { PixelProvider } from './components/marketing/PixelProvider';
 import { CookieConsentProvider } from './components/cookies/CookieConsentProvider';
+import { AccessChoiceProvider } from './components/public/AccessChoice';
 import CookieBanner from './components/cookies/CookieBanner';
 import DocRevalidationModal from './components/DocRevalidationModal';
 import { useAuth } from './hooks/useAuth';
@@ -17,31 +19,11 @@ import { lazyWithRetry, LazyBoundary } from './utils/lazyWithRetry';
 // carrega depois (defer) para não pesar o bundle inicial.
 const FreteChatWidget = lazyWithRetry(() => import('./components/FreteChatWidget'));
 
-// Splash de abertura (animação Lottie). Lazy para não pesar o bundle inicial
-// com o lottie-web; a splash nativa do Capacitor cobre o tempo de carga.
-const WelcomeSplash = lazyWithRetry(() => import('./components/WelcomeSplash'));
-
-/**
- * Mostra a WelcomeSplash uma vez por sessão/abertura do app, em qualquer
- * porta de entrada (landing, login, home). Usa a mesma chave de sessão do
- * componente (`fretego_welcome_seen`) sem importar o módulo (evita puxar o
- * lottie-web pro bundle inicial).
- */
-function WelcomeSplashGate() {
-  const [show, setShow] = useState(() => {
-    try {
-      return sessionStorage.getItem('fretego_welcome_seen') !== '1';
-    } catch {
-      return true;
-    }
-  });
-  if (!show) return null;
-  return (
-    <Suspense fallback={null}>
-      <WelcomeSplash onDone={() => setShow(false)} />
-    </Suspense>
-  );
-}
+// Splash de abertura (animação Lottie em public/splash-animation.json).
+// TEMPORARIAMENTE DESATIVADA a pedido — o componente src/components/WelcomeSplash
+// e o JSON continuam no projeto. Pra religar: reponha o import lazy de
+// WelcomeSplash, a função WelcomeSplashGate e o <WelcomeSplashGate /> dentro
+// do <BrowserRouter>.
 
 // Páginas de entrada / fluxo de autenticação — convertidas de eager para lazy
 // com retry de chunk (Req 5.1, 5.2, 5.5). LoginPage e RegisterPage são named
@@ -78,6 +60,7 @@ const PublicTicketPage = lazyWithRetry(() => import('./pages/PublicTicketPage'))
 const TermosPage = lazyWithRetry(() => import('./pages/TermosPage'));
 const PrivacidadePage = lazyWithRetry(() => import('./pages/PrivacidadePage'));
 const AudienceLandingPage = lazyWithRetry(() => import('./pages/AudienceLandingPage'));
+const SaibaMaisPage = lazyWithRetry(() => import('./pages/SaibaMaisPage'));
 const RedefinirSenhaPage = lazyWithRetry(() => import('./pages/RedefinirSenhaPage'));
 const MyTicketsPage = lazyWithRetry(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazyWithRetry(() => import('./pages/NewTicketPage'));
@@ -158,9 +141,10 @@ function RootRoute() {
 function App() {
   return (
     <BrowserRouter>
-      <CookieConsentProvider>
+      <ScrollManager />
+      <AccessChoiceProvider>
+        <CookieConsentProvider>
         <PixelProvider>
-          <WelcomeSplashGate />
           <NativeBackButton />
           <NativePushBootstrap />
           <NotificationToast />
@@ -238,6 +222,14 @@ function App() {
               element={
                 <LazyRoute>
                   <AudienceLandingPage audience="motorista" />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/saiba/:slug"
+              element={
+                <LazyRoute>
+                  <SaibaMaisPage />
                 </LazyRoute>
               }
             />
@@ -530,6 +522,7 @@ function App() {
           <DocRevalidationModal />
         </PixelProvider>
       </CookieConsentProvider>
+      </AccessChoiceProvider>
     </BrowserRouter>
   );
 }

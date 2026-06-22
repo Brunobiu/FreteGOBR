@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -26,6 +26,12 @@ interface LoginFormProps {
   onRegisterClick?: () => void;
   successMessage?: string;
   initialPhone?: string;
+  /** Avisa quem renderiza o form qual perfil foi escolhido na seleção
+   * "Deseja entrar como" (ex.: troca a foto ao lado no layout web de 2
+   * colunas). null = ainda na seleção. */
+  onProfileChange?: (profile: 'embarcador' | 'motorista' | null) => void;
+  /** Voltar a partir da tela de seleção (ex.: para a landing). */
+  onBack?: () => void;
 }
 
 export function LoginForm({
@@ -33,6 +39,8 @@ export function LoginForm({
   onRegisterClick,
   successMessage,
   initialPhone,
+  onProfileChange,
+  onBack,
 }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +81,12 @@ export function LoginForm({
       setShowForm(true);
     }, 1500);
   };
+
+  // Espelha o perfil escolhido pra quem renderiza o form (troca a foto ao lado
+  // no layout web). Cobre seleção e eventual reset pra null.
+  useEffect(() => {
+    onProfileChange?.(selectedProfile);
+  }, [selectedProfile, onProfileChange]);
 
   const handleFormSubmit = async (data: LoginCredentials) => {
     setIsLoading(true);
@@ -120,18 +134,37 @@ export function LoginForm({
   // ==================== SELECAO DE PERFIL ====================
   if (!selectedProfile && !isTransitioning) {
     return (
-      <div className="w-full max-w-xs md:max-w-sm flex flex-col items-center min-h-screen md:min-h-0 justify-between md:justify-center py-6 md:py-0">
-        {/* Logo no topo */}
-        <img
-          src="/logo.png"
-          alt="FreteGO"
-          className="w-60 h-20 md:w-52 md:h-52 object-contain mt-4 md:mt-0"
-        />
+      <div className="relative flex h-full min-h-screen w-full max-w-sm flex-col items-center py-6 md:min-h-full md:py-8">
+        {/* Voltar para o início (tela anterior) */}
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="absolute left-0 top-2 inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition-colors hover:text-gray-600"
+          >
+            <svg
+              className="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            Voltar
+          </button>
+        )}
+        {/* Logo (topo) */}
+        <img src="/logo.png" alt="FreteGO" className="h-20 w-auto object-contain md:h-24" />
 
-        {/* Conteudo centralizado */}
-        <div className="flex flex-col items-center flex-1 justify-center md:flex-none md:mt-4 -mt-10">
-          <h1 className="text-lg md:text-2xl font-bold text-gray-800 mb-4 md:mb-6 text-center">
-            Entrar no aplicativo
+        {/* Conteúdo centralizado (do título até "Criar uma conta") */}
+        <div className="flex flex-1 flex-col items-center justify-center">
+          <h1 className="mb-4 text-center text-xl font-bold text-gray-800 md:mb-6 md:text-2xl">
+            Entrar
           </h1>
 
           <p className="text-sm text-gray-500 mb-4">Deseja entrar como:</p>
@@ -178,18 +211,20 @@ export function LoginForm({
                 </svg>
                 Criar uma conta
               </button>
-              <Link
-                to="/contato"
-                className="mt-3 text-[11px] md:text-xs text-gray-400 hover:text-green-600 transition-colors"
-              >
-                Fale conosco
-              </Link>
             </div>
           )}
         </div>
 
-        {/* Versao colada no fundo */}
-        <span className="text-[10px] text-gray-400 font-mono mt-4 md:mt-6">v.1.0.1</span>
+        {/* Rodapé fixo embaixo: Fale conosco + versão */}
+        <div className="flex flex-col items-center gap-1 pt-4">
+          <Link
+            to="/contato"
+            className="text-[11px] md:text-xs text-gray-400 hover:text-green-600 transition-colors"
+          >
+            Fale conosco
+          </Link>
+          <span className="text-[10px] text-gray-400 font-mono">v.1.0.1</span>
+        </div>
       </div>
     );
   }
@@ -208,18 +243,16 @@ export function LoginForm({
   return (
     <>
       <div
-        className={`w-full max-w-sm flex flex-col items-center ${showForm ? 'animate-fadeIn' : ''}`}
+        className={`flex h-full min-h-screen w-full max-w-sm flex-col items-center py-6 md:min-h-full md:py-8 ${showForm ? 'animate-fadeIn' : ''}`}
       >
-        {/* Logo */}
-        <img
-          src="/logo.png"
-          alt="FreteGO"
-          className="w-52 h-16 md:w-64 md:h-20 object-contain mb-3"
-        />
+        {/* Logo (topo) */}
+        <img src="/logo.png" alt="FreteGO" className="h-16 w-auto object-contain md:h-24" />
 
-        <h2 className="text-base md:text-xl font-bold text-gray-800 mb-0.5 text-center">
-          Bem-vindo, {selectedProfile === 'embarcador' ? 'Embarcador' : 'Motorista'}!
-        </h2>
+        {/* Conteúdo centralizado */}
+        <div className="flex w-full flex-1 flex-col items-center justify-center">
+          <h2 className="text-base md:text-xl font-bold text-gray-800 mb-0.5 text-center">
+            Bem-vindo, {selectedProfile === 'embarcador' ? 'Embarcador' : 'Motorista'}!
+          </h2>
         <p className="text-[11px] text-gray-400 mb-4">Entre com seus dados</p>
 
         {successMessage && (
@@ -330,10 +363,12 @@ export function LoginForm({
         >
           ← Voltar
         </button>
+        </div>
 
+        {/* Rodapé fixo embaixo */}
         <Link
           to="/contato"
-          className="mt-2 text-[11px] text-gray-400 hover:text-green-600 transition-colors"
+          className="pt-4 text-[11px] md:text-xs text-gray-400 hover:text-green-600 transition-colors"
         >
           Fale conosco
         </Link>

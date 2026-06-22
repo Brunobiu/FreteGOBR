@@ -39,6 +39,9 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 interface RegisterFormProps {
   onSubmit: (data: RegisterData) => Promise<void>;
   onLoginClick?: () => void;
+  /** Avisa quem renderiza o form qual perfil foi escolhido (ex.: troca a
+   * imagem ao lado no layout web de 2 colunas). null = ainda na seleção. */
+  onUserTypeChange?: (type: UserKind | null) => void;
 }
 
 const baseInput =
@@ -46,7 +49,7 @@ const baseInput =
 const okBorder = 'border-gray-300';
 const errBorder = 'border-red-400 ring-1 ring-red-300';
 
-export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
+export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: RegisterFormProps) {
   const navigate = useNavigate();
   const honeypotRef = useRef<HTMLInputElement>(null);
 
@@ -120,6 +123,11 @@ export function RegisterForm({ onSubmit, onLoginClick }: RegisterFormProps) {
     setUserType(type);
     resetAll();
   };
+  // Espelha o perfil escolhido pra quem renderiza o form (troca a imagem ao
+  // lado no layout web). Cobre escolha, "voltar" (reset p/ null) etc.
+  useEffect(() => {
+    onUserTypeChange?.(userType);
+  }, [userType, onUserTypeChange]);
 
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);

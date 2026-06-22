@@ -10,10 +10,9 @@
  */
 
 import { Link } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import SiteFooter from '../components/SiteFooter';
-import AppMiniFooter from '../components/AppMiniFooter';
+import PublicLayout from '../components/public/PublicLayout';
+import { AccessButton } from '../components/public/AccessChoice';
 import { CONTENT, type Audience } from '../data/audienceContent';
 
 /* Ícones em SVG inline (convenção do projeto). */
@@ -54,60 +53,12 @@ function ArrowRight({ className }: IconProps) {
   );
 }
 
-function ArrowLeft({ className }: IconProps) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M19 12H5" />
-      <path d="m12 19-7-7 7-7" />
-    </svg>
-  );
-}
-
 export default function AudienceLandingPage({ audience }: { audience: Audience }) {
   const cfg = CONTENT[audience];
   useDocumentTitle(cfg.docTitle);
-  const isApp = Capacitor.isNativePlatform();
 
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100">
-      {/* Header simples (logo + voltar + entrar) */}
-      <header className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <Link to="/" aria-label="FreteGO" className="flex items-center">
-            <img
-              src="/logo.png"
-              alt="FreteGO"
-              className="h-8 w-auto select-none object-contain sm:h-9"
-              draggable={false}
-            />
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-1 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-full bg-brand-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-greenDark"
-            >
-              Entrar
-            </Link>
-          </div>
-        </div>
-      </header>
-
+    <PublicLayout>
       {/* Hero com a foto do público */}
       <section className="relative overflow-hidden">
         <div
@@ -132,13 +83,13 @@ export default function AudienceLandingPage({ audience }: { audience: Audience }
             </p>
 
             <div className="mt-7 flex flex-col items-stretch gap-2.5 sm:flex-row sm:items-center sm:gap-3">
-              <Link
+              <AccessButton
                 to="/register"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
               >
                 {cfg.ctaLabel}
                 <ArrowRight className="h-4 w-4" />
-              </Link>
+              </AccessButton>
               <Link
                 to="/fretes"
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:text-base"
@@ -181,18 +132,17 @@ export default function AudienceLandingPage({ audience }: { audience: Audience }
             {cfg.finalTitle}
           </h2>
           <div className="mt-7 flex justify-center">
-            <Link
+            <AccessButton
               to="/register"
               className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
             >
               {cfg.ctaLabel}
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </AccessButton>
           </div>
         </div>
       </section>
 
-      {isApp ? <AppMiniFooter /> : <SiteFooter />}
-    </div>
+    </PublicLayout>
   );
 }

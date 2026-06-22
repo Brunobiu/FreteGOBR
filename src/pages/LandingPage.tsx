@@ -2,26 +2,26 @@
  * LandingPage — página de entrada pública do FreteGO (rota `/` para
  * visitantes não logados).
  *
- * Estrutura atual (construída em passos):
- *  - Header fixo: logo (esquerda), navegação (Início, Como funciona,
- *    Vantagens, Planos) e botão "Entrar" (direita). No mobile a nav vira um
- *    menu hambúrguer; a ordem da direita fica [Entrar] [☰]. Transparente
- *    sobre o hero no topo; vira barra cinza-clara ao rolar.
- *  - Hero: foto de fundo real (`/landing-fundo.jpg`) com overlay para
- *    legibilidade, headline autoral e os dois botões de loja
- *    (App Store + Google Play).
- *  - Footer (SiteFooter na web / AppMiniFooter no app nativo).
+ * Estrutura (de cima pra baixo):
+ *  - Cabeçalho e rodapé compartilhados via PublicLayout (PublicHeader +
+ *    SiteFooter/AppMiniFooter) — os mesmos em todas as páginas públicas.
+ *  - Hero: vídeo de fundo em loop, headline autoral e os dois botões de loja.
+ *  - Dor do caminhoneiro (+ virada de desejo).
+ *  - Vantagens (#vantagens) — cards clicáveis que levam a /saiba/<slug>.
+ *  - Funcionalidades — layout alternado imagem/texto, com "Ver mais".
+ *  - Como funciona — passos ao redor do celular.
+ *  - Para quem é (embarcador / caminhoneiro).
+ *  - Segurança / antifraude.
+ *  - Depoimentos (conteúdo de exemplo até termos reais).
+ *  - Nossos números (ao vivo via RPC public_stats).
+ *  - CTA final + Sobre (curto).
  *
- * As demais seções (Como funciona, Vantagens, etc.) serão adicionadas
- * incrementalmente abaixo do hero. Enquanto não existirem, os links de nav
- * correspondentes apenas não rolam (no-op seguro).
+ * Sem planos/preços: a estratégia é atrair e converter pro trial (cobrança
+ * só depois). O texto das seções de marketing vive em src/data/landingContent.
  *
  * Identidade visual (cores da logo, ver tailwind.config.js):
  *  - brand-green #007848 / brand-greenDark / brand-navy / brand-navyDeep /
  *    brand-lime (acento).
- *
- * Foto de fundo: `public/landing-fundo.jpg` (versão web otimizada da arte
- * original em `fotos/`). Para trocar, basta substituir esse arquivo.
  *
  * Lojas: o app ainda não está publicado — os botões apontam para a página
  * oficial "App em breve" (`/links/app.html`). Quando publicar, troque as
@@ -29,29 +29,45 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
+import { Link, useLocation } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
-import SiteFooter from '../components/SiteFooter';
-import AppMiniFooter from '../components/AppMiniFooter';
+import PublicLayout from '../components/public/PublicLayout';
+import FreteTicker from '../components/public/FreteTicker';
+import SocialRail from '../components/public/SocialRail';
+import { AccessButton } from '../components/public/AccessChoice';
+import { APP_STORE_URL, PLAY_STORE_URL } from '../data/appLinks';
 import { getPublicStats, type PublicStats } from '../services/publicStats';
-
-/** Links de navegação do header (id = âncora da seção correspondente). */
-export const NAV_LINKS = [
-  { id: 'inicio', label: 'Início' },
-  { id: 'como-funciona', label: 'Como funciona' },
-  { id: 'vantagens', label: 'Vantagens' },
-  { id: 'planos', label: 'Planos' },
-] as const;
+import {
+  PAIN_TITLE,
+  PAIN_SUBTITLE,
+  PAINS,
+  DESIRE_TITLE,
+  DESIRE_POINTS,
+  BENEFITS_TITLE,
+  BENEFITS_SUBTITLE,
+  BENEFITS,
+  FEATURES_TITLE,
+  FEATURES_SUBTITLE,
+  FEATURES,
+  TESTIMONIALS_TITLE,
+  TESTIMONIALS,
+  ABOUT,
+  FINAL_CTA_TITLE,
+  FINAL_CTA_TEXT,
+  type BenefitIcon,
+} from '../data/landingContent';
 
 /**
- * URLs das lojas. App ainda não publicado: ambos apontam para a página
- * "App em breve". Trocar pelos links reais quando publicar:
- *  - Play Store: https://play.google.com/store/apps/details?id=br.com.fretego.app
- *  - App Store:  https://apps.apple.com/app/id<APP_ID_NUMERICO>
+ * NAV_LINKS agora mora no PublicHeader (cabeçalho compartilhado). Re-exportado
+ * aqui por compatibilidade — testes e outros módulos importam de LandingPage.
  */
-export const PLAY_STORE_URL = '/links/app.html';
-export const APP_STORE_URL = '/links/app.html';
+export { NAV_LINKS } from '../components/public/PublicHeader';
+
+/**
+ * URLs das lojas — definidas em src/data/appLinks e reexportadas aqui por
+ * compatibilidade (testes e StoreBadge importam de LandingPage).
+ */
+export { PLAY_STORE_URL, APP_STORE_URL };
 
 /**
  * Mídia de fundo do hero. Em vez de uma foto estática, usamos um vídeo curto
@@ -62,7 +78,7 @@ export const APP_STORE_URL = '/links/app.html';
  *  - landing-hero-poster.jpg (~250 KB, frame do próprio vídeo)
  * Para trocar, substitua esses arquivos (gerados a partir da arte em fotos/).
  */
-const HERO_VIDEO = '/landing-hero.mp4';
+const HERO_VIDEO = '/landing-hero.mp4?v=2';
 const HERO_POSTER = '/landing-hero-poster.jpg';
 
 /**
@@ -155,6 +171,25 @@ function Zap({ className }: IconProps) {
   );
 }
 
+/** Sparkles — usado pra sinalizar a busca com Inteligência Artificial. */
+function Sparkles({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3l1.7 4.8L18.5 9.5l-4.8 1.7L12 16l-1.7-4.8L5.5 9.5l4.8-1.7z" />
+      <path d="M18.5 14l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z" />
+    </svg>
+  );
+}
+
 /** Logo da Apple (monocromática) para o botão da App Store. */
 function Apple({ className }: IconProps) {
   return (
@@ -168,48 +203,20 @@ function Apple({ className }: IconProps) {
 /** Logo do Google Play (monocromática) para o botão da Play Store. */
 function GooglePlay({ className }: IconProps) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M3.6 1.81C3.24 2 3 2.36 3 2.83v18.34c0 .47.24.83.6 1.02l.06.06 10.28-10.28v-.12L3.66 1.75l-.06.06z" />
-      <path d="M17.3 8.42 13.94 12.06v.12l3.36 3.64.08-.05 4.06-2.31c1.16-.66 1.16-1.74 0-2.4l-4.06-2.31-.08-.04z" />
-      <path d="M13.94 12.06 3.6 22.19c.38.4 1.01.45 1.72.05l11.98-6.81-3.36-3.37z" />
-      <path d="M5.32 1.71C4.61 1.31 3.98 1.36 3.6 1.76l10.34 10.3 3.36-3.64L5.32 1.71z" />
-    </svg>
-  );
-}
-
-function MenuIcon({ className }: IconProps) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 6h16" />
-      <path d="M4 12h16" />
-      <path d="M4 18h16" />
-    </svg>
-  );
-}
-
-function CloseIcon({ className }: IconProps) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#00C3FF"
+        d="M3.6 1.81C3.24 2 3 2.36 3 2.83v18.34c0 .47.24.83.6 1.02l.06.06 10.28-10.28v-.12L3.66 1.75l-.06.06z"
+      />
+      <path
+        fill="#FFCE00"
+        d="M17.3 8.42 13.94 12.06v.12l3.36 3.64.08-.05 4.06-2.31c1.16-.66 1.16-1.74 0-2.4l-4.06-2.31-.08-.04z"
+      />
+      <path
+        fill="#FF424D"
+        d="M13.94 12.06 3.6 22.19c.38.4 1.01.45 1.72.05l11.98-6.81-3.36-3.37z"
+      />
+      <path fill="#00D76F" d="M5.32 1.71C4.61 1.31 3.98 1.36 3.6 1.76l10.34 10.3 3.36-3.64L5.32 1.71z" />
     </svg>
   );
 }
@@ -231,6 +238,116 @@ function Shield({ className }: IconProps) {
     </svg>
   );
 }
+
+/* Ícones das Vantagens (mapeados por chave em BENEFIT_ICONS). */
+function RouteIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="6" cy="19" r="3" />
+      <circle cx="18" cy="5" r="3" />
+      <path d="M9 19h5a4 4 0 0 0 4-4V8" />
+    </svg>
+  );
+}
+
+function ReturnIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 7v6h6" />
+      <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
+    </svg>
+  );
+}
+
+function MoneyIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <line x1="12" y1="2" x2="12" y2="22" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  );
+}
+
+function ChatIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
+function PhoneIcon({ className }: IconProps) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <line x1="12" y1="18" x2="12" y2="18" />
+    </svg>
+  );
+}
+
+/** Quotes decorativas para os cards de depoimento. */
+function QuoteIcon({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M7.17 6A5.17 5.17 0 0 0 2 11.17V18h6.83v-6.83H5.5A1.67 1.67 0 0 1 7.17 9.5zM18.5 6a5.17 5.17 0 0 0-5.17 5.17V18H20.16v-6.83h-3.33A1.67 1.67 0 0 1 18.5 9.5z" />
+    </svg>
+  );
+}
+
+/** Mapa chave→ícone usado pelos cards de Vantagens. */
+const BENEFIT_ICONS: Record<BenefitIcon, (p: IconProps) => JSX.Element> = {
+  route: RouteIcon,
+  return: ReturnIcon,
+  money: MoneyIcon,
+  chat: ChatIcon,
+  shield: Shield,
+  phone: PhoneIcon,
+};
 
 /* ===================== Botão de loja (App Store / Google Play) ===================== */
 function StoreBadge({
@@ -261,17 +378,19 @@ function StoreBadge({
 /* ===================== Página ===================== */
 export default function LandingPage() {
   useDocumentTitle(null);
-  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
 
-  // Header fixo: transparente sobre o hero no topo; ao rolar para baixo vira
-  // uma barra cinza-clara (frosted) e o texto/ícones passam a ser escuros.
-  const [scrolled, setScrolled] = useState(false);
+  // Quando a landing é aberta com uma âncora (ex.: vindo de outra página via
+  // `/#vantagens`), rola suavemente até a seção depois que o conteúdo montou.
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll(); // estado inicial (ex.: reload já rolado)
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
+    if (!location.hash) return;
+    const id = location.hash.slice(1);
+    const el = document.getElementById(id);
+    if (el && typeof el.scrollIntoView === 'function') {
+      const t = setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+      return () => clearTimeout(t);
+    }
+  }, [location.hash]);
 
   // Vídeo de fundo do hero em loop (mudo). Reforçamos o autoplay via ref —
   // alguns browsers ignoram o atributo `muted` quando setado só pelo React,
@@ -300,98 +419,10 @@ export default function LandingPage() {
     };
   }, []);
 
-  // App nativo (Android/iOS): rodapé mínimo. Web: SiteFooter completo.
-  const isApp = Capacitor.isNativePlatform();
-
-  /** Scroll suave até a seção e fecha o menu mobile. */
-  function goToSection(e: React.MouseEvent<HTMLAnchorElement>, id: string) {
-    e.preventDefault();
-    const el = document.getElementById(id);
-    if (el && typeof el.scrollIntoView === 'function') {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-    setMenuOpen(false);
-  }
-
   return (
-    <div className="flex min-h-screen flex-col bg-gray-100">
-      {/* ===================== HEADER (fixo) =====================
-          No topo: transparente sobre a foto do hero (texto branco).
-          Ao rolar: barra cinza-clara translúcida (texto escuro). */}
-      <header
-        className={`fixed inset-x-0 top-0 z-50 border-b px-4 backdrop-blur-md transition-all duration-300 ${
-          scrolled
-            ? 'border-gray-200 bg-white/90 py-2.5 shadow-sm sm:py-3'
-            : 'border-white/40 bg-white/80 py-3 sm:py-4'
-        }`}
-      >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
-          {/* Logo (esquerda) */}
-          <Link to="/" aria-label="FreteGO" className="flex items-center">
-            <img
-              src="/logo.png"
-              alt="FreteGO"
-              className="h-8 w-auto select-none object-contain sm:h-9"
-              draggable={false}
-            />
-          </Link>
-
-          {/* Navegação (desktop, centro) */}
-          <nav className="hidden items-center gap-1 md:flex">
-            {NAV_LINKS.map((link) => (
-              <a
-                key={link.id}
-                href={`#${link.id}`}
-                onClick={(e) => goToSection(e, link.id)}
-                className="rounded-full px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-900/5 hover:text-brand-green"
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
-
-          {/* Direita: Entrar + hambúrguer (☰ é o item mais à direita no mobile) */}
-          <div className="flex items-center gap-2">
-            <Link
-              to="/login"
-              className="rounded-full bg-brand-green px-4 py-1.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-greenDark"
-            >
-              Entrar
-            </Link>
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              aria-label={menuOpen ? 'Fechar menu' : 'Abrir menu'}
-              aria-expanded={menuOpen}
-              aria-controls="mobile-menu"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-gray-900/5 text-gray-700 backdrop-blur-sm transition-colors hover:bg-gray-900/10 md:hidden"
-            >
-              {menuOpen ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Menu mobile (dropdown) */}
-        {menuOpen && (
-          <div
-            id="mobile-menu"
-            className="mx-auto mt-2 max-w-6xl rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-xl backdrop-blur-md md:hidden"
-          >
-            <nav className="flex flex-col">
-              {NAV_LINKS.map((link) => (
-                <a
-                  key={link.id}
-                  href={`#${link.id}`}
-                  onClick={(e) => goToSection(e, link.id)}
-                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-900/5"
-                >
-                  {link.label}
-                </a>
-              ))}
-            </nav>
-          </div>
-        )}
-      </header>
+    <PublicLayout headerVariant="landing">
+      {/* Redes sociais fixas à esquerda (só web) */}
+      <SocialRail />
 
       {/* ===================== HERO ===================== */}
       <section id="inicio" className="relative overflow-hidden scroll-mt-20">
@@ -427,6 +458,12 @@ export default function LandingPage() {
                 (my-auto), descendo pro meio do hero; no desktop volta a
                 agrupar com o download (sm:my-0). */}
             <div className="my-auto max-w-2xl sm:my-0">
+              {/* Selo de destaque: busca de fretes com Inteligência Artificial */}
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-brand-lime/40 bg-brand-lime/15 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-sm sm:mb-4 sm:text-xs">
+                <Sparkles className="h-3.5 w-3.5 text-brand-lime sm:h-4 sm:w-4" />
+                Busca de fretes com <span className="text-brand-lime">Inteligência Artificial</span>
+              </span>
+
               <h1 className="text-shadow-soft text-2xl font-extrabold leading-tight text-white sm:text-4xl lg:text-5xl">
                 Fretes que ficam
                 <br className="hidden sm:block" /> na sua rota.
@@ -434,8 +471,11 @@ export default function LandingPage() {
               </h1>
 
               <p className="text-shadow-soft mt-3 max-w-xl text-[0.82rem] leading-relaxed text-white/85 sm:mt-4 sm:text-base sm:leading-normal lg:text-lg">
-                O FreteGO conecta caminhoneiros e embarcadores em todo o Brasil. Ache cargas perto
-                de você, fale direto com quem contrata e feche o frete sem atravessador no meio.
+                O FreteGO usa{' '}
+                <span className="font-semibold text-white">inteligência artificial</span> pra achar
+                os melhores fretes na sua rota — de{' '}
+                <span className="font-semibold text-brand-lime">ida e de volta</span>. Você fala
+                direto com quem contrata e fecha sem atravessador no meio.
               </p>
 
               {/* Pills de destaque */}
@@ -451,6 +491,10 @@ export default function LandingPage() {
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
                   <MapPin className="h-3 w-3 text-brand-lime sm:h-3.5 sm:w-3.5" />
                   Cargas perto de você
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-brand-lime/30 bg-brand-lime/10 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sm:gap-1.5 sm:px-2.5 sm:py-1 sm:text-xs">
+                  <Sparkles className="h-3 w-3 text-brand-lime sm:h-3.5 sm:w-3.5" />
+                  Fretes de ida e volta
                 </span>
               </div>
             </div>
@@ -485,6 +529,164 @@ export default function LandingPage() {
                 </Link>
               </p>
             </div>
+          </div>
+
+          {/* Ticker de fretes passando no rodapé do hero (faixa full-width) */}
+          <FreteTicker />
+        </div>
+      </section>
+
+      {/* ===================== DOR (logo após o hero) =====================
+          Conexão emocional: as dores reais de quem vive de frete. Fundo
+          escuro pra dar peso, seguido da virada de desejo (dor → ganho). */}
+      <section className="bg-brand-navyDeep">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-2xl font-extrabold leading-tight text-white sm:text-3xl lg:text-4xl">
+              {PAIN_TITLE}
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-white/70 sm:text-base">{PAIN_SUBTITLE}</p>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-2 lg:grid-cols-4">
+            {PAINS.map((p) => (
+              <div
+                key={p.title}
+                className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm"
+              >
+                <h3 className="text-base font-bold text-white sm:text-lg">{p.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">{p.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Virada: dor → desejo */}
+          <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-brand-green/30 bg-brand-green/10 p-6 sm:mt-12 sm:p-8">
+            <h3 className="text-center text-lg font-bold text-white sm:text-xl">{DESIRE_TITLE}</h3>
+            <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+              {DESIRE_POINTS.map((point) => (
+                <li key={point} className="flex items-start gap-2.5 text-sm text-white/90">
+                  <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-lime" />
+                  <span>{point}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-6 flex justify-center">
+              <AccessButton
+                to="/register"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
+              >
+                Começar de graça
+                <ArrowRight className="h-4 w-4" />
+              </AccessButton>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== VANTAGENS (Benefícios) =====================
+          Grid de cards clicáveis; cada um leva a /saiba/<slug> com mais
+          detalhe. Âncora #vantagens (item do menu). */}
+      <section id="vantagens" className="scroll-mt-20 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-brand-green/20 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-brand-green sm:text-[11px]">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
+              Vantagens
+            </span>
+            <h2 className="mt-4 text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl lg:text-4xl">
+              {BENEFITS_TITLE}
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
+              {BENEFITS_SUBTITLE}
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-2 lg:grid-cols-3">
+            {BENEFITS.map((b) => {
+              const Icon = BENEFIT_ICONS[b.icon];
+              return (
+                <Link
+                  key={b.slug}
+                  to={`/saiba/${b.slug}`}
+                  className="group flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
+                >
+                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green/10 text-brand-green ring-1 ring-inset ring-brand-green/15">
+                    <Icon className="h-6 w-6" />
+                  </span>
+                  <h3 className="mt-4 text-base font-bold text-gray-900 sm:text-lg">{b.title}</h3>
+                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-gray-600">{b.desc}</p>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-green">
+                    Saiba mais
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ===================== FUNCIONALIDADES =====================
+          Layout alternado imagem/texto. Cada bloco tem "Ver mais" levando a
+          /saiba/<slug>. (Screenshots provisórios — trocar pelos reais.) */}
+      <section id="funcionalidades" className="scroll-mt-20 bg-gray-50">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl lg:text-4xl">
+              {FEATURES_TITLE}
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm text-gray-600 sm:text-base">
+              {FEATURES_SUBTITLE}
+            </p>
+          </div>
+
+          <div className="mt-12 flex flex-col gap-12 sm:gap-16">
+            {FEATURES.map((f, i) => {
+              const flip = i % 2 === 1;
+              return (
+                <div key={f.slug} className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12">
+                  <div className={`flex justify-center ${flip ? 'lg:order-2' : ''}`}>
+                    <div className="relative">
+                      {/* brilho verde suave atrás do mockup */}
+                      <span
+                        className="absolute -inset-5 rounded-[2.5rem] bg-brand-green/10 blur-2xl"
+                        aria-hidden="true"
+                      />
+                      {/* moldura de celular (o print é vertical) */}
+                      <div className="relative w-40 overflow-hidden rounded-[2rem] border-[6px] border-gray-900 bg-gray-900 shadow-2xl sm:w-48">
+                        <img
+                          src={f.image}
+                          alt={f.title}
+                          className="block w-full"
+                          loading="lazy"
+                          draggable={false}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className={flip ? 'lg:order-1' : ''}>
+                    <h3 className="text-xl font-extrabold text-gray-900 sm:text-2xl">{f.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">{f.desc}</p>
+                    <ul className="mt-4 space-y-2">
+                      {f.bullets.map((bullet) => (
+                        <li key={bullet} className="flex items-start gap-2.5 text-sm text-gray-700">
+                          <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" />
+                          <span>{bullet}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link
+                      to={`/saiba/${f.slug}`}
+                      className="mt-5 inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:border-brand-green/40 hover:text-brand-green"
+                    >
+                      Ver mais
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -642,6 +844,48 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ===================== DEPOIMENTOS =====================
+          Grid de depoimentos. Conteúdo de EXEMPLO até termos reais — cada
+          card marcado com selo "exemplo" (trocar quando vierem os reais). */}
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-2xl font-extrabold leading-tight text-gray-900 sm:text-3xl lg:text-4xl">
+              {TESTIMONIALS_TITLE}
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-2 lg:grid-cols-3">
+            {TESTIMONIALS.map((t) => (
+              <figure
+                key={t.name}
+                className="flex h-full flex-col rounded-2xl border border-gray-100 bg-gray-50 p-6 shadow-sm"
+              >
+                <QuoteIcon className="h-7 w-7 text-brand-green/30" />
+                <blockquote className="mt-3 flex-1 text-sm leading-relaxed text-gray-700">
+                  “{t.quote}”
+                </blockquote>
+                <figcaption className="mt-5 flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-green/10 text-sm font-bold text-brand-green">
+                    {t.name.charAt(0)}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-gray-900">{t.name}</span>
+                    <span className="block text-xs text-gray-500">
+                      {t.role} · {t.location}
+                    </span>
+                  </span>
+                  {t.placeholder && (
+                    <span className="ml-auto rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-gray-500">
+                      exemplo
+                    </span>
+                  )}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ===================== NOSSOS NÚMEROS =====================
           Sempre renderizada (mesmo sem dados). Valores ao vivo do banco
           (RPC public_stats): enquanto carrega mostra esqueleto; se a RPC
@@ -671,8 +915,61 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {isApp ? <AppMiniFooter /> : <SiteFooter />}
-    </div>
+      {/* ===================== CTA FINAL =====================
+          Fechamento emocional com fundo diferenciado e os botões de loja. */}
+      <section className="relative overflow-hidden bg-brand-navy">
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-brand-navy via-brand-navyDeep to-brand-navy"
+          aria-hidden="true"
+        />
+        <div className="relative mx-auto max-w-3xl px-4 py-16 text-center sm:py-24">
+          <h2 className="text-2xl font-extrabold leading-tight text-white sm:text-3xl lg:text-4xl">
+            {FINAL_CTA_TITLE}
+          </h2>
+          <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-white/80 sm:text-base">
+            {FINAL_CTA_TEXT}
+          </p>
+          <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <StoreBadge
+              href={APP_STORE_URL}
+              topLabel="Baixar na"
+              bottomLabel="App Store"
+              icon={<Apple className="h-7 w-7" />}
+            />
+            <StoreBadge
+              href={PLAY_STORE_URL}
+              topLabel="Disponível no"
+              bottomLabel="Google Play"
+              icon={<GooglePlay className="h-6 w-6" />}
+            />
+          </div>
+          <p className="mt-5 text-xs text-white/70">
+            <AccessButton
+              to="/register"
+              className="align-baseline font-semibold text-brand-lime hover:underline"
+            >
+              Criar conta grátis
+            </AccessButton>{' '}
+            e começar agora — sem cartão, sem compromisso.
+          </p>
+        </div>
+      </section>
+
+      {/* ===================== SOBRE (curta) =====================
+          Bloco institucional mínimo, colado no rodapé. */}
+      <section className="bg-gray-50">
+        <div className="mx-auto max-w-3xl px-4 py-12 text-center sm:py-14">
+          <span className="inline-flex items-center gap-2 rounded-full border border-brand-green/20 bg-brand-green/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-brand-green sm:text-[11px]">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand-green" />
+            Sobre o FreteGO
+          </span>
+          <h2 className="mt-4 text-xl font-extrabold text-gray-900 sm:text-2xl">{ABOUT.title}</h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-gray-600 sm:text-base">
+            {ABOUT.body}
+          </p>
+        </div>
+      </section>
+    </PublicLayout>
   );
 }
 

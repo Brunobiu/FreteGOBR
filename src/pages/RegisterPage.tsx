@@ -1,11 +1,10 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Capacitor } from '@capacitor/core';
 import { RegisterForm } from '../components/RegisterForm';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { usePixel } from '../components/marketing/pixelContext';
-import SiteFooter from '../components/SiteFooter';
-import AppMiniFooter from '../components/AppMiniFooter';
+import AuthShell, { type AuthAudience } from '../components/public/AuthShell';
 import { supabase } from '../services/supabase';
 import type { RegisterData } from '../types';
 
@@ -14,10 +13,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
   const { trackBusinessEvent } = usePixel();
-
-  // App nativo (Android/iOS): rodape minimo e profissional.
-  // Web: mantem o SiteFooter completo, sem alteracao.
-  const isApp = Capacitor.isNativePlatform();
+  const [audience, setAudience] = useState<AuthAudience>(null);
 
   const handleRegister = async (data: RegisterData) => {
     await register(data);
@@ -48,11 +44,12 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <div className="flex-1 flex items-start md:items-center justify-center p-4 pt-6 md:py-8">
-        <RegisterForm onSubmit={handleRegister} onLoginClick={() => navigate('/login')} />
-      </div>
-      {isApp ? <AppMiniFooter /> : <SiteFooter />}
-    </div>
+    <AuthShell audience={audience} context="register">
+      <RegisterForm
+        onSubmit={handleRegister}
+        onLoginClick={() => navigate('/login')}
+        onUserTypeChange={setAudience}
+      />
+    </AuthShell>
   );
 }

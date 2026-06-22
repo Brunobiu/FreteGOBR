@@ -127,7 +127,7 @@ describe('LandingPage — hero e conteúdo', () => {
     expect(video!.hasAttribute('autoplay')).toBe(true);
     expect(video!.getAttribute('poster')).toBe('/landing-hero-poster.jpg');
     const source = video!.querySelector('source');
-    expect(source?.getAttribute('src')).toBe('/landing-hero.mp4');
+    expect(source?.getAttribute('src')?.startsWith('/landing-hero.mp4')).toBe(true);
   });
 });
 
