@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import { useAuth } from '../hooks/useAuth';
@@ -31,6 +31,7 @@ import {
   buildWhatsappLink,
   buildFreteInterestMessage,
 } from '../services/whatsappHandoff';
+import { daySeparatorLabel, formatConversationStartDate, isSameDay } from '../utils/chatDates';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 const TYPING_TIMEOUT_MS = 3000;
@@ -851,6 +852,15 @@ export default function MensagensPage() {
                     gate={freteGate}
                   />
 
+                  {/* Data de início da conversa (logo abaixo da descrição do frete). */}
+                  {active?.createdAt && (
+                    <div className="text-center py-1 bg-gray-50/60 border-b border-gray-200 shrink-0">
+                      <span className="text-[10px] text-gray-400">
+                        Conversa iniciada em {formatConversationStartDate(active.createdAt)}
+                      </span>
+                    </div>
+                  )}
+
                   {/* Mensagens */}
                   <div className="flex-1 min-h-0 overflow-y-auto chat-bg p-3 space-y-1.5">
                     {loadingMsgs ? (
@@ -860,13 +870,21 @@ export default function MensagensPage() {
                         Diga olá. Inicie a conversa.
                       </p>
                     ) : (
-                      messages.map((msg) => {
+                      messages.map((msg, idx) => {
                         const isMine = msg.senderId === user?.id;
+                        const prevMsg = idx > 0 ? messages[idx - 1] : null;
+                        const showDaySeparator =
+                          !prevMsg || !isSameDay(prevMsg.createdAt, msg.createdAt);
                         return (
-                          <div
-                            key={msg.id}
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                          >
+                          <Fragment key={msg.id}>
+                            {showDaySeparator && (
+                              <div className="flex justify-center my-2">
+                                <span className="px-2 py-0.5 rounded-full bg-gray-200/80 text-gray-600 text-[10px] font-medium">
+                                  {daySeparatorLabel(msg.createdAt)}
+                                </span>
+                              </div>
+                            )}
+                            <div className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                             <div className="max-w-[78%]">
                               <div
                                 className={`px-2.5 py-1.5 rounded-lg text-[13px] shadow-sm ${
@@ -949,6 +967,7 @@ export default function MensagensPage() {
                               </div>
                             </div>
                           </div>
+                          </Fragment>
                         );
                       })
                     )}
