@@ -33,6 +33,33 @@ export function freteStatusToGate(status: FreteStatus | null): FreteGate {
 }
 
 /**
+ * Disponibilidade do frete vinculado à conversa, resolvida no servidor pela
+ * RPC `get_conversation_chat_state` (SECURITY DEFINER). Diferente do caminho
+ * antigo (`getFreteStatus` + RLS do feed), esta fonte enxerga o estado REAL do
+ * frete mesmo para o motorista — que não conseguiria ler por SELECT direto um
+ * frete não-`ativo` (a RLS do feed só expõe `status='ativo'`). É isso que
+ * permite o bloqueio refletir nos DOIS lados da conversa.
+ */
+export interface FreteAvailability {
+  /** A conversa está vinculada a um frete? (`false` ⇒ sem gating, `unknown`). */
+  linked: boolean;
+  /** O frete ainda está disponível para negociação (`status='ativo'`)? */
+  available: boolean;
+}
+
+/**
+ * Mapeia a disponibilidade autoritativa do frete na decisão de gating.
+ *  - `null` ou não vinculado          → `'unknown'` (não bloqueia, fail-safe)
+ *  - vinculado e disponível            → `'active'`
+ *  - vinculado e indisponível          → `'blocked'`
+ *    (excluído/encerrado/cancelado — reflete para motorista E embarcador)
+ */
+export function availabilityToGate(state: FreteAvailability | null): FreteGate {
+  if (!state || !state.linked) return 'unknown';
+  return state.available ? 'active' : 'blocked';
+}
+
+/**
  * Resolve o status efetivo considerando a origem do frete. Frete Comunidade
  * (`source === 'comunidade'`) nunca bloqueia — é tratado como indisponível,
  * assim como a ausência de informação (`info === null`).
@@ -62,7 +89,7 @@ export function gateToBadge(gate: FreteGate): BadgeView | null {
       return { label: 'Ativo', className: 'bg-green-100 text-green-700 border border-green-200' };
     case 'blocked':
       return {
-        label: 'Desativado',
+        label: 'Indisponível',
         className: 'bg-red-100 text-red-700 border border-red-200',
       };
     case 'unknown':

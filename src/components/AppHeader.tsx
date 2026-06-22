@@ -19,7 +19,16 @@ import {
   type LocationOverride,
 } from '../utils/locationOverride';
 
-export default function AppHeader() {
+/**
+ * Cabeçalho compartilhado das páginas autenticadas.
+ *
+ * `hideOnMobile`: oculta o header inteiro abaixo de `md` (versão celular),
+ * mantendo-o no desktop. Usado na página de Mensagens (chat), onde no celular
+ * queremos só a conversa — sem logo, sem indicador de localização e sem sino.
+ * O componente continua montado (efeitos de geolocalização/contadores rodam
+ * normalmente); apenas a barra não é exibida no mobile.
+ */
+export default function AppHeader({ hideOnMobile = false }: { hideOnMobile?: boolean } = {}) {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -233,6 +242,8 @@ export default function AppHeader() {
     <>
       <header
         className={`sticky top-0 z-40 transition-colors duration-200 ${
+          hideOnMobile ? 'hidden md:block ' : ''
+        }${
           isMotoristaHome ? (scrolled ? 'bg-[#e9edcb] shadow-sm' : 'bg-transparent') : 'bg-gray-100'
         }`}
       >

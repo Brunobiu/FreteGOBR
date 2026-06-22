@@ -597,3 +597,91 @@ export async function getFreteStatus(freteId: string): Promise<FreteStatusInfo |
     return null;
   }
 }
+
+/**
+ * Estado autoritativo da conversa para o gating do chat, resolvido pela RPC
+ * `get_conversation_chat_state` (SECURITY DEFINER). Diferente de
+ * `getFreteStatus`, enxerga o estado REAL do frete para qualquer participante
+ * (a RLS do feed esconde fretes não-`ativo` do motorista) e libera o telefone
+ * do peer apenas quando os dois lados atingiram o limiar de mensagens.
+ */
+export interface ConversationChatState {
+  frete: {
+    /** Há frete vinculado à conversa? (`false` ⇒ sem gating). */
+    linked: boolean;
+    /** A linha do frete ainda existe? (`false` ⇒ excluído). */
+    exists: boolean;
+    /** Status bruto quando disponível (`ativo`/`encerrado`/`cancelado`). */
+    status: FreteStatus | null;
+    /** Disponível para negociação (controla o bloqueio do input). */
+    available: boolean;
+    /** Valor do frete para o Frete_Card. */
+    value: number | null;
+  };
+  whatsapp: {
+    /** Ambos os lados atingiram o limiar de mensagens. */
+    unlocked: boolean;
+    /** Telefone do peer — só presente quando `unlocked` e frete disponível. */
+    peerPhone: string | null;
+    /** Mensagens enviadas pelo próprio usuário. */
+    msgsSelf: number;
+    /** Mensagens enviadas pelo peer. */
+    msgsPeer: number;
+    /** Limiar por lado para liberar o WhatsApp. */
+    threshold: number;
+  };
+}
+
+/**
+ * Busca o estado da conversa (disponibilidade do frete + liberação do
+ * WhatsApp) via RPC. Fail-safe: retorna `null` em qualquer falha — a UI trata
+ * `null` mantendo o gate `unknown` (input liberado), nunca bloqueando por
+ * engano em erro transitório. A função NUNCA lança.
+ */
+export async function getConversationChatState(
+  conversationId: string
+): Promise<ConversationChatState | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_conversation_chat_state', {
+      p_conversation_id: conversationId,
+    });
+
+    if (error || !data) return null;
+
+    const r = data as {
+      frete?: {
+        linked?: boolean;
+        exists?: boolean;
+        status?: string | null;
+        available?: boolean;
+        value?: number | string | null;
+      };
+      whatsapp?: {
+        unlocked?: boolean;
+        peer_phone?: string | null;
+        msgs_self?: number | null;
+        msgs_peer?: number | null;
+        threshold?: number | null;
+      };
+    };
+
+    return {
+      frete: {
+        linked: !!r.frete?.linked,
+        exists: !!r.frete?.exists,
+        status: (r.frete?.status as FreteStatus | null) ?? null,
+        available: !!r.frete?.available,
+        value: r.frete?.value != null ? Number(r.frete.value) : null,
+      },
+      whatsapp: {
+        unlocked: !!r.whatsapp?.unlocked,
+        peerPhone: r.whatsapp?.peer_phone ?? null,
+        msgsSelf: Number(r.whatsapp?.msgs_self ?? 0),
+        msgsPeer: Number(r.whatsapp?.msgs_peer ?? 0),
+        threshold: Number(r.whatsapp?.threshold ?? 3),
+      },
+    };
+  } catch {
+    return null;
+  }
+}

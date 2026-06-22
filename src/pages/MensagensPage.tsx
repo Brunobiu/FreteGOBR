@@ -13,7 +13,7 @@ import {
   markFreteMessagesAsRead,
   subscribeToFreteMessages,
   getUnreadConversationsCount,
-  getFreteStatus,
+  getConversationChatState,
   type FreteConversation,
   type FreteMessage,
   type ConversationPeer,
@@ -22,11 +22,15 @@ import { resolveProfilePhotoUrl } from '../services/documents';
 import { supabase } from '../services/supabase';
 import {
   gateToBadge,
-  freteStatusToGate,
-  effectiveStatus,
+  availabilityToGate,
   isInputBlocked,
   type FreteGate,
 } from '../services/freteGate';
+import {
+  whatsappGate,
+  buildWhatsappLink,
+  buildFreteInterestMessage,
+} from '../services/whatsappHandoff';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 const TYPING_TIMEOUT_MS = 3000;
@@ -78,6 +82,13 @@ export default function MensagensPage() {
   const [dragOver, setDragOver] = useState(false);
   const [freteGate, setFreteGate] = useState<FreteGate>('unknown');
   const [freteValue, setFreteValue] = useState<number | null>(null);
+  // Handoff de WhatsApp (liberado pelo servidor após N mensagens de cada lado).
+  const [waUnlocked, setWaUnlocked] = useState(false);
+  const [waPeerPhone, setWaPeerPhone] = useState<string | null>(null);
+  const [waMsgsSelf, setWaMsgsSelf] = useState(0);
+  const [waMsgsPeer, setWaMsgsPeer] = useState(0);
+  const [waThreshold, setWaThreshold] = useState(3);
+  const [waError, setWaError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -207,15 +218,6 @@ export default function MensagensPage() {
         setMessages(enriched);
         setPeer(peerInfo);
 
-        // Recupera o status do frete vinculado para derivar o gating da
-        // Conversation_Screen (badge + bloqueio de input) — fresco na abertura.
-        const conv = conversations.find((c) => c.id === activeId);
-        const freteId = conv?.freteId ?? null;
-        const info = freteId ? await getFreteStatus(freteId) : null;
-        if (cancelled) return;
-        setFreteGate(freteStatusToGate(effectiveStatus(info)));
-        setFreteValue(info?.value ?? null);
-
         if (peerInfo) {
           const photoSrc =
             peerInfo.userType === 'embarcador'
@@ -271,6 +273,43 @@ export default function MensagensPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, user]);
+
+  // Reset do gating ao trocar de conversa (evita exibir estado da anterior).
+  useEffect(() => {
+    setFreteGate('unknown');
+    setFreteValue(null);
+    setWaUnlocked(false);
+    setWaPeerPhone(null);
+    setWaMsgsSelf(0);
+    setWaMsgsPeer(0);
+    setWaError(null);
+  }, [activeId]);
+
+  // Estado autoritativo do gating: disponibilidade do frete + liberação do
+  // WhatsApp. Recalcula na abertura e a cada nova mensagem. A fonte é uma RPC
+  // SECURITY DEFINER que enxerga o frete REAL mesmo para o motorista (a RLS do
+  // feed esconde fretes não-'ativo'), garantindo que o bloqueio reflita nos
+  // dois lados. Fail-safe: erro mantém o estado atual (não bloqueia por engano).
+  useEffect(() => {
+    if (!activeId || !user) return;
+    let cancelled = false;
+    (async () => {
+      const st = await getConversationChatState(activeId);
+      if (cancelled || !st) return;
+      setFreteGate(
+        availabilityToGate({ linked: st.frete.linked, available: st.frete.available })
+      );
+      setFreteValue(st.frete.value);
+      setWaUnlocked(st.whatsapp.unlocked);
+      setWaPeerPhone(st.whatsapp.peerPhone);
+      setWaMsgsSelf(st.whatsapp.msgsSelf);
+      setWaMsgsPeer(st.whatsapp.msgsPeer);
+      setWaThreshold(st.whatsapp.threshold);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeId, user, messages.length]);
 
   // Realtime de INSERT em messages (mensagens novas)
   useEffect(() => {
@@ -553,9 +592,33 @@ export default function MensagensPage() {
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   };
 
+  // Abre o WhatsApp do peer com a mensagem pré-preenchida do frete. O telefone
+  // só chega do servidor quando o handoff está liberado; ainda assim validamos
+  // o número antes de montar o link.
+  const handleOpenWhatsapp = () => {
+    setWaError(null);
+    if (!waPeerPhone) {
+      setWaError('Contato de WhatsApp indisponível no momento.');
+      return;
+    }
+    const message = buildFreteInterestMessage({
+      origin: active?.frete?.origin,
+      destination: active?.frete?.destination,
+      asMotorista: user?.userType === 'motorista',
+    });
+    const link = buildWhatsappLink(waPeerPhone, message);
+    if (!link) {
+      setWaError('Número de WhatsApp inválido.');
+      return;
+    }
+    window.open(link, '_blank', 'noopener,noreferrer');
+  };
+
+  const waState = whatsappGate(waMsgsSelf, waMsgsPeer, waThreshold);
+
   return (
     <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
-      <AppHeader />
+      <AppHeader hideOnMobile />
 
       <main className="max-w-6xl md:max-w-2xl w-full mx-auto px-2 sm:px-4 py-2 sm:py-3 flex-1 flex flex-col min-h-0 overflow-hidden">
         <div className="flex items-center justify-between mb-2 shrink-0">
@@ -901,6 +964,18 @@ export default function MensagensPage() {
                     <div ref={messagesEndRef} />
                   </div>
 
+                  {/* Barra do WhatsApp (handoff) — oculta quando o frete está
+                      indisponível (aí só aparece o aviso de bloqueio). */}
+                  {!isInputBlocked(freteGate) && (
+                    <WhatsappHandoffBar
+                      unlocked={waUnlocked}
+                      remainingSelf={waState.remainingSelf}
+                      peerName={peer?.name ?? null}
+                      error={waError}
+                      onOpen={handleOpenWhatsapp}
+                    />
+                  )}
+
                   {/* Input */}
                   {isInputBlocked(freteGate) ? (
                     <BlockedNotice />
@@ -1124,14 +1199,96 @@ function FreteCard({
 }
 
 /**
- * Blocked_Notice — substitui a Input_Bar quando o frete não está mais ativo
- * (`gate === 'blocked'`), preservando o histórico legível. (Req 4.6)
+ * Blocked_Notice — substitui a Input_Bar (e a barra de WhatsApp) quando o frete
+ * não está mais disponível (`gate === 'blocked'`: excluído/encerrado/cancelado),
+ * preservando o histórico legível. Reflete para motorista E embarcador.
  */
 function BlockedNotice() {
   return (
     <footer className="border-t border-gray-200 bg-gray-50 p-3 shrink-0 text-center">
-      <p className="text-[12px] text-gray-500">Este frete não está mais ativo.</p>
+      <p className="text-[12px] text-gray-500">
+        Você não pode mais conversar. Frete indisponível.
+      </p>
     </footer>
+  );
+}
+
+/**
+ * Logotipo do WhatsApp (glifo oficial simplificado), na cor atual via
+ * `fill="currentColor"`.
+ */
+function WhatsappGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.82 11.82 0 018.413 3.488 11.82 11.82 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884a9.86 9.86 0 001.51 5.26l-.999 3.648 3.978-1.06zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.074-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
+    </svg>
+  );
+}
+
+/**
+ * WhatsApp_Handoff_Bar — fica acima da Input_Bar. Enquanto os dois lados não
+ * trocam o mínimo de mensagens, mostra um aviso (nudge) e o botão fica travado;
+ * liberado, vira o botão verde que abre o WhatsApp do peer com mensagem
+ * pré-preenchida do frete.
+ */
+function WhatsappHandoffBar({
+  unlocked,
+  remainingSelf,
+  peerName,
+  error,
+  onOpen,
+}: {
+  unlocked: boolean;
+  remainingSelf: number;
+  peerName: string | null;
+  error: string | null;
+  onOpen: () => void;
+}) {
+  let hint = '';
+  if (!unlocked) {
+    if (remainingSelf > 0) {
+      hint = `Converse um pouco: envie ${remainingSelf} ${
+        remainingSelf === 1 ? 'mensagem' : 'mensagens'
+      } para liberar o WhatsApp`;
+    } else {
+      hint = `Aguarde ${peerName || 'a outra parte'} responder para liberar o WhatsApp`;
+    }
+  }
+
+  return (
+    <div className="border-t border-gray-200 bg-white px-2 pt-2 shrink-0">
+      {error && <p className="text-[11px] text-red-600 mb-1 text-center">{error}</p>}
+      {unlocked ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#25D366] text-white text-[13px] font-semibold hover:brightness-95 active:brightness-90 transition shadow-sm"
+        >
+          <WhatsappGlyph className="w-4 h-4" />
+          Conversar no WhatsApp
+        </button>
+      ) : (
+        <div
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-500 text-[12px] cursor-default select-none"
+          title="Disponível após algumas mensagens"
+        >
+          <svg
+            className="w-4 h-4 shrink-0 opacity-60"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+            />
+          </svg>
+          <span className="text-center leading-tight">{hint}</span>
+        </div>
+      )}
+    </div>
   );
 }
 
