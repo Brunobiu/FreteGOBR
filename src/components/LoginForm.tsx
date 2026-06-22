@@ -134,30 +134,7 @@ export function LoginForm({
   // ==================== SELECAO DE PERFIL ====================
   if (!selectedProfile && !isTransitioning) {
     return (
-      <div className="relative flex h-full min-h-screen w-full max-w-sm flex-col items-center py-6 md:min-h-full md:py-8">
-        {/* Voltar para o início (tela anterior) */}
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            className="absolute left-0 top-2 inline-flex items-center gap-1 text-xs font-medium text-gray-400 transition-colors hover:text-gray-600"
-          >
-            <svg
-              className="h-4 w-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M19 12H5" />
-              <path d="m12 19-7-7 7-7" />
-            </svg>
-            Voltar
-          </button>
-        )}
+      <div className="flex h-full min-h-screen w-full max-w-sm flex-col items-center py-6 md:min-h-full md:py-8">
         {/* Logo (topo) */}
         <img src="/logo.png" alt="FreteGO" className="h-20 w-auto object-contain md:h-24" />
 
@@ -212,6 +189,30 @@ export function LoginForm({
                 Criar uma conta
               </button>
             </div>
+          )}
+
+          {/* Voltar — logo abaixo de "Criar uma conta" */}
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="mt-6 inline-flex items-center gap-1.5 text-xs font-medium text-gray-400 transition-colors hover:text-gray-600 md:text-sm"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M19 12H5" />
+                <path d="m12 19-7-7 7-7" />
+              </svg>
+              Voltar
+            </button>
           )}
         </div>
 
