@@ -1,4 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from 'react';
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppHeader from '../components/AppHeader';
 import { useAuth } from '../hooks/useAuth';
@@ -32,6 +39,23 @@ import { daySeparatorLabel, formatConversationStartDate, isSameDay } from '../ut
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
 const TYPING_TIMEOUT_MS = 3000;
 
+/** Filtro ativo da lista de conversas. */
+type ConvFilter = 'todas' | 'nao-lidas' | 'arquivadas';
+
+/** Conversas arquivadas ficam no localStorage por usuário (MVP, sem backend). */
+function archivedKey(userId: string | undefined): string {
+  return `fretego_chat_archived_${userId ?? 'anon'}`;
+}
+function readArchivedIds(userId: string | undefined): string[] {
+  try {
+    const raw = localStorage.getItem(archivedKey(userId));
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Página de mensagens estilo WhatsApp/Telegram.
  * - Lista fixa à esquerda com scroll próprio.
@@ -64,6 +88,12 @@ export default function MensagensPage() {
   const targetConvId = searchParams.get('conversation');
 
   const [conversations, setConversations] = useState<FreteConversation[]>([]);
+  const [convQuery, setConvQuery] = useState('');
+  const [convFilter, setConvFilter] = useState<ConvFilter>('todas');
+  const [archivedIds, setArchivedIds] = useState<string[]>([]);
+  const [menuConvId, setMenuConvId] = useState<string | null>(null);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [listNotice, setListNotice] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<FreteMessage[]>([]);
   const [peer, setPeer] = useState<ConversationPeer | null>(null);
@@ -575,6 +605,72 @@ export default function MensagensPage() {
 
   const active = conversations.find((c) => c.id === activeId) ?? null;
 
+  // Arquivadas (por usuário, no localStorage) — recarrega ao trocar de usuário.
+  useEffect(() => {
+    setArchivedIds(readArchivedIds(user?.id));
+  }, [user?.id]);
+
+  const archivedSet = useMemo(() => new Set(archivedIds), [archivedIds]);
+
+  const toggleArchive = (id: string) => {
+    setArchivedIds((prev) => {
+      const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+      try {
+        localStorage.setItem(archivedKey(user?.id), JSON.stringify(next));
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  };
+
+  const openConvMenu = (e: ReactMouseEvent<HTMLButtonElement>, convId: string) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setMenuConvId(convId);
+    setMenuPos({ top: rect.bottom + 4, right: Math.max(8, window.innerWidth - rect.right) });
+  };
+  const closeConvMenu = () => {
+    setMenuConvId(null);
+    setMenuPos(null);
+  };
+  const markConversationRead = (convId: string) => {
+    if (!user) return;
+    setConversations((prev) => prev.map((c) => (c.id === convId ? { ...c, unreadCount: 0 } : c)));
+    markFreteMessagesAsRead(convId, user.id)
+      .then(() => getUnreadConversationsCount(user.id))
+      .then((total) =>
+        window.dispatchEvent(new CustomEvent<number>('fretego-chat-unread-count', { detail: total }))
+      )
+      .catch(() => {
+        /* ignore */
+      });
+  };
+  const flashListNotice = (msg: string) => {
+    setListNotice(msg);
+    window.setTimeout(() => setListNotice(null), 2500);
+  };
+
+  // Lista filtrada por busca (nome/última mensagem/rota) + aba selecionada.
+  const filteredConversations = useMemo(() => {
+    const q = convQuery.trim().toLowerCase();
+    return conversations.filter((c) => {
+      const isArchived = archivedSet.has(c.id);
+      if (convFilter === 'arquivadas') {
+        if (!isArchived) return false;
+      } else {
+        if (isArchived) return false;
+        if (convFilter === 'nao-lidas' && !((c.unreadCount ?? 0) > 0)) return false;
+      }
+      if (q) {
+        const haystack = `${c.otherUser?.name ?? ''} ${c.lastMessage ?? ''} ${
+          c.frete?.origin ?? ''
+        } ${c.frete?.destination ?? ''}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [conversations, convQuery, convFilter, archivedSet]);
+
   const formatBytes = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
@@ -626,6 +722,53 @@ export default function MensagensPage() {
                 activeId ? 'hidden md:block' : 'block'
               }`}
             >
+              {/* Busca + filtros (Todas / Não lidas / Arquivadas) */}
+              {conversations.length > 0 && (
+                <div className="sticky top-0 z-10 bg-gray-50/95 backdrop-blur border-b border-gray-200 px-2 py-2 space-y-2">
+                  <div className="relative">
+                    <span className="absolute inset-y-0 left-2.5 flex items-center text-gray-400">
+                      <svg
+                        className="w-4 h-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M21 21l-4.35-4.35M11 19a8 8 0 100-16 8 8 0 000 16z"
+                        />
+                      </svg>
+                    </span>
+                    <input
+                      type="search"
+                      value={convQuery}
+                      onChange={(e) => setConvQuery(e.target.value)}
+                      placeholder="Buscar conversa"
+                      className="w-full pl-8 pr-2.5 py-1.5 bg-white border border-gray-200 rounded-full text-[12px] text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div className="flex gap-1.5">
+                    <ConvFilterChip
+                      label="Todas"
+                      active={convFilter === 'todas'}
+                      onClick={() => setConvFilter('todas')}
+                    />
+                    <ConvFilterChip
+                      label="Não lidas"
+                      active={convFilter === 'nao-lidas'}
+                      onClick={() => setConvFilter('nao-lidas')}
+                    />
+                    <ConvFilterChip
+                      label="Arquivadas"
+                      active={convFilter === 'arquivadas'}
+                      onClick={() => setConvFilter('arquivadas')}
+                    />
+                  </div>
+                </div>
+              )}
+
               {loadingConvs ? (
                 <p className="text-sm text-gray-500 text-center py-8">Carregando...</p>
               ) : conversations.length === 0 ? (
@@ -650,19 +793,30 @@ export default function MensagensPage() {
                     Inicie uma conversa a partir de um frete.
                   </p>
                 </div>
+              ) : filteredConversations.length === 0 ? (
+                <p className="text-[13px] text-gray-500 text-center py-8 px-4">
+                  {convFilter === 'arquivadas'
+                    ? 'Nenhuma conversa arquivada.'
+                    : convFilter === 'nao-lidas'
+                      ? 'Nenhuma conversa não lida.'
+                      : 'Nenhuma conversa encontrada.'}
+                </p>
               ) : (
                 <ul>
-                  {conversations.map((conv) => {
+                  {filteredConversations.map((conv) => {
                     const photo = convPhotos[conv.id] ?? null;
                     const initials = (conv.otherUser?.name ?? '?').charAt(0).toUpperCase();
                     return (
-                      <li key={conv.id}>
+                      <li
+                        key={conv.id}
+                        className={`flex items-stretch border-b border-gray-100 ${
+                          activeId === conv.id ? 'bg-blue-50' : 'hover:bg-gray-100'
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => handleSelect(conv.id)}
-                          className={`w-full flex items-center gap-2.5 px-2.5 py-2 border-b border-gray-100 hover:bg-gray-100 transition-colors text-left ${
-                            activeId === conv.id ? 'bg-blue-50' : ''
-                          }`}
+                          className="flex-1 min-w-0 flex items-center gap-2.5 px-2.5 py-2 text-left transition-colors"
                         >
                           {photo ? (
                             <img
@@ -695,6 +849,24 @@ export default function MensagensPage() {
                               {conv.unreadCount}
                             </span>
                           )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => openConvMenu(e, conv.id)}
+                          title="Opções da conversa"
+                          aria-label="Opções da conversa"
+                          aria-haspopup="menu"
+                          className="shrink-0 px-2 flex items-center text-gray-400 hover:text-gray-700"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
                         </button>
                       </li>
                     );
@@ -1153,6 +1325,94 @@ export default function MensagensPage() {
           </div>
         </div>
       </main>
+
+      {/* Aviso transitório (ex.: denúncia em breve) */}
+      {listNotice && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] px-3 py-1.5 rounded-full bg-gray-900 text-white text-xs shadow-lg">
+          {listNotice}
+        </div>
+      )}
+
+      {/* Menu de opções da conversa */}
+      {menuConvId && menuPos && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={closeConvMenu} aria-hidden="true" />
+          <div
+            role="menu"
+            style={{ top: menuPos.top, right: menuPos.right }}
+            className="fixed z-50 w-52 bg-white border border-gray-200 rounded-lg shadow-xl py-1"
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                markConversationRead(menuConvId);
+                closeConvMenu();
+              }}
+              className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg
+                className="w-4 h-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              Marcar como lida
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                toggleArchive(menuConvId);
+                closeConvMenu();
+              }}
+              className="w-full text-left px-3 py-2 text-[13px] text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+            >
+              <svg
+                className="w-4 h-4 text-gray-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M5 8h14M5 8a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2M5 8v11a2 2 0 002 2h10a2 2 0 002-2V8M10 12h4"
+                />
+              </svg>
+              {archivedSet.has(menuConvId) ? 'Desarquivar conversa' : 'Arquivar conversa'}
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                flashListNotice('Denúncia: em breve.');
+                closeConvMenu();
+              }}
+              className="w-full text-left px-3 py-2 text-[13px] text-red-600 hover:bg-red-50 flex items-center gap-2"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v3.75m0 3.75h.008M10.34 4.49L2.5 18a1.75 1.75 0 001.5 2.62h16A1.75 1.75 0 0021.5 18L13.66 4.49a1.75 1.75 0 00-3.32 0z"
+                />
+              </svg>
+              Denunciar conversa
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -1165,6 +1425,29 @@ export default function MensagensPage() {
  * Status_Badge derivado do gate. Retorna `null` quando a conversa não tem
  * frete vinculado (sem origem e sem destino). (Req 1.2, 1.3, 1.5, 1.6, 2.1)
  */
+/** Chip de filtro da lista de conversas (Todas / Não lidas / Arquivadas). */
+function ConvFilterChip({
+  label,
+  active,
+  onClick,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+        active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function FreteCard({
   origin,
   destination,
