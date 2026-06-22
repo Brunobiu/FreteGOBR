@@ -215,7 +215,7 @@ Convenções respeitadas (steering do projeto):
     - Build/tsc sem novos erros; execução equivalente ao baseline; toda a Regression_Suite (cache, auth, ordem, agregação, rotas, cálculos, RBAC) verde
     - _Requirements: 11.3, 11.4, 12.7_
 
-- [~] 17. Checkpoint final - Tudo verde
+- [ ] 17. Checkpoint final - Tudo verde
   - Ensure all tests pass, ask the user if questions arise.
 
 ## Notes

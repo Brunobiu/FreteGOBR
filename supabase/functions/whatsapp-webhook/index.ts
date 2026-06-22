@@ -68,8 +68,16 @@ const EVOLUTION_API_URL_ENV = Deno.env.get('EVOLUTION_API_URL') ?? '';
 // Modelo do provedor de IA (OpenAI-compativel). Configuravel por env; default
 // alinhado ao restante do projeto (motorista-ai-chat usa gpt-4o-mini).
 const AI_MODEL = (Deno.env.get('WHATSAPP_AI_MODEL') ?? 'gpt-4o-mini').trim() || 'gpt-4o-mini';
+// Gemini (Google): usado quando a chave da instancia e do Google (prefixo "AIza").
+// Espelha o provider nativo do assistente (assistant-ai); tier gratuito util p/ testes.
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
+const GEMINI_MODEL =
+  (Deno.env.get('WHATSAPP_GEMINI_MODEL') ?? 'gemini-2.5-flash').trim() || 'gemini-2.5-flash';
 // Quantas mensagens recentes da conversa enviar como historico ao provedor.
 const AI_HISTORY_LIMIT = 20;
+
+/** Pausa assincrona por `ms` milissegundos (humanizacao do auto-reply). */
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
 // ===================== Helpers de I/O =======================================
 
@@ -151,12 +159,29 @@ function extractPresentedToken(req: Request): string {
 
 // ===================== Parsing defensivo do payload =========================
 
+/** Chave da mensagem (usada para baixar a midia na Evolution, se preciso). */
+interface MessageKey {
+  id: string;
+  remoteJid?: string;
+  fromMe?: boolean;
+}
+
+/** Midia anexada a um evento inbound (audio/imagem/PDF), quando houver. */
+interface InboundMedia {
+  kind: 'image' | 'audio' | 'document';
+  mimetype: string;
+  /** base64 ja presente no payload (webhookBase64); '' => baixar da Evolution. */
+  base64: string;
+}
+
 /** Dados minimos extraidos de um evento inbound (tudo opcional/defensivo). */
 interface InboundEvent {
   instanceName: string;
   contactPhone: string;
   providerEventId: string;
   body: string;
+  media: InboundMedia | null;
+  messageKey: MessageKey;
 }
 
 /**
@@ -205,6 +230,40 @@ function extractMessageBody(data: Record<string, unknown>): string {
     }
   }
   return '';
+}
+
+/**
+ * Detecta midia (imagem/audio/documento) no payload da Evolution e extrai o
+ * tipo, o mimetype e — se a Evolution ja enviou (webhookBase64) — o base64.
+ * Retorna `null` quando nao ha midia suportada (ex.: so texto).
+ */
+function extractInboundMedia(data: Record<string, unknown>): InboundMedia | null {
+  const message = data.message;
+  if (typeof message !== 'object' || message === null) return null;
+  const obj = message as Record<string, unknown>;
+
+  const nodes: Array<{ node: string; kind: InboundMedia['kind']; fallbackMime: string }> = [
+    { node: 'imageMessage', kind: 'image', fallbackMime: 'image/jpeg' },
+    { node: 'audioMessage', kind: 'audio', fallbackMime: 'audio/ogg' },
+    { node: 'documentMessage', kind: 'document', fallbackMime: 'application/pdf' },
+  ];
+
+  for (const { node, kind, fallbackMime } of nodes) {
+    const n = obj[node];
+    if (typeof n !== 'object' || n === null) continue;
+    const nn = n as Record<string, unknown>;
+    // mimetype sem o sufixo de codecs (ex.: "audio/ogg; codecs=opus" -> "audio/ogg").
+    const rawMime = typeof nn.mimetype === 'string' && nn.mimetype.length > 0 ? nn.mimetype : '';
+    const mimetype = (rawMime.split(';')[0] || fallbackMime).trim();
+    // base64 pode vir no proprio no, ou em data.message.base64 / data.base64.
+    const b64 =
+      (typeof nn.base64 === 'string' && nn.base64) ||
+      (typeof obj.base64 === 'string' && obj.base64) ||
+      (typeof data.base64 === 'string' && data.base64) ||
+      '';
+    return { kind, mimetype, base64: b64 };
+  }
+  return null;
 }
 
 /**
@@ -257,9 +316,19 @@ function parseInboundEvent(payload: Record<string, unknown>): InboundEvent | nul
   const instanceName = extractInstanceName(payload);
   if (!instanceName) return null;
 
-  const body = extractMessageBody(d);
+  let body = extractMessageBody(d);
+  const media = extractInboundMedia(d);
+  // Mensagem so com midia (sem legenda): rotula o corpo p/ o historico ficar legivel.
+  if (!body && media) {
+    body = media.kind === 'image' ? '[imagem]' : media.kind === 'audio' ? '[áudio]' : '[documento]';
+  }
+  const messageKey: MessageKey = {
+    id: providerEventId,
+    remoteJid: typeof k.remoteJid === 'string' ? k.remoteJid : undefined,
+    fromMe: false,
+  };
 
-  return { instanceName, contactPhone, providerEventId, body };
+  return { instanceName, contactPhone, providerEventId, body, media, messageKey };
 }
 
 // ===================== Resolucao de instancia ===============================
@@ -387,12 +456,28 @@ function buildSystemPrompt(aiPrompt: string, knowledgeBase: string): string {
 }
 
 /**
- * Chama o provedor de IA (OpenAI-compativel: chat/completions) com a chave da
- * PROPRIA instancia. Trata qualquer resposta como dado nao confiavel e nunca
- * loga a chave. Retorna o texto da resposta ou `null` em qualquer erro/
- * indisponibilidade (=> AI_PROVIDER_ERROR no chamador, Req 16.4).
+ * Chama o provedor de IA com a chave da PROPRIA instancia, AUTO-DETECTANDO o
+ * provedor pela chave: chaves do Google (Gemini) comecam com `AIza` => API
+ * nativa do Gemini; caso contrario => OpenAI. Trata qualquer resposta como dado
+ * nao confiavel e nunca loga a chave. Retorna o texto ou `null` em qualquer
+ * erro/indisponibilidade (=> AI_PROVIDER_ERROR no chamador, Req 16.4).
  */
 async function generateAiReply(
+  systemPrompt: string,
+  history: HistoryMessage[],
+  apiKey: string,
+  media: { mimeType: string; base64: string } | null = null
+): Promise<string | null> {
+  // OpenAI comeca com "sk-"; qualquer outra chave (Google/Gemini: "AIza...",
+  // "AQ..." etc.) usa o Gemini. Midia (audio/imagem/PDF) so e suportada no Gemini.
+  if (apiKey.startsWith('sk-')) {
+    return generateOpenAiReply(systemPrompt, history, apiKey);
+  }
+  return generateGeminiReply(systemPrompt, history, apiKey, media);
+}
+
+/** OpenAI — endpoint chat/completions (Bearer). */
+async function generateOpenAiReply(
   systemPrompt: string,
   history: HistoryMessage[],
   apiKey: string
@@ -422,6 +507,68 @@ async function generateAiReply(
 }
 
 /**
+ * Gemini (Google) — API nativa `generateContent`. Espelha o provider do
+ * assistente (assistant-ai): o system prompt vai em `systemInstruction` e os
+ * papeis user/assistant viram user/model. A chave vai no querystring (padrao do
+ * Google) e NUNCA e logada.
+ */
+async function generateGeminiReply(
+  systemPrompt: string,
+  history: HistoryMessage[],
+  apiKey: string,
+  media: { mimeType: string; base64: string } | null = null
+): Promise<string | null> {
+  try {
+    type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+    const contents: Array<{ role: 'user' | 'model'; parts: GeminiPart[] }> = [];
+    for (const m of history) {
+      if (m.role !== 'user' && m.role !== 'assistant') continue;
+      contents.push({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      });
+    }
+    // Anexa a midia (audio/imagem/PDF) como fala do usuario — o Gemini "ouve/le".
+    if (media && media.base64) {
+      contents.push({
+        role: 'user',
+        parts: [{ inlineData: { mimeType: media.mimeType, data: media.base64 } }],
+      });
+    }
+    const url = `${GEMINI_API_BASE}/${encodeURIComponent(GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(
+      apiKey
+    )}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        generationConfig: { maxOutputTokens: 1024, temperature: 0.7 },
+      }),
+    });
+    if (!resp.ok) return null;
+    let data: unknown = null;
+    try {
+      data = await resp.json();
+    } catch {
+      return null;
+    }
+    const parts = (
+      data as { candidates?: Array<{ content?: { parts?: Array<{ text?: unknown }> } }> } | null
+    )?.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) return null;
+    const text = parts
+      .map((p) => (typeof p.text === 'string' ? p.text : ''))
+      .join('')
+      .trim();
+    return text.length > 0 ? text : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Envia a resposta automatica pela sessao da PROPRIA instancia via Evolution
  * (Req 16.2). Endpoint sendText. A chave da Evolution vai no header `apikey` e
  * nunca e logada. Retorna true sse o envio foi aceito.
@@ -431,17 +578,50 @@ async function sendEvolutionReply(
   instanceName: string,
   apiKey: string,
   phone: string,
-  text: string
+  text: string,
+  delayMs = 0
 ): Promise<boolean> {
   try {
+    // `delay` (ms) faz a Evolution exibir "digitando..." por esse tempo antes
+    // de entregar a mensagem — deixa a resposta da IA mais humana.
     const resp = await fetch(`${baseUrl}/message/sendText/${encodeURIComponent(instanceName)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: apiKey },
-      body: JSON.stringify({ number: phone, text }),
+      body: JSON.stringify({ number: phone, text, delay: delayMs }),
     });
     return resp.ok;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Garante o base64 da midia: usa o que veio no payload (webhookBase64) ou baixa
+ * da Evolution via getBase64FromMediaMessage. Retorna '' em qualquer falha.
+ */
+async function ensureMediaBase64(
+  baseUrl: string,
+  instanceName: string,
+  apiKey: string,
+  media: InboundMedia,
+  messageKey: MessageKey
+): Promise<string> {
+  if (media.base64 && media.base64.length > 100) return media.base64;
+  try {
+    const resp = await fetch(
+      `${baseUrl}/chat/getBase64FromMediaMessage/${encodeURIComponent(instanceName)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', apikey: apiKey },
+        body: JSON.stringify({ message: { key: messageKey }, convertToMp4: false }),
+      }
+    );
+    if (!resp.ok) return '';
+    const j = (await resp.json()) as { base64?: unknown } | null;
+    const b64 = j?.base64;
+    return typeof b64 === 'string' && b64.length > 100 ? b64 : '';
+  } catch {
+    return '';
   }
 }
 
@@ -456,7 +636,9 @@ async function runAutoReply(
   instanceName: string,
   contactPhone: string,
   providerEventId: string,
-  conversationId: string
+  conversationId: string,
+  media: InboundMedia | null,
+  messageKey: MessageKey
 ): Promise<void> {
   // 1. Claim sob lock: reserva o evento (UNIQUE) + le o modo (FOR UPDATE) e
   //    decide. BLOCKED/DUPLICATE ja sao terminais no banco.
@@ -514,17 +696,34 @@ async function runAutoReply(
   }
 
   // 3. Geracao: prompt (persona) + Knowledge_Base + historico da MESMA instancia.
+  //    Se houver midia (audio/imagem/PDF), garante o base64 e envia ao Gemini.
   const systemPrompt = buildSystemPrompt(claim.ai_prompt ?? '', claim.knowledge_base ?? '');
   const history = await readConversationHistory(sb, conversationId);
-  const reply = await generateAiReply(systemPrompt, history, aiKey);
+  let aiMedia: { mimeType: string; base64: string } | null = null;
+  if (media) {
+    const b64 = await ensureMediaBase64(baseUrl, instanceName, evoKey, media, messageKey);
+    if (b64) aiMedia = { mimeType: media.mimetype, base64: b64 };
+  }
+  const reply = await generateAiReply(systemPrompt, history, aiKey, aiMedia);
   if (reply === null) {
     // Erro/indisponibilidade do provedor de IA => AI_PROVIDER_ERROR (Req 16.4).
     await finalizeError();
     return;
   }
 
-  // 4. Envio pela sessao da instancia. Falha de envio => sem resposta entregue.
-  const sent = await sendEvolutionReply(baseUrl, instanceName, evoKey, contactPhone, reply);
+  // 4. Humanizacao (anti-bloqueio Meta): espera ~10s desde a chegada e mostra
+  //    "digitando..." por ~3s antes de enviar — parece atendimento humano e
+  //    evita respostas instantaneas que sinalizam bot. So no caminho de IA.
+  const TYPING_MS = 3000;
+  await sleep(8000 + Math.floor(Math.random() * 4000)); // ~8-12s antes de digitar
+  const sent = await sendEvolutionReply(
+    baseUrl,
+    instanceName,
+    evoKey,
+    contactPhone,
+    reply,
+    TYPING_MS
+  );
   if (!sent) {
     await finalizeError();
     return;
@@ -641,14 +840,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
     typeof ingest?.conversation_id === 'string' &&
     ingest.conversation_id.length > 0
   ) {
-    await runAutoReply(
+    // Auto-reply em BACKGROUND (atraso humanizado de ~10s + "digitando"), sem
+    // segurar a resposta do webhook — evita timeout/retry da Evolution.
+    const replyTask = runAutoReply(
       sb,
       instanceId,
       evt.instanceName,
       evt.contactPhone,
       evt.providerEventId,
-      ingest.conversation_id
+      ingest.conversation_id,
+      evt.media,
+      evt.messageKey
     );
+    const runtime = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+      .EdgeRuntime;
+    if (runtime?.waitUntil) {
+      runtime.waitUntil(replyTask);
+    } else {
+      await replyTask;
+    }
   }
 
   return jsonResponse({ ok: true, inserted, duplicate: !inserted });

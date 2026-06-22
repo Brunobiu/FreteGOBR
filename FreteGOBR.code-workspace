@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "FreteGOBR",
+			"path": "."
+		},
+		{
+			"name": "SECRETS_LOCAL",
+			"path": "../../Downloads/SECRETS_LOCAL"
+		}
+	],
+	"settings": {}
+}
