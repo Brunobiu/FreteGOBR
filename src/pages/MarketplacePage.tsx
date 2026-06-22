@@ -1,20 +1,26 @@
 /**
  * MarketplacePage — vitrine de anúncios entre usuários (estilo marketplace).
  *
- * Estado atual (v1, casca funcional):
  *  - Topo: título "Marketplace" + busca (lupa) + botão "Publicar" (verde).
  *  - Abas: "Para você" (ativa por padrão) e "Categorias".
  *  - "Seleções de hoje" com a localização (cidade) puxada do GPS/override.
- *  - Grade de itens ainda sem backend — exibe estado vazio amigável.
+ *  - Feed dos anúncios ativos (listMarketplacePosts) em grade de 2 colunas.
+ *  - Botão "Publicar" abre o MarketplacePublishSheet (título, descrição, até
+ *    10 fotos, localização obrigatória).
  *
  * A barra inferior do motorista continua fixa (renderizada aqui).
  */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import { useEffectiveLocation } from '../hooks/useEffectiveLocation';
 import { useTabSlideClass } from '../hooks/useTabTransition';
+import { useAuth } from '../hooks/useAuth';
+import { listMarketplacePosts, type MarketplacePost } from '../services/marketplace';
+import MarketplaceFeedCard from '../components/marketplace/MarketplaceFeedCard';
+import MarketplacePublishSheet from '../components/marketplace/MarketplacePublishSheet';
+import MotoristaBottomNav from '../components/MotoristaBottomNav';
 
 type Tab = 'para-voce' | 'categorias';
 
@@ -22,12 +28,44 @@ export default function MarketplacePage() {
   useDocumentTitle('Marketplace');
   const navigate = useNavigate();
   const slideClass = useTabSlideClass();
-  const { address } = useEffectiveLocation();
+  const { address, requestLocation, geoStatus } = useEffectiveLocation();
   const [tab, setTab] = useState<Tab>('para-voce');
   const [query, setQuery] = useState('');
 
   // Mostra só a cidade (primeira parte de "Cidade, Estado").
   const city = useMemo(() => (address ? address.split(',')[0].trim() : null), [address]);
+
+  const { user } = useAuth();
+  const [posts, setPosts] = useState<MarketplacePost[]>([]);
+  const [loadingFeed, setLoadingFeed] = useState(true);
+  const [feedError, setFeedError] = useState(false);
+  const [showPublish, setShowPublish] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoadingFeed(true);
+    listMarketplacePosts()
+      .then((list) => {
+        if (cancelled) return;
+        setPosts(list);
+        setFeedError(false);
+      })
+      .catch(() => {
+        if (!cancelled) setFeedError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingFeed(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Puxa a localização automaticamente ao abrir o Marketplace (para mostrar a
+  // cidade no topo). requestLocation é estável (useCallback), roda uma vez.
+  useEffect(() => {
+    void requestLocation();
+  }, [requestLocation]);
 
   return (
     <div className="min-h-screen bg-gray-100 pb-6">
@@ -56,7 +94,7 @@ export default function MarketplacePage() {
             </div>
             <button
               type="button"
-              onClick={() => window.alert('Publicar anúncio: em breve.')}
+              onClick={() => setShowPublish(true)}
               className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded-full shadow-sm"
             >
               <svg
@@ -117,38 +155,69 @@ export default function MarketplacePage() {
         {/* Cabeçalho da seção + localização */}
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-bold text-gray-900">Seleções de hoje</h2>
-          <span className="inline-flex items-center gap-1 text-sm font-medium text-blue-600">
+          <button
+            type="button"
+            onClick={() => void requestLocation()}
+            className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+            aria-label="Atualizar localização"
+          >
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" />
             </svg>
-            {city ?? 'Localização'}
-          </span>
+            {city ?? (geoStatus === 'loading' ? 'Localizando...' : 'Ativar localização')}
+          </button>
         </div>
 
-        {/* Grade de itens — vazia por enquanto (sem backend). */}
-        <div className="bg-white border border-gray-200 rounded-xl p-10 text-center shadow-sm">
-          <div className="mx-auto w-12 h-12 rounded-full bg-green-600/10 flex items-center justify-center mb-3">
-            <svg
-              className="w-6 h-6 text-green-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              strokeWidth={1.8}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
-              />
-            </svg>
+        {/* Feed: carregando / vazio / grade */}
+        {loadingFeed ? (
+          <div className="py-16 text-center text-sm text-gray-400">Carregando anúncios...</div>
+        ) : posts.length === 0 ? (
+          <div className="bg-white border border-gray-200 rounded-xl p-10 text-center shadow-sm">
+            <div className="mx-auto w-12 h-12 rounded-full bg-green-600/10 flex items-center justify-center mb-3">
+              <svg
+                className="w-6 h-6 text-green-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                />
+              </svg>
+            </div>
+            <p className="text-sm text-gray-700 font-medium">
+              {feedError ? 'Não foi possível carregar os anúncios.' : 'Ainda não há anúncios por aqui.'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {feedError
+                ? 'Verifique sua conexão e tente novamente.'
+                : `Seja o primeiro a publicar${city ? ` em ${city} e região.` : ' na sua região.'}`}
+            </p>
           </div>
-          <p className="text-sm text-gray-700 font-medium">Ainda não há anúncios por aqui.</p>
-          <p className="text-xs text-gray-500 mt-1">
-            Em breve você poderá comprar e vender itens
-            {city ? ` em ${city} e região.` : ' na sua região.'}
-          </p>
-        </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {posts.map((post) => (
+              <MarketplaceFeedCard key={post.id} post={post} />
+            ))}
+          </div>
+        )}
       </main>
+
+      {showPublish && user && (
+        <MarketplacePublishSheet
+          author={{ id: user.id, name: user.name, profilePhotoUrl: user.profilePhotoUrl ?? null }}
+          onClose={() => setShowPublish(false)}
+          onPublished={(post) => {
+            setPosts((prev) => [post, ...prev]);
+            setShowPublish(false);
+          }}
+        />
+      )}
+
+      {user?.userType === 'motorista' && <MotoristaBottomNav />}
     </div>
   );
 }

@@ -68,6 +68,7 @@ const MyTicketDetailPage = lazyWithRetry(() => import('./pages/MyTicketDetailPag
 const SupportChatPage = lazyWithRetry(() => import('./pages/SupportChatPage'));
 const TutorialPage = lazyWithRetry(() => import('./pages/TutorialPage'));
 const MarketplacePage = lazyWithRetry(() => import('./pages/MarketplacePage'));
+const MarketplacePostDetailPage = lazyWithRetry(() => import('./pages/MarketplacePostDetailPage'));
 
 // Honeypot pages - rotas armadilha para detectar bots
 const HoneypotPage = lazyWithRetry(() => import('./pages/HoneypotPage'));
@@ -349,6 +350,16 @@ function App() {
                 <MotoristaProtectedRoute>
                   <LazyRoute>
                     <MarketplacePage />
+                  </LazyRoute>
+                </MotoristaProtectedRoute>
+              }
+            />
+            <Route
+              path="/motorista/marketplace/:id"
+              element={
+                <MotoristaProtectedRoute>
+                  <LazyRoute>
+                    <MarketplacePostDetailPage />
                   </LazyRoute>
                 </MotoristaProtectedRoute>
               }

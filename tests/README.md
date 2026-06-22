@@ -491,3 +491,55 @@ Migration: `119_supervisor_chat_history.sql` (tabelas `supervisor_chat_sessions`
 `supervisor_chat_messages` + RLS por dono + 6 RPCs `SECURITY DEFINER`, reusa
 `SUPERVISOR_VIEW`) + par `_rollback` documentado. Aplicação manual (sem redeploy
 de edge function — persistência dirigida pelo frontend).
+
+## Regression_Suite — feature Marketplace
+
+Testes incorporados à suíte de regressão (rodam no pre-commit + CI). Núcleo
+puro + property-based (Properties 1–4 do design) + serviço + UI. É conteúdo de
+usuário: a escrita é autorizada por RLS de dono (`author_id = auth.uid()`), sem
+`executeAdminMutation` — o wrapper de audit só entra na moderação admin.
+
+Property tests (núcleo puro, `src/__tests__/marketplace/`):
+
+- `cp1_marketplace_collage.property.test.ts` — Photo_Collage determinística
+  (Property 1): `min(n,4)` quadros, overlay `max(0,n-4)`, índices válidos, só o
+  último quadro com overlay.
+- `cp2_marketplace_validation.property.test.ts` — validação de anúncio completa
+  e determinística (Property 2): título 1..120, descrição 0..2000, price null|>0,
+  1..10 fotos com MIME/limite, localização obrigatória; cada violação aponta o
+  campo (`LOCATION_REQUIRED`/`INVALID_FILE_TYPE`/`PHOTO_TOO_LARGE`/`TOO_MANY_PHOTOS`).
+- `cp3_marketplace_relative_age.property.test.ts` — Relative_Age monotônica e
+  não-negativa (Property 3): hoje / há N h / há N dias; skew ⇒ "hoje".
+- `cp4_marketplace_brl.property.test.ts` — formatBRL estável (Property 4):
+  prefixo "R$ ", agrupamento de milhar, centavos condicionais, determinística.
+
+Serviço e UI:
+
+- `marketplaceService.test.ts` — `marketplaceMessage` (códigos → pt-BR),
+  rejeição de validação sem rede, happy path (upload + insert), rollback das
+  fotos em falha de DB, mapeamento da RPC (coerção numeric, point, photoUrls).
+- `marketplaceFeedCard.test.tsx` — venda exibe valor + título; notícia só título;
+  descrição + autor; avatar placeholder; clique navega ao detalhe.
+- `marketplaceCollage.component.test.tsx` — 4 quadros máx., overlay "+N", clique
+  abre o lightbox no índice.
+- `marketplaceLightbox.component.test.tsx` — contador "X de N", navegação,
+  botão voltar, trava do scroll do body.
+- `marketplaceAdminModeration.test.ts` — `removeMarketplacePost` chama a RPC
+  `marketplace_remove_post` com `{p_id}` e grava o audit; erro propaga + _ROLLBACK.
+
+Integração (`tests/marketplace/`, só CI — branch Supabase efêmero):
+
+- `rls_isolation.test.ts` — SELECT só a autenticados (anon ⇒ 0); usuário comum vê
+  ativos; INSERT como outro autor negado (RLS WITH CHECK); editar/remover anúncio
+  de terceiro ⇒ 0 linhas; `marketplace_get_post`/`marketplace_list_posts` expõem
+  o ativo; `marketplace_remove_post` sem permissão ⇒ `permission_denied` (42501) +
+  `MARKETPLACE_VIEW_DENIED` persistido.
+
+Núcleo puro: `src/utils/marketplaceCollage.ts`, `src/utils/marketplacePost.ts`.
+
+Migration: `122_marketplace.sql` (tabela `marketplace_posts` + RLS owner-scoped +
+bucket público `marketplace_photos` com escrita por prefixo do dono + RPCs
+`marketplace_list_posts`/`marketplace_get_post`/`marketplace_remove_post`) + par
+`_rollback` documentado.
+
+Documentação operacional da feature: `docs/marketplace.md`.
