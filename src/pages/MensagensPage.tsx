@@ -26,11 +26,7 @@ import {
   isInputBlocked,
   type FreteGate,
 } from '../services/freteGate';
-import {
-  whatsappGate,
-  buildWhatsappLink,
-  buildFreteInterestMessage,
-} from '../services/whatsappHandoff';
+import { buildWhatsappLink, buildFreteInterestMessage } from '../services/whatsappHandoff';
 import { daySeparatorLabel, formatConversationStartDate, isSameDay } from '../utils/chatDates';
 
 const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
@@ -86,9 +82,6 @@ export default function MensagensPage() {
   // Handoff de WhatsApp (liberado pelo servidor após N mensagens de cada lado).
   const [waUnlocked, setWaUnlocked] = useState(false);
   const [waPeerPhone, setWaPeerPhone] = useState<string | null>(null);
-  const [waMsgsSelf, setWaMsgsSelf] = useState(0);
-  const [waMsgsPeer, setWaMsgsPeer] = useState(0);
-  const [waThreshold, setWaThreshold] = useState(3);
   const [waError, setWaError] = useState<string | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
@@ -281,8 +274,6 @@ export default function MensagensPage() {
     setFreteValue(null);
     setWaUnlocked(false);
     setWaPeerPhone(null);
-    setWaMsgsSelf(0);
-    setWaMsgsPeer(0);
     setWaError(null);
   }, [activeId]);
 
@@ -303,9 +294,6 @@ export default function MensagensPage() {
       setFreteValue(st.frete.value);
       setWaUnlocked(st.whatsapp.unlocked);
       setWaPeerPhone(st.whatsapp.peerPhone);
-      setWaMsgsSelf(st.whatsapp.msgsSelf);
-      setWaMsgsPeer(st.whatsapp.msgsPeer);
-      setWaThreshold(st.whatsapp.threshold);
     })();
     return () => {
       cancelled = true;
@@ -614,8 +602,6 @@ export default function MensagensPage() {
     }
     window.open(link, '_blank', 'noopener,noreferrer');
   };
-
-  const waState = whatsappGate(waMsgsSelf, waMsgsPeer, waThreshold);
 
   return (
     <div className="h-screen bg-gray-100 flex flex-col overflow-hidden">
@@ -988,8 +974,6 @@ export default function MensagensPage() {
                   {!isInputBlocked(freteGate) && (
                     <WhatsappHandoffBar
                       unlocked={waUnlocked}
-                      remainingSelf={waState.remainingSelf}
-                      peerName={peer?.name ?? null}
                       error={waError}
                       onOpen={handleOpenWhatsapp}
                     />
@@ -1252,61 +1236,39 @@ function WhatsappGlyph({ className }: { className?: string }) {
  */
 function WhatsappHandoffBar({
   unlocked,
-  remainingSelf,
-  peerName,
   error,
   onOpen,
 }: {
   unlocked: boolean;
-  remainingSelf: number;
-  peerName: string | null;
   error: string | null;
   onOpen: () => void;
 }) {
-  let hint = '';
-  if (!unlocked) {
-    if (remainingSelf > 0) {
-      hint = `Converse um pouco: envie ${remainingSelf} ${
-        remainingSelf === 1 ? 'mensagem' : 'mensagens'
-      } para liberar o WhatsApp`;
-    } else {
-      hint = `Aguarde ${peerName || 'a outra parte'} responder para liberar o WhatsApp`;
-    }
-  }
-
   return (
-    <div className="border-t border-gray-200 bg-white px-2 pt-2 shrink-0">
+    <div className="border-t border-gray-200 bg-white px-2 py-2 shrink-0">
       {error && <p className="text-[11px] text-red-600 mb-1 text-center">{error}</p>}
-      {unlocked ? (
+      <div className="flex items-center gap-2">
+        <span className="flex-1 text-[12px] text-gray-600 leading-tight">
+          {unlocked
+            ? 'Vocês já podem conversar no WhatsApp.'
+            : 'Converse um pouco para liberar o WhatsApp.'}
+        </span>
         <button
           type="button"
-          onClick={onOpen}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-[#25D366] text-white text-[13px] font-semibold hover:brightness-95 active:brightness-90 transition shadow-sm"
+          onClick={unlocked ? onOpen : undefined}
+          disabled={!unlocked}
+          title={
+            unlocked ? 'Abrir WhatsApp' : 'Disponível depois de algumas mensagens dos dois lados'
+          }
+          className={
+            unlocked
+              ? 'shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#25D366] text-white text-[13px] font-semibold hover:brightness-95 active:brightness-90 transition shadow-sm'
+              : 'shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gray-200 text-gray-400 text-[13px] font-semibold cursor-not-allowed'
+          }
         >
           <WhatsappGlyph className="w-4 h-4" />
-          Conversar no WhatsApp
+          WhatsApp
         </button>
-      ) : (
-        <div
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-gray-100 text-gray-500 text-[12px] cursor-default select-none"
-          title="Disponível após algumas mensagens"
-        >
-          <svg
-            className="w-4 h-4 shrink-0 opacity-60"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-            />
-          </svg>
-          <span className="text-center leading-tight">{hint}</span>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

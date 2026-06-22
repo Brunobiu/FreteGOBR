@@ -32,6 +32,20 @@ export default function MotoristaBottomNav() {
   const [hidden, setHidden] = useState(false);
   const lastScrollY = useRef(0);
 
+  // ─── Aviso "ANTT ainda não disponível" (efêmero) ─────────────────────
+  const [anttNotice, setAnttNotice] = useState(false);
+  const anttTimerRef = useRef<number | null>(null);
+  const showAnttNotice = () => {
+    setAnttNotice(true);
+    if (anttTimerRef.current) window.clearTimeout(anttTimerRef.current);
+    anttTimerRef.current = window.setTimeout(() => setAnttNotice(false), 2500);
+  };
+  useEffect(() => {
+    return () => {
+      if (anttTimerRef.current) window.clearTimeout(anttTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     const THRESHOLD = 8;
     lastScrollY.current = window.scrollY;
@@ -190,6 +204,11 @@ export default function MotoristaBottomNav() {
         aria-label="Navegação inferior"
       >
         <div className="relative max-w-md mx-auto h-16 grid grid-cols-6 items-center px-1 bg-gray-900 rounded-3xl border border-[#fde68a]/80 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+          {anttNotice && (
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs shadow-lg border border-[#fde68a]/40 whitespace-nowrap">
+              ANTT ainda não disponível
+            </div>
+          )}
           {/* 1 - Inicio */}
           <button
             type="button"
@@ -288,6 +307,7 @@ export default function MotoristaBottomNav() {
           {/* 4 - Tabela ANTT */}
           <button
             type="button"
+            onClick={showAnttNotice}
             className={`flex flex-col items-center justify-center gap-0.5 py-1 ${
               isTabelaActive ? 'text-green-400' : 'text-gray-300'
             }`}

@@ -89,7 +89,7 @@ export function gateToBadge(gate: FreteGate): BadgeView | null {
       return { label: 'Ativo', className: 'bg-green-100 text-green-700 border border-green-200' };
     case 'blocked':
       return {
-        label: 'Indisponível',
+        label: 'Desativado',
         className: 'bg-red-100 text-red-700 border border-red-200',
       };
     case 'unknown':
