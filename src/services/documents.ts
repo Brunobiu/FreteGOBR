@@ -71,6 +71,8 @@ export interface DocumentMetadata {
   userId: string;
   documentType: DocumentType;
   fileName: string;
+  /** Caminho do arquivo no bucket privado `documents` ({userId}/{type}_{ts}.ext). */
+  filePath: string;
   fileSize: number;
   mimeType: string;
   uploadedAt: Date;
@@ -102,6 +104,7 @@ function mapDocumentRow(row: any): DocumentMetadata {
     userId: row.user_id,
     documentType: row.document_type as DocumentType,
     fileName: row.file_name,
+    filePath: row.file_path,
     fileSize: row.file_size,
     mimeType: row.mime_type,
     uploadedAt: new Date(row.created_at),

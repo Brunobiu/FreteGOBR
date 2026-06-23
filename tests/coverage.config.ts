@@ -19,6 +19,9 @@ export const CRITICAL_MODULES: Record<string, number> = {
   'src/utils/calculoFrete.ts': 95,
   'src/services/admin/permissions.ts': 95,
   'src/utils/passwordValidation.ts': 90,
+  // Catálogo de documentos enviáveis no chat (chat-enviar-documentos). Núcleo
+  // puro (catálogo/labels/seleção/classificação) coberto por property + unit.
+  'src/services/driverDocsCatalog.ts': 90,
 
   // Módulos com cobertura forte na suíte completa (property tests dedicados).
   'src/utils/trialStatus.ts': 85,
