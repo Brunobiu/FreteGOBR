@@ -102,4 +102,20 @@ export const CRITICAL_MODULES: Record<string, number> = {
   // Núcleo puro: deriveTitle (sem PII), comparadores de ordenação, validação de
   // mensagem. Property tests CP1-CP3 + unit; medido 100% statements.
   'src/services/admin/supervisor/chatHistory.ts': 95,
+
+  // Rastreamento Inteligente / PatGo (admin-rastreamento-inteligente, migration
+  // 124). Núcleo puro determinístico espelho da autoridade SQL (classificador de
+  // causa, score/banda de risco, derivação de etapa, métricas do funil, motor de
+  // regras/anti-spam, lista em risco, recuperação, CSV), coberto por property
+  // tests CP1-CP14 + unit. Thresholds do design; margem abaixo do medido (100%).
+  // O service rastreamento.ts (wrappers de RPC) e a UI (.tsx, validada por build)
+  // ficam fora do gate por ora — como o padrão de supervisor/operacao/cliente360.
+  'src/services/admin/rastreamento/abandonmentClassifier.ts': 95,
+  'src/services/admin/rastreamento/riskScore.ts': 95,
+  'src/services/admin/rastreamento/stageDerivation.ts': 95,
+  'src/services/admin/rastreamento/funnelMetrics.ts': 95,
+  'src/services/admin/rastreamento/recoveryRuleEngine.ts': 90,
+  'src/services/admin/rastreamento/atRiskList.ts': 90,
+  'src/services/admin/rastreamento/recoveryPerformance.ts': 95,
+  'src/services/admin/rastreamento/csvExport.ts': 90,
 };

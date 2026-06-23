@@ -49,6 +49,12 @@ const ITEMS: MenuItem[] = [
     permission: 'SUPERVISOR_VIEW',
   },
   {
+    to: '/admin/rastreamento',
+    label: 'Rastreamento',
+    icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zm0-5a4 4 0 100-8 4 4 0 000 8zm0-3a1 1 0 100-2 1 1 0 000 2z',
+    permission: 'RASTREAMENTO_VIEW',
+  },
+  {
     to: '/admin/users',
     label: 'Usuarios',
     icon: 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 3a3 3 0 11-6 0 3 3 0 016 0z',

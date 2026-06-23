@@ -78,6 +78,15 @@ export const ADMIN_ACTIONS = [
   // (negação por construção). Espelha is_admin_with_permission re-asserida na 118.
   'SUPERVISOR_VIEW',
   'SUPERVISOR_MANAGE',
+  // Rastreamento Inteligente / PatGo (admin-rastreamento-inteligente, migration
+  // 124): RASTREAMENTO_VIEW lê o módulo (timeline, funil, lista em risco, config);
+  // RASTREAMENTO_MANAGE aciona recuperação, marca contato, edita regras e
+  // configura a chave de IA. Concedidas SOMENTE a SUPER_ADMIN (wildcard) e ADMIN
+  // (allow-all menos ADMIN_DENY). NAO entram em ADMIN_DENY nem nos *_PERMS de
+  // SUPORTE/FINANCEIRO/MODERADOR: negação por construção (deny-by-default,
+  // Req 2.1-2.4, 2.8). Espelha is_admin_with_permission re-asserida na 124.
+  'RASTREAMENTO_VIEW',
+  'RASTREAMENTO_MANAGE',
 ] as const;
 
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];

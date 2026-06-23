@@ -51,6 +51,7 @@ import SupervisorChatPage from '../../pages/admin/supervisor/SupervisorChatPage'
 import SupervisorDiagnosticsPage from '../../pages/admin/supervisor/SupervisorDiagnosticsPage';
 import SupervisorInsightsPage from '../../pages/admin/supervisor/SupervisorInsightsPage';
 import SupervisorSummaryPage from '../../pages/admin/supervisor/SupervisorSummaryPage';
+import AdminRastreamentoPage from '../../pages/admin/AdminRastreamentoPage';
 
 export default function AdminLayoutRoute() {
   return (
@@ -84,6 +85,7 @@ export default function AdminLayoutRoute() {
             <Route path="supervisor/diagnostico" element={<SupervisorDiagnosticsPage />} />
             <Route path="supervisor/insights" element={<SupervisorInsightsPage />} />
             <Route path="supervisor/resumo" element={<SupervisorSummaryPage />} />
+            <Route path="rastreamento" element={<AdminRastreamentoPage />} />
             <Route path="marketing" element={<MarketingMetricsPage />} />
             <Route path="marketing/configuracoes" element={<MarketingConfigPage />} />
             <Route path="settings" element={<SettingsPage />} />

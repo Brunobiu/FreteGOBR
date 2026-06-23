@@ -543,3 +543,90 @@ bucket público `marketplace_photos` com escrita por prefixo do dono + RPCs
 `_rollback` documentado.
 
 Documentação operacional da feature: `docs/marketplace.md`.
+
+
+## Regression_Suite — feature Rastreamento Inteligente (PatGo)
+
+Testes incorporados à suíte de regressão (rodam no pre-commit + CI). Núcleo puro
+determinístico + property-based (CP1–CP14 obrigatórias, sem `*`) + serviço + UI +
+integração. Decisão de escopo "Módulo focado + reuso": não duplica/quebra
+whatsapp-automation (092–114), admin-assistant (047), suporte-inteligente (115),
+admin-cliente-360 (116), central-operacao (117), ia-supervisora (118). Qualquer
+falha (inclusive flaky pós-retry) bloqueia merge/deploy.
+
+Property tests (`src/__tests__/admin/rastreamento/`, ≥200 runs):
+
+- `cp1_abandonment_classifier.property.test.ts` — Abandonment_Cause_Classifier:
+  totalidade + determinismo + precedência total (toda saída no domínio fechado;
+  mesma entrada ⇒ mesma causa; `ABANDONMENT_PRECEDENCE` resolve concorrência).
+- `cp2_risk_score_bounds.property.test.ts` — Risk_Score em `[0,100]` + determinismo.
+- `cp3_risk_score_monotonic.property.test.ts` — monotonicidade não-decrescente.
+- `cp4_risk_band_total.property.test.ts` — Risk_Band função total + monotônica.
+- `cp5_stage_derivation.property.test.ts` — Stage_Derivation domínio ordenado +
+  determinismo + invariância à ordem.
+- `cp6_funnel_monotonic.property.test.ts` — funil cumulativo não-crescente.
+- `cp7_funnel_metrics_bounds.property.test.ts` — taxas em `[0,1]` + complemento
+  (conversão + abandono = 1) + determinismo.
+- `cp8_recovery_engine_determinism.property.test.ts` — Recovery_Decision
+  determinístico + domínio fechado.
+- `cp9_anti_spam_guard.property.test.ts` — invariantes de supressão (cooldown,
+  ≤1 por evento crítico, concorrência) + idempotência.
+- `cp10_at_risk_list.property.test.ts` — filtragem (subconjunto) + ordenação
+  total (`risk_score` DESC, `user_id` ASC); faixa impossível ⇒ vazio.
+- `cp11_recovery_rate.property.test.ts` — Recovery_Rate em `[0,1]` + progressão
+  monotônica de Contact_Status.
+- `cp12_csv_roundtrip.property.test.ts` — round-trip CSV (reusa `whatsapp/csv`).
+- `cp13_no_pii_leak.property.test.ts` — privacidade transversal (`expectNoSecrets`/
+  `expectStructuredLog` sobre Journey_Summary/Recovery_Decision/contexto de IA/log).
+- `cp14_permission_precedence.property.test.ts` — `permission_denied` precede
+  validação (`expectPermissionDenied` + `mapRastreamentoError`).
+
+Unit/serviço/UI:
+
+- `permissions_rastreamento.unit.test.ts` — delta da Permission_Matrix
+  (`RASTREAMENTO_VIEW`/`RASTREAMENTO_MANAGE` só `SUPER_ADMIN`/`ADMIN`).
+- `journeySummary.unit.test.ts` / `abandonmentClassifier.unit.test.ts` /
+  `atRiskList.unit.test.ts` / `funnelMetrics.unit.test.ts` /
+  `recoveryRuleEngine.unit.test.ts` — exemplos/bordas dos módulos puros.
+- `rastreamento_service.test.ts` — `_SKIPPED` (mark/trigger), `STALE_VERSION`,
+  fallback de template quando a IA falha, delegação falha ⇒ NÃO marca CONTACTED
+  (Req 9.12), `Partial_Degradation` por bloco.
+- `rastreamentoUI.test.tsx` — Stealth_404; ausência de `<h1>`; paginação default
+  10 + troca 10/50/100; popover de filtros (aplica só na ação explícita); estado
+  vazio da timeline e da lista; ocultação total das ações + card de IA em
+  somente-leitura; navegação a `/admin/users/<id>`; formulário inválido bloqueia
+  envio + erro pt-BR.
+
+Integração (`tests/admin/rastreamento/`, só CI — branch Supabase efêmero):
+
+- `migration124_schema.integration.test.ts` — CHECK de domínio fechado
+  (`event_type`/`surface`/`recovery_scenario`); `uq_recovery_active_per_user` e
+  `uq_recovery_per_critical_event`; RLS bloqueia anon em todas as tabelas;
+  singleton `tracking_ai_config`; ampliação ADITIVA de `system_alerts.alert_type`
+  (`ABANDONMENT_SPIKE` aceito; valores de 117 preservados; fora do domínio rejeitado).
+- `tracking_rpcs_gating.integration.test.ts` — admin lê as RPCs gated; Cliente ⇒
+  `permission_denied` (42501) em TODAS; anon (auth.uid() nulo) ⇒ permission_denied;
+  isolamento (Cliente/anon não leem `journey_events`/`recovery_attempts`);
+  `page_size` validado ao conjunto `{10,50,100}`.
+- `tracking_lifecycle.integration.test.ts` — ingestão anônima write-only (válido
+  persiste, inválido rejeitado sem persistir, anti-enumeração); `mark_contacted`
+  idempotente (`TRACKING_CONTACT_MARK_SKIPPED` persistido); Master imutável;
+  `trigger_recovery` estado limpo ⇒ DISPATCH / disparo recente ⇒ SUPPRESS
+  WITHIN_COOLDOWN (`RECOVERY_TRIGGER_SKIPPED` persistido); `publish_alert` ⇒
+  `ABANDONMENT_SPIKE` persistido em `system_alerts`.
+
+Núcleo puro (Critical_Modules em `tests/coverage.config.ts`):
+`src/services/admin/rastreamento/{abandonmentClassifier,riskScore,stageDerivation,
+funnelMetrics,recoveryRuleEngine,atRiskList,recoveryPerformance,csvExport}.ts`. O
+service `rastreamento.ts` (wrappers de RPC) e a UI (`.tsx`) ficam fora do gate por ora.
+
+Migration: `124_admin_rastreamento_inteligente.sql` (tabelas `journey_events`/
+`tracking_visitor_identities`/`recovery_attempts`/`tracking_ai_config` + RLS
+admin-only; re-asserção de `is_admin_with_permission` reconhecendo
+`RASTREAMENTO_VIEW`/`RASTREAMENTO_MANAGE`; helpers IMMUTABLE espelho do núcleo;
+13 RPCs `SECURITY DEFINER`; ampliação aditiva `+ABANDONMENT_SPIKE` em
+`system_alerts.alert_type`; `pg_cron` defensivo) + par `_rollback` documentado.
+
+Edge Function: `supabase/functions/tracking-ingest` (write-only, anti-enumeração;
+encaminha o Authorization do caller para resolver `auth.uid()`/anon; payload
+mínimo via allowlist; deploy com `--no-verify-jwt`).

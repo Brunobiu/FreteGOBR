@@ -257,6 +257,25 @@ SELECT * FROM get_platform_metrics();
 - `permission_denied` precedence; `content`/`title` nunca carregam PII (sanitizados no service via `sanitizeSupervisorText` antes de persistir)
 - Paired with documented `119_supervisor_chat_history_rollback.sql` (not auto-applied)
 
+### 124_admin_rastreamento_inteligente.sql
+**Purpose**: Rastreamento Inteligente (PatGo) — aba `/admin/rastreamento` que rastreia a jornada do usuário (site/dashboard/app), classifica causa de abandono, calcula score de risco, mostra funil de conversão + lista de usuários em risco e dispara recuperação por WhatsApp sob um motor de regras + anti-spam (spec `admin-rastreamento-inteligente`). Pipeline: Rastreamento → Motor de Regras → IA → Ação.
+
+**Contents**:
+- Creates 4 tables (closed CHECK domains): `journey_events` (`event_type` 24-valor / `surface` 3-valor; `user_id` SET NULL OU `visitor_id`; índices user/visitor/type-time), `tracking_visitor_identities` (correlação `visitor_id`→`user_id`), `recovery_attempts` (PARTIAL unique `uq_recovery_active_per_user WHERE active` — ≤1 ativa por usuário; PARTIAL unique `uq_recovery_per_critical_event` — 1 por `trigger_event_id`; FK `dispatch_job_id`→`whatsapp_dispatch_jobs` SET NULL), `tracking_ai_config` (singleton; SEM segredo) + trigger `tracking_touch_updated_at`
+- Admin-only RLS em todas as tabelas: SELECT gated por `RASTREAMENTO_VIEW`; DML direto negado (`no_dml` USING/CHECK false — escrita só via SECURITY DEFINER RPCs); `journey_events` **sem** policy de insert (ingestão só pela RPC anônima write-only); nenhuma leitura a `anon`; nenhum acesso cruzado entre usuários
+- Re-asserts `is_admin_with_permission` preservando o corpo on-disk vigente (030 + 047/048 deny-list + 115 `FAQ_VIEW`); `RASTREAMENTO_VIEW`/`RASTREAMENTO_MANAGE` reconhecidas por construção (SUPER_ADMIN wildcard, ADMIN allow-all menos deny-list; SUPORTE/FINANCEIRO/MODERADOR negam)
+- Helpers `IMMUTABLE` (espelho SQL do núcleo puro TS): `tracking_mask_phone`, `tracking_risk_score` (pesos 2/8/6/5/15 clamp [0,100]), `tracking_risk_band` (24/49/74), `tracking_abandonment_cause` (precedência total), `tracking_risk_category`, `tracking_resolve_scenario`; `STABLE tracking_recovery_decision` (Anti_Spam_Guard: CONCURRENT > MIN_DELAY > DUPLICATE > WITHIN_COOLDOWN 72h > MAX_PER_WINDOW 24h/1 > DISPATCH)
+- 13 RPCs `SECURITY DEFINER`: `rpc_tracking_ingest_event` (anon+auth, write-only, valida domínio fechado, rate-limit, retorna só `{inserted,rejected,throttled}` — anti-enumeração), `rpc_tracking_correlate_visitor` (auth), leituras gated `_timeline`/`_at_risk_list` (page_size ∈ {10,50,100} + ILIKE escapado)/`_funnel`/`_recovery_performance`/`_get_config`, mutações `_mark_contacted` (idempotente `_SKIPPED ALREADY_CONTACTED` + `STALE_VERSION`)/`_trigger_recovery` (autoridade do motor; SUPPRESS⇒`RECOVERY_TRIGGER_SKIPPED`)/`_record_dispatch` (registra Recovery_Attempt CONTACTED após delegação — honra Req 9.12)/`_update_ai_config` (`STALE_VERSION`), `rpc_tracking_scan_recovery` (service_role/pg_cron; `NEW_SIGNUP_WELCOME` + `RECOVERY_AUTO_DISPATCH`), `rpc_tracking_publish_alert` (publica `ABANDONMENT_SPIKE` em `system_alerts`)
+- **Ampliação ADITIVA e não-destrutiva** de `system_alerts.alert_type` (DROP de qualquer CHECK de `alert_type` + ADD com a união dos valores de 117 + `ABANDONMENT_SPIKE`) — confirmada pelo dono; revertida no rollback. Nenhuma tabela/RPC/policy de 092–118 é recriada
+- `pg_cron` defensivo agendando `rpc_tracking_scan_recovery()` a cada 5 min (no-op sem a extensão)
+- Reusa (não recria): envio (whatsapp-automation 092–114), personalização de IA + Vault (admin-assistant 047), handoff (suporte-inteligente 115), identificação/navegação (admin-cliente-360 116), alertas/logs (central-operacao 117 + ia-supervisora 118)
+
+**Key Features**:
+- Idempotente (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY/TRIGGER IF EXISTS`, `ON CONFLICT DO NOTHING`), `DO $check$` defensivo (hard: 030/users/092/117; soft NOTICE: 047/116), bloco `-- VERIFY` comentado
+- Audit by construction: `TRACKING_CONTACT_MARK_SKIPPED`/`RECOVERY_TRIGGER_SKIPPED`/`RECOVERY_AUTO_DISPATCH` gravados nas RPCs (success path); negative `RASTREAMENTO_VIEW_DENIED`; positivos `TRACKING_CONTACT_MARK`/`RECOVERY_TRIGGER`/`TRACKING_AI_CONFIG_UPDATE` pelo TS service layer
+- `permission_denied` precedence; `payload`/`detail`/contexto de IA sem PII bruta; Master_Admin (`Nexus_Vortex99`) imutável (guarda antes de qualquer touch que referencie `users`)
+- Paired with documented `124_admin_rastreamento_inteligente_rollback.sql` (not auto-applied; restaura o CHECK original de `system_alerts.alert_type`)
+
 ## Migration Best Practices
 
 1. **Always backup** before running migrations in production
