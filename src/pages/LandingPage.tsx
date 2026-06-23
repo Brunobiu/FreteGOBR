@@ -37,6 +37,7 @@ import SocialRail from '../components/public/SocialRail';
 import { AccessButton } from '../components/public/AccessChoice';
 import BrandedTitle from '../components/public/BrandedTitle';
 import CommunityButton from '../components/public/CommunityButton';
+import FretesAoVivoSection from '../components/public/FretesAoVivoSection';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/appLinks';
 import { getPublicStats, type PublicStats } from '../services/publicStats';
 import {
@@ -522,13 +523,13 @@ export default function LandingPage() {
 
               {/* CTA secundário: explorar fretes sem baixar o app */}
               <p className="text-shadow-soft mt-3 text-center text-xs text-white/75 sm:mt-5 sm:text-left">
-                <Link
-                  to="/fretes"
+                <AccessButton
+                  to="/login"
                   className="inline-flex items-center gap-1 font-medium text-brand-lime hover:underline"
                 >
                   Ou veja os fretes disponíveis
                   <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                </AccessButton>
               </p>
             </div>
           </div>
@@ -652,6 +653,11 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ===================== FRETES AO VIVO (tempo real) =====================
+          Entre Vantagens e Funcionalidades: mapa do Brasil só pra observar +
+          lista "Últimos fretes lançados", atualizando em tempo real. */}
+      <FretesAoVivoSection />
 
       {/* ===================== FUNCIONALIDADES =====================
           Layout alternado imagem/texto. Cada bloco tem "Ver mais" levando a

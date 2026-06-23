@@ -88,6 +88,17 @@ beforeEach(() => {
   (HTMLMediaElement.prototype as unknown as { play: () => Promise<void> }).play = vi
     .fn()
     .mockResolvedValue(undefined);
+  // jsdom não implementa IntersectionObserver (usado pelo SocialRail) — stub.
+  if (!('IntersectionObserver' in window)) {
+    (window as unknown as { IntersectionObserver: unknown }).IntersectionObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    };
+  }
   container = document.createElement('div');
   document.body.appendChild(container);
 });

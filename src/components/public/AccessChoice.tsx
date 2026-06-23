@@ -142,11 +142,10 @@ function AccessChoiceModal({
           Como você prefere usar o FreteGO?
         </h2>
         <p className="mt-2 text-sm leading-relaxed text-gray-600">
-          Baixe o app pra ter a melhor experiência na estrada — ou continue agora mesmo pela versão
-          web.
+          Baixe o aplicativo e tenha a melhor experiência.
         </p>
 
-        {/* Lojas */}
+        {/* Lojas — foco do modal */}
         <div className="mt-5 grid grid-cols-2 gap-3">
           <StoreButton
             href={APP_STORE_URL}
@@ -162,24 +161,16 @@ function AccessChoiceModal({
           />
         </div>
 
-        {/* Divisor */}
-        <div className="my-5 flex items-center gap-3 text-[11px] font-medium uppercase tracking-wider text-gray-400">
-          <span className="h-px flex-1 bg-gray-200" />
-          ou
-          <span className="h-px flex-1 bg-gray-200" />
-        </div>
-
-        {/* Continuar na web */}
+        {/* Continuar na web — link discreto (botão disfarçado): o acesso web
+            continua funcionando, mas sem destaque, pra incentivar o download
+            do app. */}
         <button
           type="button"
           onClick={onContinueWeb}
-          className="w-full rounded-xl bg-brand-green px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-brand-greenDark"
+          className="mx-auto mt-5 block text-center text-xs text-gray-400 underline-offset-2 transition-colors hover:text-gray-600 hover:underline"
         >
           Continuar na versão web
         </button>
-        <p className="mt-3 text-center text-xs text-gray-400">
-          Você pode baixar o app a qualquer momento.
-        </p>
       </div>
     </div>
   );

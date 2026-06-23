@@ -860,3 +860,57 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
       0 0 22px 4px rgba(37, 211, 102, 0.7);
   }
 }
+
+/* ── Mapa de fretes em tempo real (landing) ──────────────────────────────
+ * Pin "vivo": bolinha verde com um anel que pulsa pra fora, dando a sensação
+ * de tempo real no mapa. Selo "Ao vivo": bolinha vermelha piscando (convenção
+ * de transmissão ao vivo). Decoração de marketing — anima SEMPRE (igual ao
+ * ticker do hero), inclusive com "reduzir movimento" ligado, pra garantir a
+ * leitura de "tempo real". */
+.frete-live-dot {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #16a34a;
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.55);
+  animation: frete-live-pulse 2.2s ease-out infinite;
+}
+@keyframes frete-live-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+.live-badge-dot {
+  --live-color: 239, 68, 68; /* vermelho (padrão "ao vivo") */
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: rgb(var(--live-color));
+  box-shadow: 0 0 0 0 rgba(var(--live-color), 0.7);
+  animation: live-badge-pulse 1.6s ease-out infinite;
+}
+/* Variante verde (selo do mapa) — casa com os pinos verdes dos fretes. */
+.live-badge-dot.is-green {
+  --live-color: 22, 163, 74;
+}
+@keyframes live-badge-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--live-color), 0.65);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(var(--live-color), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--live-color), 0);
+  }
+}

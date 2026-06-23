@@ -62,6 +62,7 @@ const PrivacidadePage = lazyWithRetry(() => import('./pages/PrivacidadePage'));
 const AudienceLandingPage = lazyWithRetry(() => import('./pages/AudienceLandingPage'));
 const SaibaMaisPage = lazyWithRetry(() => import('./pages/SaibaMaisPage'));
 const IaLandingPage = lazyWithRetry(() => import('./pages/IaLandingPage'));
+const FretesAoVivoPage = lazyWithRetry(() => import('./pages/FretesAoVivoPage'));
 const RedefinirSenhaPage = lazyWithRetry(() => import('./pages/RedefinirSenhaPage'));
 const MyTicketsPage = lazyWithRetry(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazyWithRetry(() => import('./pages/NewTicketPage'));
@@ -240,6 +241,14 @@ function App() {
               element={
                 <LazyRoute>
                   <IaLandingPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/fretes-ao-vivo"
+              element={
+                <LazyRoute>
+                  <FretesAoVivoPage />
                 </LazyRoute>
               }
             />
