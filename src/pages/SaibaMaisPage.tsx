@@ -13,7 +13,7 @@ import { useDocumentTitle } from '../hooks/useDocumentTitle';
 import PublicLayout from '../components/public/PublicLayout';
 import { AccessButton } from '../components/public/AccessChoice';
 import NotFoundPage from './NotFoundPage';
-import { getTopic } from '../data/landingContent';
+import { getTopic, BENEFITS } from '../data/landingContent';
 
 type IconProps = { className?: string };
 
@@ -61,14 +61,32 @@ export default function SaibaMaisPage() {
 
   if (!topic) return <NotFoundPage />;
 
+  // Vantagens têm imagem de fundo (mesma da landing, /vantagens/<slug>.jpg);
+  // funcionalidades não têm → mantêm o gradiente sólido.
+  const heroBg = BENEFITS.some((b) => b.slug === slug) ? `/vantagens/${slug}.jpg` : null;
+
   return (
     <PublicLayout>
       {/* Hero do tópico */}
       <section className="relative overflow-hidden bg-brand-navyDeep">
-        <div
-          className="absolute inset-0 bg-gradient-to-br from-brand-navy via-brand-navyDeep to-brand-navy"
-          aria-hidden="true"
-        />
+        {heroBg ? (
+          <>
+            <div
+              className="absolute inset-0 scale-105 bg-cover bg-center blur-[2px]"
+              style={{ backgroundImage: `url('${heroBg}')` }}
+              aria-hidden="true"
+            />
+            <div
+              className="absolute inset-0 bg-gradient-to-t from-brand-navyDeep/90 via-brand-navyDeep/75 to-brand-navyDeep/60"
+              aria-hidden="true"
+            />
+          </>
+        ) : (
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-brand-navy via-brand-navyDeep to-brand-navy"
+            aria-hidden="true"
+          />
+        )}
         <div className="relative mx-auto max-w-4xl px-4 py-16 sm:py-20">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-white backdrop-blur-sm sm:text-[11px]">
             <span className="h-1.5 w-1.5 rounded-full bg-brand-lime" />

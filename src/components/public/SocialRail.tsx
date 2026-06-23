@@ -7,6 +7,8 @@
  * é só trocar os href aqui.
  */
 
+import { useEffect, useState } from 'react';
+
 type Social = {
   name: string;
   href: string;
@@ -50,8 +52,29 @@ const SOCIALS: Social[] = [
 ];
 
 export default function SocialRail() {
+  // Aparece só depois que o hero (#inicio) sai da tela — na primeira seção
+  // (topo) a barra fica oculta para não atrapalhar; surge da 2ª seção em diante.
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const hero = document.getElementById('inicio');
+    if (!hero) {
+      setShow(true); // fallback: sem hero conhecido, comporta como antes
+      return;
+    }
+    const io = new IntersectionObserver(([entry]) => setShow(!entry.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(hero);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <div className="fixed left-3 top-1/2 z-40 hidden -translate-y-1/2 flex-col gap-2.5 lg:flex">
+    <div
+      className={`fixed left-3 top-1/2 z-40 -translate-y-1/2 flex-col gap-2.5 ${
+        show ? 'hidden lg:flex' : 'hidden'
+      }`}
+    >
       {SOCIALS.map((s) => (
         <a
           key={s.name}

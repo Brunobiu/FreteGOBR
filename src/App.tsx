@@ -61,6 +61,7 @@ const TermosPage = lazyWithRetry(() => import('./pages/TermosPage'));
 const PrivacidadePage = lazyWithRetry(() => import('./pages/PrivacidadePage'));
 const AudienceLandingPage = lazyWithRetry(() => import('./pages/AudienceLandingPage'));
 const SaibaMaisPage = lazyWithRetry(() => import('./pages/SaibaMaisPage'));
+const IaLandingPage = lazyWithRetry(() => import('./pages/IaLandingPage'));
 const RedefinirSenhaPage = lazyWithRetry(() => import('./pages/RedefinirSenhaPage'));
 const MyTicketsPage = lazyWithRetry(() => import('./pages/MyTicketsPage'));
 const NewTicketPage = lazyWithRetry(() => import('./pages/NewTicketPage'));
@@ -231,6 +232,14 @@ function App() {
               element={
                 <LazyRoute>
                   <SaibaMaisPage />
+                </LazyRoute>
+              }
+            />
+            <Route
+              path="/ia"
+              element={
+                <LazyRoute>
+                  <IaLandingPage />
                 </LazyRoute>
               }
             />

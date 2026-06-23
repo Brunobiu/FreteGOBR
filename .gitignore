@@ -73,3 +73,7 @@ tools/
 *.njsproj
 *.sln
 *.sw?
+
+# Mídia de referência pesada (originais ~61MB; as versões servidas na web
+# estão otimizadas em public/). Mantida só localmente, fora do repo.
+fotos/

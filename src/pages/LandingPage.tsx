@@ -561,7 +561,14 @@ export default function LandingPage() {
           </div>
 
           {/* Virada: dor → desejo */}
-          <div className="mx-auto mt-10 max-w-3xl rounded-2xl border border-brand-green/30 bg-brand-green/10 p-6 sm:mt-12 sm:p-8">
+          <div className="relative mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-brand-green/30 bg-brand-green/10 p-6 sm:mt-12 sm:p-8">
+            {/* Imagem da IA fixada no canto inferior direito do card. */}
+            <img
+              src="/IA_foto.png"
+              alt=""
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-1 right-2 h-24 w-auto select-none ia-glow"
+            />
             <h3 className="text-center text-lg font-bold text-white sm:text-xl">{DESIRE_TITLE}</h3>
             <ul className="mt-5 grid gap-3 sm:grid-cols-3">
               {DESIRE_POINTS.map((point) => (
@@ -571,12 +578,12 @@ export default function LandingPage() {
                 </li>
               ))}
             </ul>
-            <div className="mt-6 flex justify-center">
+            <div className="mt-6 flex justify-start sm:justify-center">
               <AccessButton
-                to="/register"
+                to="/ia"
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
               >
-                Começar de graça
+                Entenda mais
                 <ArrowRight className="h-4 w-4" />
               </AccessButton>
             </div>
@@ -605,21 +612,38 @@ export default function LandingPage() {
           <div className="mt-10 grid gap-4 sm:mt-12 sm:grid-cols-2 lg:grid-cols-3">
             {BENEFITS.map((b) => {
               const Icon = BENEFIT_ICONS[b.icon];
+              const bg = `/vantagens/${b.slug}.jpg`;
               return (
                 <Link
                   key={b.slug}
                   to={`/saiba/${b.slug}`}
-                  className="group flex h-full flex-col rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-green/30 hover:shadow-md"
+                  className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/10 p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand-green/10 text-brand-green ring-1 ring-inset ring-brand-green/15">
-                    <Icon className="h-6 w-6" />
-                  </span>
-                  <h3 className="mt-4 text-base font-bold text-gray-900 sm:text-lg">{b.title}</h3>
-                  <p className="mt-1.5 flex-1 text-sm leading-relaxed text-gray-600">{b.desc}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-green">
-                    Saiba mais
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-                  </span>
+                  {/* Imagem de fundo (levemente desfocada). */}
+                  <span
+                    className="absolute inset-0 scale-110 bg-cover bg-center blur-[2px]"
+                    style={{ backgroundImage: `url('${bg}')` }}
+                    aria-hidden="true"
+                  />
+                  {/* Tom de cor por cima — dá identidade e mantém o texto legível. */}
+                  <span
+                    className="absolute inset-0 bg-gradient-to-t from-brand-navyDeep/90 via-brand-navyDeep/70 to-brand-navyDeep/55"
+                    aria-hidden="true"
+                  />
+                  {/* Conteúdo */}
+                  <div className="relative z-10 flex flex-1 flex-col">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/15 text-white ring-1 ring-inset ring-white/25 backdrop-blur-sm">
+                      <Icon className="h-6 w-6" />
+                    </span>
+                    <h3 className="mt-4 text-base font-bold text-white drop-shadow sm:text-lg">
+                      {b.title}
+                    </h3>
+                    <p className="mt-1.5 flex-1 text-sm leading-relaxed text-white/85">{b.desc}</p>
+                    <span className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-brand-lime">
+                      Saiba mais
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </span>
+                  </div>
                 </Link>
               );
             })}

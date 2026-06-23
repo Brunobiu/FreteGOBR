@@ -57,7 +57,7 @@ export type Topic = {
 
 export const PAIN_TITLE = 'A estrada já é difícil. Achar frete bom não devia ser.';
 export const PAIN_SUBTITLE =
-  'Todo dia é a mesma luta pra fechar carga boa, no preço justo e sem rodar à toa. A gente entende — e foi por isso que o FreteGO existe.';
+  '';
 
 export const PAINS: Pain[] = [
   {

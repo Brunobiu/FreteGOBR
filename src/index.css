@@ -780,3 +780,25 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
 .frete-marquee-track:hover {
   animation-play-state: paused;
 }
+
+/* Brilho suave da imagem da IA (landing) — chama atenção sem exagero.
+   Usa drop-shadow, então acompanha a silhueta de PNG sem fundo.
+   Respeita prefers-reduced-motion. */
+@keyframes ia-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px rgba(163, 230, 53, 0.45)) drop-shadow(0 0 8px rgba(34, 197, 94, 0.25));
+  }
+  50% {
+    filter: drop-shadow(0 0 9px rgba(163, 230, 53, 0.85)) drop-shadow(0 0 20px rgba(34, 197, 94, 0.5));
+  }
+}
+.ia-glow {
+  animation: ia-glow 2.6s ease-in-out infinite;
+  will-change: filter;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ia-glow {
+    animation: none;
+  }
+}
