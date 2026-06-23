@@ -802,3 +802,61 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
     animation: none;
   }
 }
+
+/* ── Botão "Comunidade FreteGO" (WhatsApp) ───────────────────────────────
+ * Destaque do CTA da comunidade, combinando:
+ *  1) um "respiro" — leve pulsar de escala + halo verde em volta do botão;
+ *  2) um reflexo diagonal que cruza o botão de tempos em tempos.
+ * O conteúdo (ícone + texto) fica acima do reflexo via z-index e o
+ * overflow:hidden recorta o reflexo no formato arredondado. A classe é
+ * aplicada no componente CommunityButton.
+ * Decoração de marketing — anima SEMPRE (igual ao ticker do hero), inclusive
+ * com "reduzir movimento" ligado, pra garantir a chamada de atenção do CTA. */
+.community-shine {
+  animation: community-glow 2.4s ease-in-out infinite;
+}
+.community-shine::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  bottom: -50%;
+  left: 0;
+  width: 45%;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 30%,
+    rgba(255, 255, 255, 0.85) 50%,
+    rgba(255, 255, 255, 0.2) 70%,
+    transparent 100%
+  );
+  transform: translateX(-260%) skewX(-20deg);
+  animation: community-shine 2.8s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+  will-change: transform;
+}
+@keyframes community-shine {
+  0% {
+    transform: translateX(-260%) skewX(-20deg);
+  }
+  35%,
+  100% {
+    transform: translateX(330%) skewX(-20deg);
+  }
+}
+@keyframes community-glow {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow:
+      0 4px 14px rgba(0, 0, 0, 0.2),
+      0 0 0 0 rgba(37, 211, 102, 0);
+  }
+  50% {
+    transform: scale(1.035);
+    box-shadow:
+      0 6px 18px rgba(0, 0, 0, 0.22),
+      0 0 22px 4px rgba(37, 211, 102, 0.7);
+  }
+}

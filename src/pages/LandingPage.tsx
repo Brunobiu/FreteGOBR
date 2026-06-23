@@ -35,6 +35,8 @@ import PublicLayout from '../components/public/PublicLayout';
 import FreteTicker from '../components/public/FreteTicker';
 import SocialRail from '../components/public/SocialRail';
 import { AccessButton } from '../components/public/AccessChoice';
+import BrandedTitle from '../components/public/BrandedTitle';
+import CommunityButton from '../components/public/CommunityButton';
 import { APP_STORE_URL, PLAY_STORE_URL } from '../data/appLinks';
 import { getPublicStats, type PublicStats } from '../services/publicStats';
 import {
@@ -672,25 +674,41 @@ export default function LandingPage() {
                 <div key={f.slug} className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12">
                   <div className={`flex justify-center ${flip ? 'lg:order-2' : ''}`}>
                     <div className="relative">
-                      {/* brilho verde suave atrás do mockup */}
-                      <span
-                        className="absolute -inset-5 rounded-[2.5rem] bg-brand-green/10 blur-2xl"
-                        aria-hidden="true"
-                      />
-                      {/* moldura de celular (o print é vertical) */}
-                      <div className="relative w-40 overflow-hidden rounded-[2rem] border-[6px] border-gray-900 bg-gray-900 shadow-2xl sm:w-48">
+                      {f.framed === false ? (
+                        // Imagem já é um mockup de celular pronto (PNG transparente):
+                        // mostramos só a imagem, sem moldura nem fundo.
                         <img
                           src={f.image}
                           alt={f.title}
-                          className="block w-full"
+                          className="relative block w-44 drop-shadow-2xl sm:w-52"
                           loading="lazy"
                           draggable={false}
                         />
-                      </div>
+                      ) : (
+                        <>
+                          {/* brilho verde suave atrás do mockup */}
+                          <span
+                            className="absolute -inset-5 rounded-[2.5rem] bg-brand-green/10 blur-2xl"
+                            aria-hidden="true"
+                          />
+                          {/* moldura de celular (o print é só a tela, vertical) */}
+                          <div className="relative w-40 overflow-hidden rounded-[2rem] border-[6px] border-gray-900 bg-gray-900 shadow-2xl sm:w-48">
+                            <img
+                              src={f.image}
+                              alt={f.title}
+                              className="block w-full"
+                              loading="lazy"
+                              draggable={false}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className={flip ? 'lg:order-1' : ''}>
-                    <h3 className="text-xl font-extrabold text-gray-900 sm:text-2xl">{f.title}</h3>
+                    <h3 className="text-xl font-extrabold text-gray-900 sm:text-2xl">
+                      <BrandedTitle title={f.title} logo={f.titleLogo} />
+                    </h3>
                     <p className="mt-2 text-sm leading-relaxed text-gray-600 sm:text-base">{f.desc}</p>
                     <ul className="mt-4 space-y-2">
                       {f.bullets.map((bullet) => (
@@ -700,13 +718,23 @@ export default function LandingPage() {
                         </li>
                       ))}
                     </ul>
-                    <Link
-                      to={`/saiba/${f.slug}`}
-                      className="mt-5 inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:border-brand-green/40 hover:text-brand-green"
-                    >
-                      Ver mais
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
+                    <div className="mt-5 flex flex-wrap items-center gap-2.5">
+                      <Link
+                        to={`/saiba/${f.slug}`}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition-colors hover:border-brand-green/40 hover:text-brand-green"
+                      >
+                        Ver mais
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                      {f.communityUrl && (
+                        <CommunityButton
+                          href={f.communityUrl}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-[#25D366] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1fb457]"
+                        >
+                          Comunidade FreteGO
+                        </CommunityButton>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

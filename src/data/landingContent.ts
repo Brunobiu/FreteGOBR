@@ -29,7 +29,24 @@ export type Feature = {
   desc: string;
   /** imagem/screenshot ao lado (em public/). */
   image: string;
+  /**
+   * Quando `false`, a imagem já é um mockup de celular pronto (PNG com fundo
+   * transparente) e é exibida sozinha, sem a moldura de celular extra.
+   * Default (ausente/true): a imagem é só a tela e ganha a moldura.
+   */
+  framed?: boolean;
   bullets: string[];
+  /**
+   * Link opcional de comunidade (WhatsApp). Quando presente, a landing mostra
+   * um botão "Comunidade FreteGO" ao lado do "Ver mais".
+   */
+  communityUrl?: string;
+  /**
+   * Logo (em public/) que substitui a marca "FreteGO" no título. Quando
+   * presente, o trecho "FreteGO" do título vira a imagem da logo, do mesmo
+   * tamanho do texto.
+   */
+  titleLogo?: string;
 };
 
 export type Testimonial = {
@@ -43,6 +60,9 @@ export type Testimonial = {
 
 export type TopicBlock = { heading: string; body: string };
 
+/** Estado brasileiro (sigla + nome) — usado na lista de cobertura nacional. */
+export type EstadoBR = { uf: string; nome: string };
+
 export type Topic = {
   slug: string;
   eyebrow: string;
@@ -51,7 +71,67 @@ export type Topic = {
   blocks: TopicBlock[];
   ctaLabel: string;
   ctaTo: string;
+  /**
+   * Link opcional de comunidade (WhatsApp). Quando presente, a página de
+   * detalhe mostra um botão "Comunidade FreteGO" no hero.
+   */
+  communityUrl?: string;
+  /**
+   * Lista opcional de estados atendidos. Quando presente, a página de detalhe
+   * renderiza a seção "frete em todos os estados".
+   */
+  states?: EstadoBR[];
+  /**
+   * Imagem opcional de fundo do hero (em public/). Quando presente, é exibida
+   * grande, desfocada e com o degradê escuro por cima (mesmo tratamento das
+   * vantagens) em vez do gradiente sólido.
+   */
+  heroImage?: string;
+  /**
+   * Logo (em public/) que substitui a marca "FreteGO" no título da página de
+   * detalhe.
+   */
+  titleLogo?: string;
 };
+
+/**
+ * Link da comunidade do FreteGO no WhatsApp. Usado no card "Frete Comunidade"
+ * da landing e na página de detalhe correspondente.
+ */
+export const COMUNIDADE_WHATSAPP_URL = 'https://chat.whatsapp.com/BcaG8HWlw0DJBRPZBr17Gl';
+
+/**
+ * Os 26 estados do Brasil (sem o Distrito Federal). Usados para mostrar que o
+ * Frete Comunidade tem carga em todo o país.
+ */
+export const BRASIL_ESTADOS: EstadoBR[] = [
+  { uf: 'AC', nome: 'Acre' },
+  { uf: 'AL', nome: 'Alagoas' },
+  { uf: 'AP', nome: 'Amapá' },
+  { uf: 'AM', nome: 'Amazonas' },
+  { uf: 'BA', nome: 'Bahia' },
+  { uf: 'CE', nome: 'Ceará' },
+  { uf: 'ES', nome: 'Espírito Santo' },
+  { uf: 'GO', nome: 'Goiás' },
+  { uf: 'MA', nome: 'Maranhão' },
+  { uf: 'MT', nome: 'Mato Grosso' },
+  { uf: 'MS', nome: 'Mato Grosso do Sul' },
+  { uf: 'MG', nome: 'Minas Gerais' },
+  { uf: 'PA', nome: 'Pará' },
+  { uf: 'PB', nome: 'Paraíba' },
+  { uf: 'PR', nome: 'Paraná' },
+  { uf: 'PE', nome: 'Pernambuco' },
+  { uf: 'PI', nome: 'Piauí' },
+  { uf: 'RJ', nome: 'Rio de Janeiro' },
+  { uf: 'RN', nome: 'Rio Grande do Norte' },
+  { uf: 'RS', nome: 'Rio Grande do Sul' },
+  { uf: 'RO', nome: 'Rondônia' },
+  { uf: 'RR', nome: 'Roraima' },
+  { uf: 'SC', nome: 'Santa Catarina' },
+  { uf: 'SP', nome: 'São Paulo' },
+  { uf: 'SE', nome: 'Sergipe' },
+  { uf: 'TO', nome: 'Tocantins' },
+];
 
 /* ===================== Seção 3 — Dor do caminhoneiro ===================== */
 
@@ -143,8 +223,13 @@ export const FEATURES: Feature[] = [
     slug: 'mapa-de-cargas',
     title: 'Mapa de cargas perto de você',
     desc: 'Veja no mapa as cargas disponíveis ao seu redor e na sua rota, em tempo real.',
-    image: '/app-tela.jpg',
-    bullets: ['Cargas por raio de distância', 'Origem e destino antes de aceitar', 'Atualização em tempo real'],
+    image: '/mapafretecelular.png',
+    framed: false,
+    bullets: [
+      'Cargas por raio de distância (procure de 50 a 500 km perto de você)',
+      'Origem e destino antes de aceitar',
+      'Atualização em tempo real',
+    ],
   },
   {
     slug: 'filtros-do-caminhao',
@@ -162,10 +247,19 @@ export const FEATURES: Feature[] = [
   },
   {
     slug: 'frete-comunidade',
-    title: 'Frete Comunidade',
+    title: 'Comunidade FreteGO',
     desc: 'Cargas indicadas pela comunidade, perto de você, pra você não perder oportunidade.',
-    image: '/app-tela.jpg',
-    bullets: ['Cargas da sua região', 'Contato rápido', 'Mais opção de frete'],
+    image: '/fretescomunidadecelular.png',
+    framed: false,
+    communityUrl: COMUNIDADE_WHATSAPP_URL,
+    titleLogo: '/logo.png',
+    bullets: [
+      'Cargas indicadas pela comunidade na sua região',
+      'Contato rápido com quem postou a carga',
+      'Frete forte no Centro-Oeste, Sul e Sudeste',
+      'Carga de ida e volta nas principais rotas',
+      'Mais opção de frete todo dia, sem atravessador',
+    ],
   },
 ];
 
@@ -394,7 +488,7 @@ export const TOPICS: Record<string, Topic> = {
   'frete-comunidade': {
     slug: 'frete-comunidade',
     eyebrow: 'Funcionalidade',
-    title: 'Frete Comunidade',
+    title: 'Comunidade FreteGO',
     subtitle: 'Além das cargas dos embarcadores, oportunidades indicadas pela comunidade perto de você.',
     blocks: [
       {
@@ -409,9 +503,17 @@ export const TOPICS: Record<string, Topic> = {
         heading: 'Mais oportunidade',
         body: 'Mais fontes de carga significam menos tempo parado e menos viagem vazia.',
       },
+      {
+        heading: 'Frete em todos os estados',
+        body: 'A comunidade do FreteGO tem carga rolando nos 26 estados do Brasil. Não importa de onde você sai nem pra onde vai: tem frete aparecendo no país inteiro.',
+      },
     ],
     ctaLabel: 'Ver fretes',
     ctaTo: '/fretes',
+    communityUrl: COMUNIDADE_WHATSAPP_URL,
+    states: BRASIL_ESTADOS,
+    heroImage: '/fretescomunidadecelular.png',
+    titleLogo: '/logo.png',
   },
 };
 
