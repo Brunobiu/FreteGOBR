@@ -35,6 +35,7 @@ import PublicLayout from '../components/public/PublicLayout';
 import FreteTicker from '../components/public/FreteTicker';
 import SocialRail from '../components/public/SocialRail';
 import { AccessButton } from '../components/public/AccessChoice';
+import BackgroundVideo from '../components/public/BackgroundVideo';
 import BrandedTitle from '../components/public/BrandedTitle';
 import CommunityButton from '../components/public/CommunityButton';
 import FretesAoVivoSection from '../components/public/FretesAoVivoSection';
@@ -564,31 +565,42 @@ export default function LandingPage() {
           </div>
 
           {/* Virada: dor → desejo */}
-          <div className="relative mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-brand-green/30 bg-brand-green/10 p-6 sm:mt-12 sm:p-8">
+          <div className="relative mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-brand-green/30 bg-brand-navyDeep p-6 sm:mt-12 sm:p-8">
+            {/* Vídeo de fundo rodando, com desfoque leve (as letras ficam
+                legíveis graças ao scrim escuro por cima). */}
+            <BackgroundVideo
+              src="/ia-hero.mp4"
+              className="absolute inset-0 h-full w-full scale-105 object-cover blur-[3px]"
+            />
+            {/* Scrim escuro: clareia/destaca o texto sobre o vídeo. */}
+            <div className="absolute inset-0 bg-brand-navyDeep/70" aria-hidden="true" />
             {/* Imagem da IA fixada no canto inferior direito do card. */}
             <img
               src="/IA_foto.png"
               alt=""
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-1 right-2 h-24 w-auto select-none ia-glow"
+              className="pointer-events-none absolute bottom-1 right-2 z-[1] h-24 w-auto select-none ia-glow"
             />
-            <h3 className="text-center text-lg font-bold text-white sm:text-xl">{DESIRE_TITLE}</h3>
-            <ul className="mt-5 grid gap-3 sm:grid-cols-3">
-              {DESIRE_POINTS.map((point) => (
-                <li key={point} className="flex items-start gap-2.5 text-sm text-white/90">
-                  <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-lime" />
-                  <span>{point}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="mt-6 flex justify-start sm:justify-center">
-              <AccessButton
-                to="/ia"
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
-              >
-                Entenda mais
-                <ArrowRight className="h-4 w-4" />
-              </AccessButton>
+            {/* Conteúdo acima do vídeo/scrim */}
+            <div className="relative z-[2]">
+              <h3 className="text-center text-lg font-bold text-white sm:text-xl">{DESIRE_TITLE}</h3>
+              <ul className="mt-5 grid gap-3 sm:grid-cols-3">
+                {DESIRE_POINTS.map((point) => (
+                  <li key={point} className="flex items-start gap-2.5 text-sm text-white/90">
+                    <BadgeCheck className="mt-0.5 h-5 w-5 shrink-0 text-brand-lime" />
+                    <span>{point}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 flex justify-start sm:justify-center">
+                <AccessButton
+                  to="/ia"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-green px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-black/30 transition-colors hover:bg-brand-greenDark sm:text-base"
+                >
+                  Entenda mais
+                  <ArrowRight className="h-4 w-4" />
+                </AccessButton>
+              </div>
             </div>
           </div>
         </div>

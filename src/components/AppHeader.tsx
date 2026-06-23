@@ -593,7 +593,13 @@ export default function AppHeader({ hideOnMobile = false }: { hideOnMobile?: boo
                   aria-label="Notificações"
                 >
                   <svg
-                    className={`w-6 h-6 ${isMotoristaHome ? 'text-black' : 'text-gray-700'}`}
+                    className={`w-6 h-6 ${
+                      isMotoristaHome
+                        ? scrolled
+                          ? 'text-gray-800'
+                          : 'text-white'
+                        : 'text-gray-700'
+                    }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"

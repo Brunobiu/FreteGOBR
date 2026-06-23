@@ -156,7 +156,7 @@ export default function CommoditiesCarousel({
               </div>
               <span
                 className={`text-[10px] sm:text-[9px] font-semibold text-center w-12 sm:w-11 truncate leading-tight transition-colors
-                  ${isSelected ? 'text-green-800' : 'text-black'}`}
+                  ${isSelected ? 'text-green-300' : 'text-white'}`}
               >
                 {c.name}
               </span>

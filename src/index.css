@@ -744,11 +744,14 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
  * afetada pelos overrides de tema escuro.
  * ──────────────────────────────────────────────────────────────────────── */
 .home-hero-gradient {
-  background-color: #e9edcb;
-  background-image: url('/imagemfundo.jpg');
+  /* Fundo (creme + imagem) DESATIVADO a pedido — sem fundo nenhum
+     (transparente). Pra reativar, descomente as linhas abaixo e ponha uma
+     cor de fundo (era #e9edcb). */
+  background-color: transparent;
+  /* background-image: url('/imagemfundo.jpg');
   background-size: cover;
   background-position: center top;
-  background-repeat: no-repeat;
+  background-repeat: no-repeat; */
 }
 
 /* Sombra suave atrás de texto sobre imagem (ex.: hero da LandingPage).
@@ -913,4 +916,140 @@ form[data-view='complemento'] section[data-secao]:not([data-secao='veiculo']) {
   100% {
     box-shadow: 0 0 0 0 rgba(var(--live-color), 0);
   }
+}
+
+/* ── Mascote robô do Assistente IA (AssistantRobot) ──────────────────────
+ * Robô desenhado em SVG inline. Animações sutis e contínuas:
+ *  - corpo flutua (sobe/desce de leve);
+ *  - cabeça gira um pouco olhando de um lado pro outro;
+ *  - olhos deslizam na horizontal e piscam de vez em quando;
+ *  - braço esquerdo fica parado e ACENA em rajadas (de tempos em tempos);
+ *  - braço direito balança devagar;
+ *  - halo roxo pulsa.
+ * Usa transform-box: fill-box pra que o transform-origin (pivô) caia dentro
+ * da bounding box de cada grupo SVG.
+ *
+ * Mascote decorativo: anima SEMPRE, inclusive com "reduzir movimento" ligado
+ * no sistema (mesmo critério do ticker do hero / botão da comunidade / pins
+ * "ao vivo"). É o ponto focal lúdico da tela do assistente — sem o movimento
+ * ele perde o propósito. Por isso NÃO há bloco prefers-reduced-motion aqui. */
+@keyframes ai-robot-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes ai-robot-head {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  15%,
+  35% {
+    transform: rotate(-6deg);
+  }
+  55%,
+  75% {
+    transform: rotate(6deg);
+  }
+}
+@keyframes ai-robot-eyes {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  15%,
+  35% {
+    transform: translateX(-2.5px);
+  }
+  55%,
+  75% {
+    transform: translateX(2.5px);
+  }
+}
+@keyframes ai-robot-blink {
+  0%,
+  92%,
+  100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.15);
+  }
+}
+@keyframes ai-robot-wave {
+  0%,
+  55%,
+  100% {
+    transform: rotate(2deg);
+  }
+  62% {
+    transform: rotate(16deg);
+  }
+  69% {
+    transform: rotate(-6deg);
+  }
+  76% {
+    transform: rotate(16deg);
+  }
+  83% {
+    transform: rotate(-4deg);
+  }
+  90% {
+    transform: rotate(10deg);
+  }
+}
+@keyframes ai-robot-arm-sway {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(7deg);
+  }
+}
+@keyframes ai-robot-halo {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
+.ai-robot-float {
+  animation: ai-robot-float 4s ease-in-out infinite;
+}
+.ai-robot-head {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ai-robot-head 7s ease-in-out infinite;
+}
+.ai-robot-eyes {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation:
+    ai-robot-eyes 5.5s ease-in-out infinite,
+    ai-robot-blink 5s ease-in-out infinite;
+}
+.ai-robot-arm-l {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: ai-robot-wave 5s ease-in-out infinite;
+}
+.ai-robot-arm-r {
+  transform-box: fill-box;
+  transform-origin: 50% 0%;
+  animation: ai-robot-arm-sway 4.5s ease-in-out infinite;
+}
+.ai-robot-halo {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: ai-robot-halo 4s ease-in-out infinite;
 }

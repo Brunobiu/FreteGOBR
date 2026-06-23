@@ -32,7 +32,7 @@ import {
   type MotoristaMessage,
 } from '../services/motoristaAiConversations';
 import { supabase } from '../services/supabase';
-import AssistantStarIcon from '../components/AssistantStarIcon';
+import AssistantRobot from '../components/AssistantRobot';
 
 const QUICK_CARDS = [
   { id: 'region', text: 'Quais fretes tem na minha região?' },
@@ -349,8 +349,8 @@ export default function AssistentePage() {
             <h2 className="text-xl sm:text-2xl font-semibold text-white mb-1">{greeting}</h2>
             <p className="text-sm text-slate-400 mb-8">Como posso te ajudar com fretes?</p>
 
-            {/* Estrela animada */}
-            <AssistantStarIcon size={96} className="mb-10" />
+            {/* Mascote robô animado */}
+            <AssistantRobot size={160} className="mb-10" />
 
             {/* Quick Cards */}
             <div className="w-full max-w-sm space-y-2.5">

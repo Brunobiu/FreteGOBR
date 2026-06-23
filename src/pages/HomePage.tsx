@@ -505,7 +505,7 @@ export default function HomePage() {
                 negativa puxa o painel para tras do AppHeader (sticky), e a
                 borda inferior arredondada faz a "curva" passar por baixo das
                 categorias, separando da zona escura do feed (estilo do print). */}
-            <div className="home-hero-gradient -mx-3 sm:-mx-4 px-3 sm:px-4 -mt-14 sm:-mt-16 pt-14 sm:pt-16 pb-1.5 rounded-b-[2.75rem] shadow-md">
+            <div className="home-hero-gradient -mx-3 sm:-mx-4 px-3 sm:px-4 -mt-14 sm:-mt-16 pt-14 sm:pt-16 pb-1.5">
               {/* Carrossel de anuncios entre mapa e header */}
               <AnunciosCarousel />
 
