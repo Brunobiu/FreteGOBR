@@ -6,7 +6,9 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: [],
+    // Polyfills globais (IntersectionObserver etc.) para os testes não dependerem
+    // da ordem de execução. Ver src/__tests__/vitestSetup.ts.
+    setupFiles: ['./src/__tests__/vitestSetup.ts'],
     // Variáveis dummy para os testes — o frontend valida `VITE_SUPABASE_URL`/
     // `VITE_SUPABASE_ANON_KEY` no boot (src/config/env.ts lança se faltarem).
     // No CI não há `.env` (gitignored), então sem isto os testes que importam

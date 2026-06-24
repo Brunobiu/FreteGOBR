@@ -299,7 +299,6 @@ export default function MensagensPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeId, user]);
 
   // Reset do gating ao trocar de conversa (evita exibir estado da anterior).

@@ -34,9 +34,9 @@ describe('availabilityToGate', () => {
     );
   });
 
-  it('frete indisponível mostra badge vermelho "Indisponível"', () => {
+  it('frete indisponível mostra badge vermelho "Desativado"', () => {
     const badge = gateToBadge(availabilityToGate({ linked: true, available: false }));
-    expect(badge?.label).toBe('Indisponível');
+    expect(badge?.label).toBe('Desativado');
     expect(isInputBlocked(availabilityToGate({ linked: true, available: false }))).toBe(true);
   });
 });
