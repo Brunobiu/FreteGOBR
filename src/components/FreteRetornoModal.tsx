@@ -27,7 +27,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { findNearbyFretes, type Frete } from '../services/fretes';
-import { haversineDistanceKm } from '../utils/geoDistance';
 
 type RetornoRadius = 50 | 100 | 200 | 500;
 
@@ -177,7 +176,7 @@ export default function FreteRetornoModal({
             <div className="flex-1 min-w-0">
               <h2 className="text-sm sm:text-base font-semibold text-gray-800 leading-tight">
                 Fretes disponíveis no destino{' '}
-                <span className="text-purple-700">{destinoLabel}</span> — Raio de {radiusKm} km
+                <span className="text-purple-700">{destinoLabel}</span>
               </h2>
               <p className="text-[11px] text-gray-500 mt-0.5">
                 Encontre cargas próximas para evitar voltar vazio.
@@ -262,31 +261,22 @@ export default function FreteRetornoModal({
             ) : (
               <div className="space-y-2">
                 {visibleFretes.map((f) => {
-                  // Distancia do destino atual ate a origem do frete
-                  // de retorno. Eh a unica km que faz sentido aqui —
-                  // mostra ao motorista quao longe o retorno esta da
-                  // posicao final dele apos a entrega.
-                  const distDestinoAtual =
-                    Number.isFinite(f.originLocation.latitude) && validDest
-                      ? haversineDistanceKm(dest, f.originLocation)
-                      : null;
                   return (
                     <div
                       key={f.id}
                       className="border border-gray-200 rounded-md p-2.5 bg-white hover:border-purple-300 transition-colors"
                     >
-                      {/* Linha 1: Origem → Destino (km do destino atual) +
-                          valor a direita. Mesmo formato visual do
-                          FreteCard padrao do feed. */}
+                      {/* Linha 1: Origem → Destino (km da viagem) + valor à
+                          direita. Mesmo formato visual do FreteCard do feed. */}
                       <div className="flex items-start justify-between gap-2 mb-1">
                         <p className="text-xs font-semibold text-gray-800 leading-tight flex-1 min-w-0 break-words">
                           {f.origin} → {f.destination}
-                          {distDestinoAtual !== null && (
+                          {f.distanceKm ? (
                             <span className="font-normal text-gray-500">
                               {' '}
-                              ({formatKm(distDestinoAtual)} km)
+                              ({formatKm(f.distanceKm)} km)
                             </span>
-                          )}
+                          ) : null}
                         </p>
                         <span className="text-xs font-bold text-green-700 shrink-0">
                           {formatBRL(f.value)}

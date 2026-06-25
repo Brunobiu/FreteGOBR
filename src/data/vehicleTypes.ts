@@ -133,3 +133,17 @@ export function vehicleTypesCsvLabel(csv: string | null | undefined): string {
     .map((v) => vehicleTypeLabel(v))
     .join(' · ');
 }
+
+/**
+ * Igual a `vehicleTypesCsvLabel`, mas retorna a LISTA de labels (um por
+ * item) em vez de uma string única. Útil para exibir um veículo abaixo do
+ * outro (sem quebra horizontal) no detalhe do frete.
+ */
+export function vehicleTypesList(csv: string | null | undefined): string[] {
+  if (!csv) return [];
+  return csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((v) => vehicleTypeLabel(v));
+}

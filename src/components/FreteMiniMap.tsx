@@ -38,7 +38,7 @@
  */
 
 import 'leaflet/dist/leaflet.css';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -85,9 +85,18 @@ const DESTINATION_ICON = createPinIcon('#dc2626'); // vermelho-600
 function FitToRoute({
   points,
   padding,
+  reserveBottomRatio,
 }: {
   points: GeographicPoint[];
   padding?: L.FitBoundsOptions;
+  /**
+   * Quando definido, enquadra a rota reservando esta fração da ALTURA do mapa
+   * embaixo (ex: 0.8 = 80% inferior coberto por um bottom sheet). Assim a rota
+   * cabe na faixa visível de cima, em vez de ficar centralizada (e escondida)
+   * atrás da gaveta — evita o mapa "cair no oceano". Usado no modo mapa de
+   * fundo do FreteModal.
+   */
+  reserveBottomRatio?: number;
 }) {
   const map = useMap();
   useEffect(() => {
@@ -97,7 +106,16 @@ function FitToRoute({
       if (cancelled) return;
       try {
         const bounds = L.latLngBounds(points.map((p) => [p.latitude, p.longitude]));
-        map.fitBounds(bounds, { padding: [40, 40], animate: false, ...padding });
+        let opts: L.FitBoundsOptions = { padding: [40, 40], animate: false, ...padding };
+        if (reserveBottomRatio !== undefined) {
+          const size = map.getSize();
+          opts = {
+            animate: false,
+            paddingTopLeft: [24, Math.round(size.y * 0.05)],
+            paddingBottomRight: [24, Math.round(size.y * reserveBottomRatio)],
+          };
+        }
+        map.fitBounds(bounds, opts);
       } catch {
         // Mapa ainda nao esta pronto pro fitBounds (iOS Safari race).
         // Boundary externo cobre o caso extremo.
@@ -109,7 +127,7 @@ function FitToRoute({
     return () => {
       cancelled = true;
     };
-  }, [map, points, padding]);
+  }, [map, points, padding, reserveBottomRatio]);
   return null;
 }
 
@@ -124,6 +142,20 @@ interface FreteMiniMapProps {
    * com degradê por cima), e quem cuida da moldura é o container externo.
    */
   bare?: boolean;
+  /**
+   * Modo "mapa de fundo" do FreteModal: enquadra a rota na FAIXA DE CIMA do
+   * mapa (reservando a parte inferior coberta pela gaveta), em vez do offset
+   * lateral do modo `bare` em card. Evita o mapa cair no oceano.
+   */
+  backgroundFit?: boolean;
+  /**
+   * Controle externo do modo expandido (tela cheia). Quando fornecido, o
+   * componente vira "controlado": o pai decide quando abrir/fechar a rota em
+   * tela cheia (ex: botão "Ver rota" do FreteModal). Se omitido, usa estado
+   * interno (clicar no mapa expande) — comportamento padrão inalterado.
+   */
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export default function FreteMiniMap({
@@ -131,6 +163,9 @@ export default function FreteMiniMap({
   height = 90,
   className,
   bare = false,
+  backgroundFit = false,
+  expanded: controlledExpanded,
+  onExpandedChange,
 }: FreteMiniMapProps) {
   // Origem/destino preferem o `pinned` (coordenada exata) e caem em
   // `originLocation`/`destinationLocation` (geocode da cidade) como fallback.
@@ -155,8 +190,17 @@ export default function FreteMiniMap({
   // preenchida quando o fetch resolve.
   const [routeGeometry, setRouteGeometry] = useState<GeographicPoint[] | null>(null);
 
-  // Modo expandido (tela cheia). False = mini-mapa compacto e nao-interativo.
-  const [expanded, setExpanded] = useState(false);
+  // Modo expandido (tela cheia). Controlado pelo pai quando `controlledExpanded`
+  // é fornecido; senão usa estado interno. `setExpanded` unifica os dois casos.
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const expanded = controlledExpanded ?? internalExpanded;
+  const setExpanded = useCallback(
+    (next: boolean) => {
+      if (controlledExpanded === undefined) setInternalExpanded(next);
+      onExpandedChange?.(next);
+    },
+    [controlledExpanded, onExpandedChange]
+  );
 
   // Cidades do trajeto (origem -> ... -> destino). Carregadas sob demanda
   // quando o mapa e expandido (reverse-geocode e custoso/limitado).
@@ -249,7 +293,7 @@ export default function FreteMiniMap({
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKey);
     };
-  }, [expanded]);
+  }, [expanded, setExpanded]);
 
   if (!validCoords) return null;
 
@@ -280,10 +324,6 @@ export default function FreteMiniMap({
           opacity: 0.9,
           dashArray: routeGeometry ? undefined : '6 6',
         }}
-      />
-      <FitToRoute
-        points={polylinePoints}
-        padding={bare ? { paddingTopLeft: [180, 30], paddingBottomRight: [20, 30] } : undefined}
       />
     </>
   );
@@ -321,6 +361,17 @@ export default function FreteMiniMap({
               attributionControl={false}
             >
               {mapChildren}
+              <FitToRoute
+                points={polylinePoints}
+                padding={
+                  backgroundFit
+                    ? undefined
+                    : bare
+                      ? { paddingTopLeft: [180, 30], paddingBottomRight: [20, 30] }
+                      : undefined
+                }
+                reserveBottomRatio={backgroundFit ? 0.8 : undefined}
+              />
             </MapContainer>
           </div>
           {/* Affordance de "expandir" no canto superior direito. Oculta no modo
@@ -379,6 +430,7 @@ export default function FreteMiniMap({
                 attributionControl={false}
               >
                 {mapChildren}
+                <FitToRoute points={polylinePoints} />
               </MapContainer>
 
               {/* Botao X para voltar. */}

@@ -76,7 +76,7 @@ export default function MotoristaMenuPage() {
   const planoBadge = isSubscribed
     ? { text: 'PRO', color: 'menu-badge-pro' }
     : !isExpired && daysLeft > 0
-      ? { text: `${daysLeft} dias restantes`, color: 'menu-badge-trial' }
+      ? { text: `${daysLeft} dias`, color: 'menu-badge-trial' }
       : { text: 'FREE', color: 'menu-badge-free' };
 
   // Label do plano atual para mostrar no canto inferior esquerdo do card
@@ -241,45 +241,29 @@ export default function MotoristaMenuPage() {
           </button>
         </div>
 
-        {/* Grid de cards — 3 colunas */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Grid de cards — 4 colunas uniformes (4 em cima, 4 embaixo). */}
+        <div className="grid grid-cols-4 gap-2">
           {tiles.map((tile) => (
             <button
               key={tile.key}
               type="button"
               onClick={tile.onClick}
-              className={`relative flex flex-col justify-between rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 active:scale-[0.97] transition overflow-hidden ${
-                tile.wide ? 'col-span-2 h-28' : 'col-span-1 h-28'
-              }`}
+              className="relative flex h-[92px] flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border border-gray-100 bg-white p-1.5 shadow-sm transition hover:border-gray-200 hover:shadow-md active:scale-[0.96]"
             >
-              {/* Textos no canto superior esquerdo */}
-              <div className="p-2.5 pb-0 text-left z-10">
-                <span className="text-[11px] sm:text-xs font-semibold text-gray-900 block leading-tight">
-                  {tile.label}
-                </span>
-                {tile.subtitle && (
-                  <span className="text-[9px] sm:text-[10px] text-gray-400 block mt-0.5">
-                    {tile.subtitle}
-                  </span>
-                )}
+              {/* Ilustração uniformizada (~36px, sem distorção). */}
+              <div className="flex h-10 w-10 items-center justify-center [&>svg]:!h-9 [&>svg]:!w-9">
+                {tile.icon}
               </div>
 
-              {/* Ilustracao no canto inferior direito */}
-              <div className="absolute bottom-1.5 right-2 opacity-80">{tile.icon}</div>
+              {/* Nome (até 2 linhas, centralizado). */}
+              <span className="line-clamp-2 w-full text-center text-[10px] font-semibold leading-tight text-gray-800">
+                {tile.label}
+              </span>
 
-              {/* Label do plano no canto inferior esquerdo (ex: "FREE") */}
-              {tile.bottomLabel && (
-                <div className="absolute bottom-2 left-2.5 z-10">
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-gray-100 border border-gray-300 rounded text-gray-700">
-                    {tile.bottomLabel}
-                  </span>
-                </div>
-              )}
-
-              {/* Badges e alertas */}
+              {/* Badges e alertas — canto superior direito (compactos). */}
               {tile.revalExpired && !tile.badge ? (
                 <span
-                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-yellow-400 text-yellow-900 text-[10px] font-bold flex items-center justify-center shadow-sm z-10"
+                  className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[9px] font-bold text-yellow-900 shadow-sm"
                   title="Confirme seus documentos (30 dias)"
                   aria-label="Confirme seus documentos"
                 >
@@ -289,7 +273,7 @@ export default function MotoristaMenuPage() {
                 <>
                   {tile.docStatus && tile.docStatus !== 'nenhum' && !tile.badge && (
                     <span
-                      className={`absolute top-1.5 right-1.5 w-5 h-5 rounded-full text-white text-[10px] font-bold flex items-center justify-center shadow-sm z-10 ${
+                      className={`absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold text-white shadow-sm ${
                         tile.docStatus === 'aprovado'
                           ? 'bg-green-500'
                           : tile.docStatus === 'rejeitado'
@@ -319,24 +303,22 @@ export default function MotoristaMenuPage() {
                     </span>
                   )}
 
-                  {tile.alert &&
-                    !tile.badge &&
-                    (!tile.docStatus || tile.docStatus === 'nenhum') && (
-                      <span
-                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm z-10"
-                        title="Faltam dados para completar"
-                        aria-label="Faltam dados"
-                      >
-                        !
-                      </span>
-                    )}
+                  {tile.alert && !tile.badge && (!tile.docStatus || tile.docStatus === 'nenhum') && (
+                    <span
+                      className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 text-[9px] font-bold text-white shadow-sm"
+                      title="Faltam dados para completar"
+                      aria-label="Faltam dados"
+                    >
+                      !
+                    </span>
+                  )}
 
                   {tile.complete &&
                     !tile.alert &&
                     !tile.badge &&
                     (!tile.docStatus || tile.docStatus === 'nenhum') && (
                       <span
-                        className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm z-10"
+                        className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 text-[9px] font-bold text-white shadow-sm"
                         title="Preenchido"
                         aria-label="Preenchido"
                       >
@@ -348,7 +330,7 @@ export default function MotoristaMenuPage() {
 
               {tile.badge && (
                 <span
-                  className={`absolute top-1.5 right-1.5 px-1.5 py-0.5 text-[9px] font-bold rounded z-10 ${tile.badge.color}`}
+                  className={`absolute top-1 right-1 rounded px-1 py-0.5 text-[8px] font-bold ${tile.badge.color}`}
                 >
                   {tile.badge.text}
                 </span>

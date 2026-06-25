@@ -92,3 +92,17 @@ export function bodyTypesCsvLabel(csv: string | null | undefined): string {
     .map((v) => bodyTypeLabel(v))
     .join(' · ');
 }
+
+/**
+ * Igual a `bodyTypesCsvLabel`, mas retorna a LISTA de labels (uma carroceria
+ * por item) em vez de uma string única. Útil para exibir uma carroceria
+ * abaixo da outra no detalhe do frete.
+ */
+export function bodyTypesList(csv: string | null | undefined): string[] {
+  if (!csv) return [];
+  return csv
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((v) => bodyTypeLabel(v));
+}

@@ -684,7 +684,7 @@ export async function findNearbyFretes(
   latitude: number,
   longitude: number,
   radiusKm: number = 100
-): Promise<(Frete & { distanceKm: number })[]> {
+): Promise<Frete[]> {
   // Call the PostGIS function
   const { data: nearbyData, error: nearbyError } = await supabase.rpc('find_nearby_fretes', {
     user_location: `POINT(${longitude} ${latitude})`,
@@ -714,10 +714,10 @@ export async function findNearbyFretes(
     throw new Error(`Erro ao buscar detalhes dos fretes: ${fretesError.message}`);
   }
 
+  // Preserva o `distanceKm` da VIAGEM (origem→destino, vindo do banco) — NÃO
+  // sobrescreve com a distância de proximidade. A proximidade (ponto de busca
+  // → origem do frete) é usada apenas para ORDENAR (mais perto primeiro).
   return fretesData
-    .map((f) => ({
-      ...mapFreteFromDb(f),
-      distanceKm: distanceMap.get(f.id) ?? 0,
-    }))
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .map((f) => mapFreteFromDb(f))
+    .sort((a, b) => (distanceMap.get(a.id) ?? 0) - (distanceMap.get(b.id) ?? 0));
 }

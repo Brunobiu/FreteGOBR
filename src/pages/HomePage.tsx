@@ -77,7 +77,7 @@ export default function HomePage() {
   // vira o `selectedFrete`. Ao fechar o modal, fazemos pop: se ha
   // alguem na pilha, volta pro frete anterior; senao, fecha de vez.
   // Isso preserva o contexto de navegacao por retornos encadeados.
-  const [, setFreteStack] = useState<Frete[]>([]);
+  const [freteStack, setFreteStack] = useState<Frete[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const listTopRef = useRef<HTMLDivElement>(null);
 
@@ -656,6 +656,8 @@ export default function HomePage() {
         frete={selectedFrete}
         isOpen={isModalOpen}
         communityProfile={communityProfile}
+        mapBackground
+        hideReturnSearch={freteStack.length > 0}
         onClose={() => {
           // Se o motorista chegou aqui via "Frete e retorno", volta
           // pro frete anterior em vez de fechar de vez. Stack vazia
