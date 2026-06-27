@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import AppHeader from '../components/AppHeader';
@@ -6,6 +6,12 @@ import PasswordInput from '../components/PasswordInput';
 import AccountDeletionModal from '../components/AccountDeletionModal';
 import { useAuth } from '../hooks/useAuth';
 import { useDocumentTitle } from '../hooks/useDocumentTitle';
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometric,
+  disableBiometric,
+} from '../services/biometricAuth';
 
 export default function ConfiguracoesPage() {
   useDocumentTitle('Configurações');
@@ -18,6 +24,49 @@ export default function ConfiguracoesPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showDeletion, setShowDeletion] = useState(false);
+
+  // Biometria (app nativo): disponibilidade + estado do opt-in.
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioEnabled, setBioEnabled] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const available = await isBiometricAvailable();
+      if (cancelled) return;
+      setBioAvailable(available);
+      if (available) setBioEnabled(await isBiometricEnabled());
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleToggleBiometric = async () => {
+    setError(null);
+    setSuccess(null);
+    setBioBusy(true);
+    try {
+      if (bioEnabled) {
+        await disableBiometric();
+        setBioEnabled(false);
+        setSuccess('Entrada por biometria desativada.');
+      } else {
+        const { data } = await supabase.auth.getSession();
+        const refresh = data.session?.refresh_token;
+        if (!refresh) throw new Error('Sessão indisponível. Faça login novamente.');
+        await enableBiometric(refresh);
+        setBioEnabled(true);
+        setSuccess('Entrada por biometria ativada.');
+      }
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível alterar a biometria.');
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
   const handleAccountDeleted = async () => {
     // A conta e a sessão já foram removidas no servidor; limpa o estado local
@@ -122,6 +171,29 @@ export default function ConfiguracoesPage() {
             </button>
           </form>
         </div>
+
+        {/* Entrada por biometria (somente app nativo com hardware disponível) */}
+        {bioAvailable && (
+          <div className="bg-white border border-gray-200 rounded-lg p-5 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-1">Entrada por biometria</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Desbloqueie o app com sua digital ou reconhecimento facial, sem digitar a senha. Você
+              continua logado; a biometria é só uma trava de segurança ao abrir.
+            </p>
+            <button
+              type="button"
+              onClick={handleToggleBiometric}
+              disabled={bioBusy}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
+                bioEnabled
+                  ? 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                  : 'bg-green-600 text-white hover:bg-green-700'
+              }`}
+            >
+              {bioBusy ? 'Aguarde...' : bioEnabled ? 'Desativar biometria' : 'Ativar biometria'}
+            </button>
+          </div>
+        )}
 
         {/* Privacidade — exclusão de conta (LGPD) */}
         <div className="bg-white border border-red-200 rounded-lg p-5 mb-6">

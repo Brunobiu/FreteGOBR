@@ -120,14 +120,8 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     throw new AuthError(passwordValidation.errors.join(', '), 'INVALID_PASSWORD', 400);
   }
 
-  // Validate embarcador has company name
-  if (data.userType === 'embarcador' && !data.companyName) {
-    throw new AuthError(
-      'Nome da empresa é obrigatório para embarcadores',
-      'MISSING_COMPANY_NAME',
-      400
-    );
-  }
+  // Embarcador não informa mais o nome da empresa no cadastro — ele preenche
+  // depois no perfil (gate de "cadastro completo para postar frete", migr. 125).
 
   // Revalidação servidor do aceite dos Termos (Feature 2 — Req 2.2).
   // O cliente já bloqueia o submit sem aceite; aqui garantimos a invariante
@@ -141,30 +135,35 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     );
   }
 
-  // E-mail é obrigatório no cadastro multi-step e precisa ter sido verificado
-  // ANTES (fluxo da migration 066). Validamos formato e a presença do token.
+  // E-mail é coletado no cadastro multi-step: é a IDENTIDADE no Auth e a base de
+  // recuperação de senha. A verificação agora é do CONTATO (telefone via WhatsApp,
+  // com fallback de e-mail) — fluxo da migration 125. Validamos formato e o token.
   const normalizedEmail = (data.email ?? '').trim().toLowerCase();
   if (!normalizedEmail || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normalizedEmail)) {
     throw new AuthError('Informe um e-mail válido.', 'INVALID_EMAIL', 400);
   }
-  if (!data.emailVerificationToken || data.emailVerificationToken.trim() === '') {
-    throw new AuthError('E-mail não verificado.', 'EMAIL_NOT_VERIFIED', 400);
+  if (!data.phoneVerificationToken || data.phoneVerificationToken.trim() === '') {
+    throw new AuthError('Contato não verificado.', 'CONTACT_NOT_VERIFIED', 400);
   }
 
-  // Consome o token de verificação no servidor: garante que este e-mail foi
-  // verificado neste fluxo e que o token é válido/único (anti-fraude).
+  // Consome o token de verificação no servidor: garante que o contato foi
+  // verificado neste fluxo e que o token é válido/único (uso único, anti-fraude).
+  // Retorna o canal verificado ('whatsapp' ⇒ telefone; 'email' ⇒ fallback).
+  let verifiedChannel: 'whatsapp' | 'email' = 'whatsapp';
   {
-    const { data: verified, error: tokenError } = await supabase.rpc('consume_signup_email_token', {
-      p_email: normalizedEmail,
-      p_token: data.emailVerificationToken,
-    });
-    if (tokenError || verified !== true) {
+    const { data: consumeResult, error: tokenError } = await supabase.rpc(
+      'consume_signup_otp_token',
+      { p_phone: data.phone, p_token: data.phoneVerificationToken }
+    );
+    const consumed = (consumeResult as { ok?: boolean; channel?: string } | null) ?? null;
+    if (tokenError || consumed?.ok !== true) {
       throw new AuthError(
-        'Verificação de e-mail expirada. Refaça a verificação.',
-        'EMAIL_NOT_VERIFIED',
+        'Verificação expirada. Refaça a verificação.',
+        'CONTACT_NOT_VERIFIED',
         400
       );
     }
+    verifiedChannel = consumed.channel === 'email' ? 'email' : 'whatsapp';
   }
 
   try {
@@ -202,8 +201,9 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
 
     // Register with Supabase Auth using the user's REAL email as identity.
     // Isso habilita login por e-mail e o reset de senha nativo do Supabase.
-    // O e-mail já foi verificado no fluxo pré-cadastro (066); a confirmação de
-    // e-mail nativa do Supabase deve ficar DESLIGADA no painel (Auth settings).
+    // O CONTATO foi verificado no fluxo pré-cadastro (migration 125 — WhatsApp
+    // ou e-mail no fallback); a confirmação de e-mail nativa do Supabase deve
+    // ficar DESLIGADA no painel (Auth settings).
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password: data.password,
@@ -253,15 +253,16 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
     };
 
     // Create user record in users table
-    // O e-mail real é salvo e marcado como verificado (foi verificado no fluxo
-    // pré-cadastro — migration 066), tornando o cadastro completo e profissional.
+    // O e-mail real é salvo (identidade no Auth). A flag de contato verificado
+    // reflete o canal: WhatsApp ⇒ phone_verified; e-mail (fallback) ⇒ email_verified.
     const { error: dbError } = await supabase.from('users').insert({
       id: authData.user.id,
       phone: data.phone,
       user_type: data.userType,
       name: data.name,
       email: normalizedEmail,
-      email_verified: true,
+      email_verified: verifiedChannel === 'email',
+      phone_verified: verifiedChannel === 'whatsapp',
       // Registro de aceite (Feature 2). O trigger 064 carimba
       // terms_accepted_at = now() no servidor quando terms_version vem preenchida.
       terms_version: data.acceptedVersion,
@@ -307,9 +308,11 @@ export async function register(data: RegisterData): Promise<AuthResponse> {
         await compensateUserRollback('Erro ao criar perfil de motorista');
       }
     } else if (data.userType === 'embarcador') {
+      // company_name é opcional no cadastro (migration 125): o embarcador
+      // preenche depois no perfil. whatsapp permanece obrigatório (= telefone).
       const { error: embarcadorError } = await supabase.from('embarcadores').insert({
         id: authData.user.id,
-        company_name: data.companyName!,
+        company_name: data.companyName?.trim() || null,
         whatsapp: data.phone,
       });
 

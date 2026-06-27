@@ -8,19 +8,18 @@ import PasswordInput from './PasswordInput';
 import OtpInput from './OtpInput';
 import { checkBlacklistGate, GENERIC_SIGNUP_MESSAGE } from '../services/admin/blacklist';
 import { LEGAL_DOCS, currentLegalVersion } from '../data/legal';
-import {
-  requestSignupEmailCode,
-  confirmSignupEmailCode,
-  isIdentifierAvailable,
-  isIdentifierBlocked,
-  SignupVerificationError,
-} from '../services/signupVerification';
+import { isIdentifierAvailable, isIdentifierBlocked } from '../services/signupVerification';
+import { requestSignupOtp, confirmSignupOtp, SignupOtpError } from '../services/signupOtp';
+import type { SignupOtpChannel } from '../services/signupOtp';
 
 /**
  * RegisterForm — cadastro multi-step (3 etapas), igual para motorista e
  * embarcador (muda só o tipo escolhido no início):
- *   1. Dados: nome, telefone, e-mail + confirmação de e-mail → envia código.
- *   2. Código: confirma o código de 6 dígitos enviado ao e-mail.
+ *   1. Dados: nome, WhatsApp, e-mail + confirmação de e-mail → envia código por
+ *      WhatsApp (Cloud API, com fallback de e-mail). Embarcador NÃO informa o
+ *      nome da empresa aqui (faz isso depois no perfil).
+ *   2. Código: confirma o código de 6 dígitos recebido no WhatsApp (ou e-mail,
+ *      no fallback). Oferece "não recebi — enviar por e-mail".
  *   3. Senha: senha + confirmação + aceite dos Termos → cria a conta.
  *
  * UX:
@@ -84,6 +83,7 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
   const [codeError, setCodeError] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
   const [verificationToken, setVerificationToken] = useState<string | null>(null);
+  const [verifiedChannel, setVerifiedChannel] = useState<SignupOtpChannel | null>(null);
 
   // Senha (step 3)
   const [password, setPassword] = useState('');
@@ -114,6 +114,7 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
     setCode('');
     setCodeError(null);
     setVerificationToken(null);
+    setVerifiedChannel(null);
     setPassword('');
     setConfirmPassword('');
     setAcceptTerms(false);
@@ -157,8 +158,6 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
     // Validação local (campo a campo).
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = 'Informe seu nome completo';
-    if (userType === 'embarcador' && !companyName.trim())
-      errs.companyName = 'Informe o nome da empresa';
     const cleanPhone = phone.replace(/\D/g, '');
     if (!/^\d{10,11}$/.test(cleanPhone)) errs.phone = 'Telefone deve ter 10 ou 11 dígitos';
     const normEmail = email.trim().toLowerCase();
@@ -194,12 +193,12 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
         return;
       }
 
-      await requestSignupEmailCode(normEmail);
+      await requestSignupOtp(cleanPhone, normEmail, false);
       setStep('codigo');
     } catch (err) {
       // Erro de sistema/envio → toast no canto (não no formulário).
       showToast(
-        err instanceof SignupVerificationError ? err.message : 'Não foi possível enviar o código.'
+        err instanceof SignupOtpError ? err.message : 'Não foi possível enviar o código.'
       );
     } finally {
       setIsLoading(false);
@@ -214,9 +213,11 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
     setCodeError(null);
     setIsLoading(true);
     try {
-      const { status, token } = await confirmSignupEmailCode(email.trim(), normalized);
+      const cleanPhone = phone.replace(/\D/g, '');
+      const { status, token, channel } = await confirmSignupOtp(cleanPhone, normalized);
       if (status === 'OK' && token) {
         setVerificationToken(token);
+        setVerifiedChannel(channel ?? 'whatsapp');
         setStep('senha');
       } else {
         // Erro: tremida + toast + limpa os campos.
@@ -233,7 +234,7 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
       }
     } catch (err) {
       const msg =
-        err instanceof SignupVerificationError ? err.message : 'Não foi possível validar o código.';
+        err instanceof SignupOtpError ? err.message : 'Não foi possível validar o código.';
       showToast(msg);
       setShakeKey((k) => k + 1);
       setCode('');
@@ -246,11 +247,29 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
     setCodeError(null);
     setIsLoading(true);
     try {
-      await requestSignupEmailCode(email.trim());
+      const cleanPhone = phone.replace(/\D/g, '');
+      await requestSignupOtp(cleanPhone, email.trim(), false);
+      showToast('Enviamos um novo código para o seu WhatsApp.');
+    } catch (err) {
+      showToast(
+        err instanceof SignupOtpError ? err.message : 'Não foi possível reenviar o código.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fallback manual: força o envio do código por e-mail ("não recebi no WhatsApp").
+  const handleSendByEmail = async () => {
+    setCodeError(null);
+    setIsLoading(true);
+    try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      await requestSignupOtp(cleanPhone, email.trim(), true);
       showToast('Enviamos um novo código para o seu e-mail.');
     } catch (err) {
       showToast(
-        err instanceof SignupVerificationError ? err.message : 'Não foi possível reenviar o código.'
+        err instanceof SignupOtpError ? err.message : 'Não foi possível enviar por e-mail.'
       );
     } finally {
       setIsLoading(false);
@@ -294,7 +313,8 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
         userType,
         companyName: companyName ? capitalizeName(companyName) : undefined,
         email: email.trim().toLowerCase(),
-        emailVerificationToken: verificationToken,
+        phoneVerificationToken: verificationToken,
+        verifiedChannel: verifiedChannel ?? undefined,
         acceptedVersion: currentLegalVersion(),
       });
     } catch (err) {
@@ -420,22 +440,9 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
             </div>
 
             {userType === 'embarcador' && (
-              <div>
-                <input
-                  type="text"
-                  placeholder="Nome da empresa"
-                  value={companyName}
-                  onChange={(e) => {
-                    setCompanyName(capitalizeName(e.target.value));
-                    clearFieldError('companyName');
-                  }}
-                  disabled={isLoading}
-                  className={`${baseInput} ${fieldErrors.companyName ? errBorder : okBorder}`}
-                />
-                {fieldErrors.companyName && (
-                  <p className="mt-0.5 text-[11px] text-red-500">{fieldErrors.companyName}</p>
-                )}
-              </div>
+              <p className="text-[11px] text-gray-400 leading-snug -mt-1">
+                O nome da empresa você cadastra depois, no seu perfil.
+              </p>
             )}
 
             <div>
@@ -514,7 +521,8 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
         {step === 'codigo' && (
           <div className="w-full space-y-4">
             <p className="text-xs text-gray-500 text-center">
-              Enviamos um código de 6 dígitos para <strong>{email.trim()}</strong>. Digite-o abaixo.
+              Enviamos um código de 6 dígitos para o seu WhatsApp <strong>{phone}</strong>.
+              Digite-o abaixo.
             </p>
 
             <OtpInput
@@ -544,7 +552,7 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
                 }}
                 className="text-xs text-gray-400 hover:text-gray-600"
               >
-                ← Corrigir e-mail
+                ← Corrigir dados
               </button>
               <button
                 type="button"
@@ -555,6 +563,15 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
                 Reenviar código
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={handleSendByEmail}
+              disabled={isLoading}
+              className="w-full text-center text-[11px] text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+            >
+              Não recebi no WhatsApp — enviar por e-mail
+            </button>
           </div>
         )}
 
@@ -567,7 +584,8 @@ export function RegisterForm({ onSubmit, onLoginClick, onUserTypeChange }: Regis
             noValidate
           >
             <p className="text-xs text-green-600 text-center font-medium">
-              ✓ E-mail verificado. Agora defina sua senha.
+              ✓ {verifiedChannel === 'email' ? 'E-mail verificado' : 'WhatsApp verificado'}. Agora
+              defina sua senha.
             </p>
             <div>
               <PasswordInput

@@ -6,8 +6,11 @@ import { z } from 'zod';
 import type { LoginCredentials } from '../types';
 import HoneypotDetector from '../services/honeypotDetector';
 import PasswordInput from './PasswordInput';
+import OtpInput from './OtpInput';
 import ForgotPasswordModal from './ForgotPasswordModal';
 import { checkBlacklistGate, GENERIC_LOGIN_MESSAGE } from '../services/admin/blacklist';
+import { useAuth } from '../hooks/useAuth';
+import { requestLoginCode, PasswordlessLoginError } from '../services/passwordlessLogin';
 
 const loginSchema = z.object({
   phone: z
@@ -51,6 +54,16 @@ export function LoginForm({
 
   const honeypotRef = useRef<HTMLInputElement>(null);
 
+  // Login sem senha (OTP por WhatsApp/e-mail). É uma opção adicional; o login
+  // por senha permanece intacto. Em sucesso, `loginWithCode` atualiza o `user`
+  // no useAuth e a LoginPage redireciona via efeito.
+  const { loginWithCode } = useAuth();
+  const [pwlessStep, setPwlessStep] = useState<null | 'identifier' | 'code'>(null);
+  const [pwlessId, setPwlessId] = useState('');
+  const [pwlessCode, setPwlessCode] = useState('');
+  const [pwlessChannel, setPwlessChannel] = useState<'email' | 'phone' | null>(null);
+  const [pwlessShake, setPwlessShake] = useState(0);
+
   const formatPhone = (value: string) => {
     const numbers = value.replace(/\D/g, '').slice(0, 11);
     if (numbers.length <= 2) return numbers;
@@ -63,6 +76,7 @@ export function LoginForm({
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors },
   } = useForm<LoginCredentials>({
     resolver: zodResolver(loginSchema),
@@ -126,6 +140,71 @@ export function LoginForm({
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao fazer login');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ==================== LOGIN SEM SENHA ====================
+  const openPwless = () => {
+    setError(null);
+    setPwlessId(getValues('phone') || '');
+    setPwlessCode('');
+    setPwlessChannel(null);
+    setPwlessStep('identifier');
+  };
+
+  const closePwless = () => {
+    setError(null);
+    setPwlessStep(null);
+    setPwlessCode('');
+  };
+
+  const handlePwlessRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+    try {
+      const { kind } = await requestLoginCode(pwlessId);
+      setPwlessChannel(kind === 'email' ? 'email' : 'phone');
+      setPwlessCode('');
+      setPwlessStep('code');
+    } catch (err) {
+      setError(
+        err instanceof PasswordlessLoginError ? err.message : 'Não foi possível enviar o código.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Chamado automaticamente quando os 6 dígitos são preenchidos.
+  const handlePwlessVerify = async (fullCode: string) => {
+    const normalized = fullCode.replace(/\D/g, '');
+    if (normalized.length !== 6 || isLoading) return;
+    setError(null);
+    setIsLoading(true);
+    try {
+      await loginWithCode(pwlessId, normalized);
+      // Sucesso: o `user` no useAuth atualiza e a LoginPage redireciona.
+    } catch (err) {
+      setError(
+        err instanceof PasswordlessLoginError ? err.message : 'Código incorreto. Tente novamente.'
+      );
+      setPwlessShake((k) => k + 1);
+      setPwlessCode('');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePwlessResend = async () => {
+    setError(null);
+    setIsLoading(true);
+    try {
+      await requestLoginCode(pwlessId);
+    } catch {
+      // silencioso (anti-enumeração)
     } finally {
       setIsLoading(false);
     }
@@ -262,11 +341,12 @@ export function LoginForm({
           </div>
         )}
 
-        <form
-          onSubmit={handleSubmit(handleFormSubmit)}
-          className="w-full space-y-2.5"
-          autoComplete="off"
-        >
+        {pwlessStep === null ? (
+          <form
+            onSubmit={handleSubmit(handleFormSubmit)}
+            className="w-full space-y-2.5"
+            autoComplete="off"
+          >
           <input
             ref={honeypotRef}
             type="text"
@@ -334,6 +414,15 @@ export function LoginForm({
             {isLoading ? 'Entrando...' : 'Entrar'}
           </button>
 
+          <button
+            type="button"
+            onClick={openPwless}
+            disabled={isLoading}
+            className="w-full py-2 border border-green-600 text-green-700 hover:bg-green-50 active:scale-[0.98] font-semibold rounded-lg transition-all disabled:opacity-50 text-sm"
+          >
+            Entrar sem senha
+          </button>
+
           <div className="flex items-center justify-between pt-1">
             <button
               type="button"
@@ -353,12 +442,100 @@ export function LoginForm({
             )}
           </div>
         </form>
+        ) : (
+          <div className="w-full space-y-4">
+            {pwlessStep === 'identifier' && (
+              <form onSubmit={handlePwlessRequest} className="w-full space-y-3" autoComplete="off">
+                <p className="text-xs text-gray-500 text-center">
+                  Entre com um código: informe seu WhatsApp ou e-mail e enviaremos um código de
+                  acesso.
+                </p>
+                <input
+                  type="text"
+                  value={pwlessId}
+                  onChange={(e) => setPwlessId(e.target.value)}
+                  placeholder="E-mail ou WhatsApp"
+                  autoComplete="username"
+                  disabled={isLoading}
+                  className="w-full px-3 py-2.5 bg-white border border-gray-300 rounded-lg text-gray-800 placeholder-gray-400 focus:ring-2 focus:ring-green-500 focus:outline-none text-sm shadow-sm"
+                />
+                {error && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-xs text-red-600">{error}</p>
+                  </div>
+                )}
+                <button
+                  type="submit"
+                  disabled={isLoading || !pwlessId.trim()}
+                  className="w-full py-2.5 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white font-bold rounded-lg transition-all disabled:opacity-50 text-sm shadow-lg shadow-green-600/20"
+                >
+                  {isLoading ? 'Enviando...' : 'Enviar código'}
+                </button>
+              </form>
+            )}
+
+            {pwlessStep === 'code' && (
+              <div className="w-full space-y-4">
+                <p className="text-xs text-gray-500 text-center">
+                  Enviamos um código de 6 dígitos
+                  {pwlessChannel === 'email' ? ' para o seu e-mail' : ' para o seu WhatsApp'}.
+                  Digite-o abaixo.
+                </p>
+                <OtpInput
+                  value={pwlessCode}
+                  onChange={(c) => {
+                    setPwlessCode(c);
+                    setError(null);
+                  }}
+                  onComplete={(c) => void handlePwlessVerify(c)}
+                  disabled={isLoading}
+                  error={!!error}
+                  shakeKey={pwlessShake}
+                />
+                {isLoading && <p className="text-[11px] text-gray-400 text-center">Entrando...</p>}
+                {error && !isLoading && (
+                  <p className="text-[11px] text-red-500 text-center">{error}</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPwlessStep('identifier');
+                      setPwlessCode('');
+                      setError(null);
+                    }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    ← Corrigir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handlePwlessResend}
+                    disabled={isLoading}
+                    className="text-xs font-semibold text-green-600 hover:text-green-700 disabled:opacity-50"
+                  >
+                    Reenviar código
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={closePwless}
+              className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              Entrar com senha
+            </button>
+          </div>
+        )}
 
         <button
           type="button"
           onClick={() => {
             setSelectedProfile(null);
             setShowForm(false);
+            setPwlessStep(null);
           }}
           className="mt-4 text-xs text-gray-400 hover:text-gray-600 transition-colors"
         >

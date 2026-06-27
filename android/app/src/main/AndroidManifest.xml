@@ -53,4 +53,7 @@
 
     <!-- Vibracao (push notifications) -->
     <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Biometria (trava de entrada por digital/rosto — spec biometria-app) -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 </manifest>

@@ -44,11 +44,11 @@ vi.mock('../services/supabase', () => {
     supabase: {
       rpc: (name: string, args: Record<string, unknown>) => {
         rpcSpy(name, args);
-        // RPCs do fluxo de e-mail pré-cadastro (066) têm resultado fixo "feliz",
+        // RPCs do fluxo de OTP pré-cadastro (125) têm resultado fixo "feliz",
         // para não interferir nas asserções de anti-fraude (que controlam o
         // resultado de is_identifier_available via __afRpcResult).
-        if (name === 'consume_signup_email_token') {
-          return Promise.resolve({ data: true, error: null });
+        if (name === 'consume_signup_otp_token') {
+          return Promise.resolve({ data: { ok: true, channel: 'whatsapp' }, error: null });
         }
         if (name === 'is_identifier_blocked') {
           return Promise.resolve({ data: false, error: null });
@@ -139,7 +139,7 @@ const validMotoristaData: RegisterData = {
   userType: 'motorista',
   acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
   email: 'joao.motorista@exemplo.com',
-  emailVerificationToken: '44444444-4444-4444-4444-444444444444',
+  phoneVerificationToken: '44444444-4444-4444-4444-444444444444',
 };
 
 describe('Anti-fraude integration — auth.register (Feature: trial-e-bloqueio, Task 4.6)', () => {

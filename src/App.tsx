@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MotoristaProtectedRoute } from './components/MotoristaProtectedRoute';
 import NotificationToast from './components/NotificationToast';
+import BiometricLockScreen from './components/BiometricLockScreen';
 import NativeBackButton from './components/NativeBackButton';
 import ScrollManager from './components/ScrollManager';
 import NativePushBootstrap from './components/NativePushBootstrap';
@@ -151,6 +152,8 @@ function App() {
           <NativeBackButton />
           <NativePushBootstrap />
           <NotificationToast />
+          {/* Trava biométrica (app nativo). No-op no web e quando desativada. */}
+          <BiometricLockScreen />
           <Suspense fallback={null}>
             <FreteChatWidget />
           </Suspense>

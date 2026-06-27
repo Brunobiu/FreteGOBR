@@ -27,7 +27,8 @@ vi.mock('../../services/supabase', () => ({
       insert: vi.fn().mockReturnValue({ error: null }),
     })),
     rpc: vi.fn((fn: string) => {
-      if (fn === 'consume_signup_email_token') return Promise.resolve({ data: true, error: null });
+      if (fn === 'consume_signup_otp_token')
+        return Promise.resolve({ data: { ok: true, channel: 'whatsapp' }, error: null });
       if (fn === 'is_identifier_available') return Promise.resolve({ data: true, error: null });
       if (fn === 'is_identifier_blocked') return Promise.resolve({ data: false, error: null });
       return Promise.resolve({ data: true, error: null });
@@ -94,7 +95,7 @@ describe('Aceite dos Termos — revalidação no servidor (register)', () => {
       userType: 'motorista' as const,
       acceptedVersion: '',
       email: 'joao@exemplo.com',
-      emailVerificationToken: '33333333-3333-3333-3333-333333333333',
+      phoneVerificationToken: '33333333-3333-3333-3333-333333333333',
     };
 
     await expect(register(payload)).rejects.toThrow(AuthError);

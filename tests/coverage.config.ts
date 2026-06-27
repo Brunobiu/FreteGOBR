@@ -31,6 +31,26 @@ export const CRITICAL_MODULES: Record<string, number> = {
   'src/services/admin/audit.ts': 0, // alvo: 90
   'src/services/verification.ts': 0, // alvo: 85
 
+  // Verificação de cadastro por WhatsApp/OTP (auth-otp-whatsapp, migration 125).
+  // Núcleo puro espelho da autoridade SQL: normalização E.164 (CP2) e decisão de
+  // canal/fallback (CP9), cobertos por property tests. O cliente signupOtp.ts
+  // (wrappers de RPC) atinge cobertura só com integração (Fase 2) — alvo abaixo.
+  'src/utils/phoneE164.ts': 95, // medido 100 (CP2)
+  'src/utils/otpChannel.ts': 95, // medido 100 (CP9)
+  'src/services/signupOtp.ts': 0, // alvo: 85 (após integração)
+
+  // Login sem senha (login-sem-senha, migration 126). classifyIdentifier é puro
+  // (CP4); requestLoginCode/verifyLoginCode são wrappers de RPC/Edge cobertos só
+  // pela integração (Fase 2) — alvo abaixo.
+  'src/services/passwordlessLogin.ts': 0, // alvo: 80 (após integração)
+
+  // Biometria no app (biometria-app). biometricGate é a máquina de estados PURA
+  // (CP1/CP2/CP3/CP5), totalmente coberta. biometricAuth é o wrapper do plugin
+  // nativo: só o caminho de degradação (web) é testável em CI — alvo após teste
+  // em dispositivo.
+  'src/services/biometricGate.ts': 95, // medido 100 (CP1/CP2/CP3/CP5)
+  'src/services/biometricAuth.ts': 0, // alvo: 70 (após teste em dispositivo)
+
   // WhatsApp_Module — regras puras + invariantes (P1–P14) e anti-enumeração,
   // cobertas por unit/property tests (Fase 1). Thresholds com margem abaixo do
   // medido para tolerar flutuação sem mascarar regressão. Os wrappers de

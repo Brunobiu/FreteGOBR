@@ -36,8 +36,15 @@ export interface UpdateEmbarcadorProfileData {
 
 export interface EmbarcadorOnboardingProgress {
   profilePhoto: boolean;
+  /** users.email_verified (literal) — usado pelo selo de e-mail no perfil. */
   emailVerified: boolean;
+  /** users.phone_verified (literal). */
+  phoneVerified: boolean;
+  /** Contato verificado por qualquer canal: email_verified OR phone_verified. */
+  contatoVerificado: boolean;
   companyLogo: boolean;
+  /** Nome da empresa preenchido (movido do cadastro para o perfil — migr. 125). */
+  companyName: boolean;
   percent: number;
   missing: string[];
 }
@@ -334,26 +341,47 @@ export async function getEmbarcadorOnboardingProgress(
   const [{ data: u }, { data: e }] = await Promise.all([
     supabase
       .from('users')
-      .select('profile_photo_url, email_verified')
+      .select('profile_photo_url, email_verified, phone_verified')
       .eq('id', userId)
       .maybeSingle(),
-    supabase.from('embarcadores').select('company_logo_url').eq('id', userId).maybeSingle(),
+    supabase
+      .from('embarcadores')
+      .select('company_logo_url, company_name')
+      .eq('id', userId)
+      .maybeSingle(),
   ]);
 
-  const items = {
+  const emailVerified = !!u?.email_verified;
+  const phoneVerified = !!u?.phone_verified;
+  const contatoVerificado = emailVerified || phoneVerified;
+
+  // Itens que compõem o "cadastro completo" para postar frete (espelha o gate
+  // RLS da migration 125: contato verificado + foto + logo + nome da empresa).
+  const completeness = {
     profilePhoto: !!u?.profile_photo_url,
-    emailVerified: !!u?.email_verified,
+    contatoVerificado,
     companyLogo: !!e?.company_logo_url,
+    companyName: !!(e?.company_name && String(e.company_name).trim() !== ''),
   };
 
-  const total = 3;
-  const done = Object.values(items).filter(Boolean).length;
+  const total = Object.keys(completeness).length; // 4
+  const done = Object.values(completeness).filter(Boolean).length;
   const percent = Math.round((done / total) * 100);
 
   const missing: string[] = [];
-  if (!items.profilePhoto) missing.push('Adicionar foto de perfil');
-  if (!items.emailVerified) missing.push('Verificar e-mail');
-  if (!items.companyLogo) missing.push('Adicionar logo da empresa');
+  if (!completeness.profilePhoto) missing.push('Adicionar foto de perfil');
+  if (!completeness.contatoVerificado) missing.push('Verificar WhatsApp ou e-mail');
+  if (!completeness.companyName) missing.push('Informar nome da empresa');
+  if (!completeness.companyLogo) missing.push('Adicionar logo da empresa');
 
-  return { ...items, percent, missing };
+  return {
+    profilePhoto: completeness.profilePhoto,
+    emailVerified,
+    phoneVerified,
+    contatoVerificado,
+    companyLogo: completeness.companyLogo,
+    companyName: completeness.companyName,
+    percent,
+    missing,
+  };
 }

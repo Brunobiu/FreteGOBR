@@ -7,6 +7,8 @@ import {
   getCurrentUser,
   refreshToken as refreshTokenService,
 } from '../services/auth';
+import { verifyLoginCode } from '../services/passwordlessLogin';
+import { unlockAndGetRefreshToken, disableBiometric } from '../services/biometricAuth';
 import { verifySessionForBootstrap } from '../services/authSession';
 import { dataCache } from '../services/cache/dataCache';
 
@@ -15,6 +17,8 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  loginWithCode: (identifier: string, code: string) => Promise<void>;
+  unlockWithBiometric: () => Promise<boolean>;
   register: (data: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   refreshToken: () => Promise<void>;
@@ -168,6 +172,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  /**
+   * Login sem senha (OTP por WhatsApp/e-mail). `verifyLoginCode` valida o código
+   * na Edge e estabelece a sessão (verifyOtp); aqui só persistimos o resultado,
+   * exatamente como o `login` por senha.
+   */
+  const loginWithCode = async (identifier: string, code: string) => {
+    try {
+      const authResponse = await verifyLoginCode(identifier, code);
+      saveAuthData(authResponse);
+    } catch (error) {
+      clearAuthData();
+      throw error;
+    }
+  };
+
+  /**
+   * Desbloqueio por biometria (app nativo): pede a verificação, lê o refresh
+   * token do armazenamento seguro e troca por uma sessão nova (refreshSession).
+   * Retorna `true` em sucesso. Em falha (cancelou, token revogado), limpa a
+   * credencial obsoleta e retorna `false` — o chamador cai no Login_Completo.
+   */
+  const unlockWithBiometric = async (): Promise<boolean> => {
+    try {
+      const refresh = await unlockAndGetRefreshToken();
+      if (!refresh) return false;
+      const authResponse = await refreshTokenService(refresh);
+      saveAuthData(authResponse);
+      return true;
+    } catch {
+      await disableBiometric();
+      return false;
+    }
+  };
+
   const register = async (data: RegisterData) => {
     try {
       const authResponse = await registerService(data);
@@ -187,6 +225,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Logout error:', error);
     } finally {
       clearAuthData();
+      // Limpa o refresh token guardado (armazenamento seguro) + flag de biometria
+      // no logout explícito (Req 4.4 / CP6). Fire-and-forget no nativo; no-op no web.
+      void disableBiometric();
     }
   };
 
@@ -228,6 +269,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     isLoading,
     isAuthenticated: !!user,
     login,
+    loginWithCode,
+    unlockWithBiometric,
     register,
     logout,
     refreshToken,

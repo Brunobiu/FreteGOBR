@@ -42,10 +42,11 @@ vi.mock('../services/supabase', () => ({
       }),
     })),
     // RPCs usadas no register: pré-checks de identificador + consumo do token
-    // de verificação de e-mail. Defaults "felizes": disponível, não bloqueado,
-    // token válido.
+    // de verificação do CONTATO (telefone via OTP). Defaults "felizes":
+    // disponível, não bloqueado, token válido confirmado por WhatsApp.
     rpc: vi.fn((fn: string) => {
-      if (fn === 'consume_signup_email_token') return Promise.resolve({ data: true, error: null });
+      if (fn === 'consume_signup_otp_token')
+        return Promise.resolve({ data: { ok: true, channel: 'whatsapp' }, error: null });
       if (fn === 'is_identifier_available') return Promise.resolve({ data: true, error: null });
       if (fn === 'is_identifier_blocked') return Promise.resolve({ data: false, error: null });
       return Promise.resolve({ data: null, error: null });
@@ -66,7 +67,7 @@ describe('Unit Tests - AuthService', () => {
       userType: 'motorista',
       acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
       email: 'joao@exemplo.com',
-      emailVerificationToken: '11111111-1111-1111-1111-111111111111',
+      phoneVerificationToken: '11111111-1111-1111-1111-111111111111',
     };
 
     const validEmbarcadorData: RegisterData = {
@@ -77,7 +78,7 @@ describe('Unit Tests - AuthService', () => {
       companyName: 'Transportes ABC',
       acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
       email: 'maria@exemplo.com',
-      emailVerificationToken: '22222222-2222-2222-2222-222222222222',
+      phoneVerificationToken: '22222222-2222-2222-2222-222222222222',
     };
 
     it('should reject password with less than 8 characters', async () => {
@@ -90,22 +91,49 @@ describe('Unit Tests - AuthService', () => {
       await expect(register(invalidData)).rejects.toThrow('Senha deve ter no mínimo 8 caracteres');
     });
 
-    it('should reject embarcador registration without company name', async () => {
-      const invalidData: RegisterData = {
+    it('should allow embarcador registration without company name (preenchido depois no perfil)', async () => {
+      const { supabase } = await import('../services/supabase');
+
+      vi.mocked(supabase.auth.signUp).mockResolvedValue({
+        data: {
+          user: {
+            id: 'test-embarcador-id',
+            email: 'maria@exemplo.com',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            app_metadata: {},
+            user_metadata: {},
+            aud: 'authenticated',
+          } as SupabaseUser,
+          session: {
+            access_token: 'test-access-token',
+            refresh_token: 'test-refresh-token',
+            expires_in: 3600,
+            token_type: 'bearer',
+            user: {} as SupabaseUser,
+          } as Session,
+        },
+        error: null,
+      });
+
+      const mockFrom = vi.fn(() => ({
+        insert: vi.fn().mockReturnValue({ error: null }),
+      }));
+      vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as typeof supabase.from);
+
+      const dataNoCompany: RegisterData = {
         phone: '11988888888',
         password: 'Senha123!',
         name: 'Maria Santos',
         userType: 'embarcador',
         acceptedVersion: 'terms@2026-06-05|privacy@2026-06-05',
         email: 'maria@exemplo.com',
-        emailVerificationToken: '22222222-2222-2222-2222-222222222222',
-        // Missing companyName
+        phoneVerificationToken: '22222222-2222-2222-2222-222222222222',
+        // sem companyName — agora permitido (movido para o perfil)
       };
 
-      await expect(register(invalidData)).rejects.toThrow(AuthError);
-      await expect(register(invalidData)).rejects.toThrow(
-        'Nome da empresa é obrigatório para embarcadores'
-      );
+      const result = await register(dataNoCompany);
+      expect(result.user.userType).toBe('embarcador');
     });
 
     it('should accept valid motorista registration data', async () => {

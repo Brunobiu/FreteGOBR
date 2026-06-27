@@ -61,5 +61,8 @@
 	<string>O FreteGO acessa suas fotos para anexar documentos e foto de perfil.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>O FreteGO precisa salvar imagens na sua galeria quando você baixar comprovantes.</string>
+	<!-- Face ID: trava de entrada por biometria (spec biometria-app). -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>O FreteGO usa o Face ID para desbloquear o app com segurança.</string>
 </dict>
 </plist>
